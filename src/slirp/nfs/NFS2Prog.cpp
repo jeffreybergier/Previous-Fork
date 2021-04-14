@@ -75,6 +75,7 @@ int CNFS2Prog::ProcedureGETATTR(void) {
     string   path;
     
 	GetPath(path);
+        
     Log("GETATTR %s", path.c_str());
 	if (!(CheckFile(path)))
 		return PRC_OK;
@@ -85,23 +86,31 @@ int CNFS2Prog::ProcedureGETATTR(void) {
 }
 
 static void set_attrs(const string& path, const FileAttrs& fstat) {
-    if(FileAttrs::Valid(fstat.mode))
-        nfsd_fts[0]->chmod(path, fstat.mode);
+    FileAttrs newAttrs = nfsd_fts[0]->getFileAttrs(path);
     
+    if(FileAttrs::valid(fstat.mode)) {
+        newAttrs.mode &= S_IFMT;
+        newAttrs.mode |= fstat.mode & (S_IRWXU|S_IRWXG|S_IRWXO);
+        nfsd_fts[0]->vfsChmod(path, fstat.mode);
+    }
+    if(FileAttrs::valid(fstat.uid))
+        newAttrs.uid = fstat.uid;
+    if(FileAttrs::valid(fstat.gid))
+        newAttrs.gid = fstat.gid;
+
     timeval times[2];
     timeval now;
     gettimeofday(&now, NULL);
-    times[0].tv_sec  = FileAttrs::Valid(fstat.atime_sec)  ? fstat.atime_sec  : now.tv_sec;
-    times[0].tv_usec = FileAttrs::Valid(fstat.atime_usec) ? fstat.atime_usec : now.tv_usec;
-    times[1].tv_sec  = FileAttrs::Valid(fstat.mtime_sec)  ? fstat.mtime_sec  : now.tv_sec;
-    times[1].tv_usec = FileAttrs::Valid(fstat.mtime_usec) ? fstat.mtime_usec : now.tv_usec;
-    if(FileAttrs::Valid(fstat.atime_sec) || FileAttrs::Valid(fstat.mtime_sec))
-        nfsd_fts[0]->utimes(path, times);
-    nfsd_fts[0]->SetFileAttrs(path, fstat);
+    times[0].tv_sec  = FileAttrs::valid(fstat.atime_sec)  ? fstat.atime_sec  : now.tv_sec;
+    times[0].tv_usec = FileAttrs::valid(fstat.atime_usec) ? fstat.atime_usec : now.tv_usec;
+    times[1].tv_sec  = FileAttrs::valid(fstat.mtime_sec)  ? fstat.mtime_sec  : now.tv_sec;
+    times[1].tv_usec = FileAttrs::valid(fstat.mtime_usec) ? fstat.mtime_usec : now.tv_usec;
+    if(FileAttrs::valid(fstat.atime_sec) || FileAttrs::valid(fstat.mtime_sec))
+        nfsd_fts[0]->vfsUtimes(path, times);
+    nfsd_fts[0]->setFileAttrs(path, newAttrs);
 }
 
 static struct stat read_stat(XDRInput* xin) {
-    
     uint32_t mode;
     uint32_t uid;
     uint32_t gid;
@@ -160,7 +169,7 @@ int CNFS2Prog::ProcedureLOOKUP(void) {
 	if (!(CheckFile(path)))
 		return PRC_OK;
 
-    uint64_t handle = nfsd_fts[0]->GetFileHandle(path);
+    uint64_t handle = nfsd_fts[0]->getFileHandle(path);
     if(handle) {
         m_out->Write(NFS_OK);
         Log("LOOKUP %s=%" PRIu64, path.c_str(), handle);
@@ -191,12 +200,12 @@ int CNFS2Prog::ProcedureREADLINK(void) {
     if (!(CheckFile(path)))
         return PRC_OK;
     
-    string result;
-    if(int err = nfsd_fts[0]->readlink(path, result)) {
+    VFSPath result;
+    if(int err = nfsd_fts[0]->vfsReadlink(path, result)) {
         m_out->Write(nfs_err(err));
     } else {
         m_out->Write(NFS_OK);
-        XDRString data(result);
+        XDRString data(result.string());
         m_out->Write(data);
     }
     
@@ -219,9 +228,9 @@ int CNFS2Prog::ProcedureREAD(void) {
 	m_in->Read(&nTotalCount);
     
     XDROpaque buffer(nCount);
-    File file(nfsd_fts[0], path, "rb");
-    if(file.IsOpen()) {
-        nCount = file.Read(nOffset, buffer.m_data, buffer.m_size);
+    VFSFile file(*nfsd_fts[0], path, "rb");
+    if(file.isOpen()) {
+        nCount = file.read(nOffset, buffer.m_data, buffer.m_size);
         buffer.SetSize(nCount);
         m_out->Write(NFS_OK);
     } else {
@@ -257,13 +266,19 @@ int CNFS2Prog::ProcedureWRITE(void) {
     XDROpaque buffer;
 	m_in->Read(buffer);
 
-    File file(nfsd_fts[0], path, "r+b");
-    if(file.IsOpen()) {
-        file.Write(nOffset, buffer.m_data, buffer.m_size);
-        m_out->Write(NFS_OK);
+    auto attrs = nfsd_fts[0]->getFileAttrs(path);
+    if((attrs.mode & S_IFMT) == S_IFREG) {
+        VFSFile file(*nfsd_fts[0], path, "r+b");
+        if(file.isOpen()) {
+            file.write(nOffset, buffer.m_data, buffer.m_size);
+            m_out->Write(NFS_OK);
+        } else {
+            m_out->Write(nfs_err(errno));
+        }
     } else {
-        m_out->Write(nfs_err(errno));
+        m_out->Write(NFSERR_ISDIR);
     }
+
 	WriteFileAttributes(path);
 
     return PRC_OK;
@@ -277,14 +292,16 @@ int CNFS2Prog::ProcedureCREATE(void) {
     Log("CREATE %s", path.c_str());
 
     FileAttrs fstat(read_stat(m_in));
-    if(!(FileAttrs::Valid(fstat.uid))) fstat.uid = m_defUID;
-    if(!(FileAttrs::Valid(fstat.gid))) fstat.gid = m_defGID;
+    if(nfsd_fts[0]->vfsAccess(path, F_OK)) {
+        if(!(FileAttrs::valid(fstat.uid))) fstat.uid = m_defUID;
+        if(!(FileAttrs::valid(fstat.gid))) fstat.gid = m_defGID;
+    }
      // touch
-    File file(nfsd_fts[0], path, "wb");
-    if(file.IsOpen()) {
+    VFSFile file(*nfsd_fts[0], path, "wb");
+    if(file.isOpen()) {
         set_attrs(path, fstat);
         m_out->Write(NFS_OK);
-        write_handle(m_out, nfsd_fts[0]->GetFileHandle(path));
+        write_handle(m_out, nfsd_fts[0]->getFileHandle(path));
         WriteFileAttributes(path);
     } else {
         nfs_err(errno);
@@ -300,9 +317,9 @@ int CNFS2Prog::ProcedureREMOVE(void) {
 	if (!(CheckFile(path)))
 		return PRC_OK;
 
-    int err = nfs_err(nfsd_fts[0]->remove(path));
+    int err = nfs_err(nfsd_fts[0]->vfsRemove(path));
     m_out->Write(err);
-    if(!(err)) nfsd_fts[0]->Remove(path);
+    if(!(err)) nfsd_fts[0]->remove(path);
 
     return PRC_OK;
 }
@@ -317,9 +334,9 @@ int CNFS2Prog::ProcedureRENAME(void) {
 	GetFullPath(pathTo);
     Log("RENAME %s->%s", pathFrom.c_str(), pathTo.c_str());
 
-    int err = nfs_err(nfsd_fts[0]->rename(pathFrom, pathTo));
+    int err = nfs_err(nfsd_fts[0]->vfsRename(pathFrom, pathTo));
     m_out->Write(err);
-    if(!(err)) nfsd_fts[0]->Move(pathFrom, pathTo);
+    if(!(err)) nfsd_fts[0]->move(pathFrom, pathTo);
     
     return PRC_OK;
 }
@@ -332,7 +349,7 @@ int CNFS2Prog::ProcedureLINK(void) {
     GetFullPath(from);
     Log("LINK %s->%s", from.c_str(), to.c_str());
     
-    m_out->Write(nfs_err(nfsd_fts[0]->link(from, to, false)));
+    m_out->Write(nfs_err(nfsd_fts[0]->vfsLink(from, to, false)));
     
     return PRC_OK;
 }
@@ -346,7 +363,7 @@ int CNFS2Prog::ProcedureSYMLINK(void) {
     Log("SYMLINK %s->%s", from.Get(), to.c_str());
     
     FileAttrs fstat(read_stat(m_in));
-    int err = nfsd_fts[0]->link(from.Get(), to, true);
+    int err = nfsd_fts[0]->vfsLink(from.Get(), to, true);
     if(!(err)) set_attrs(to, fstat);
     m_out->Write(nfs_err(err));
     
@@ -361,12 +378,12 @@ int CNFS2Prog::ProcedureMKDIR(void) {
 		return PRC_OK;
 
     FileAttrs fstat(read_stat(m_in));
-    if(int err = nfsd_fts[0]->mkdir(path, DEFAULT_PERM)) {
+    if(int err = nfsd_fts[0]->vfsMkdir(path, DEFAULT_PERM)) {
         nfs_err(err);
     } else {
         set_attrs(path, fstat);
         m_out->Write(NFS_OK);
-        write_handle(m_out, nfsd_fts[0]->GetFileHandle(path));
+        write_handle(m_out, nfsd_fts[0]->getFileHandle(path));
         WriteFileAttributes(path);
     }
     
@@ -381,9 +398,9 @@ int CNFS2Prog::ProcedureRMDIR(void) {
 	if (!(CheckFile(path)))
 		return PRC_OK;
     
-    int err = nfs_err(nfsd_fts[0]->nftw(path, FileTable::Remove, 3, FTW_DEPTH | FTW_PHYS));
+    int err = nfs_err(nfsd_fts[0]->vfsNftw(path, VirtualFS::remove, 3, FTW_DEPTH | FTW_PHYS));
     m_out->Write(err);
-    if(!(err)) nfsd_fts[0]->Remove(path);
+    if(!(err)) nfsd_fts[0]->remove(path);
     
     return PRC_OK;
 }
@@ -404,24 +421,21 @@ int CNFS2Prog::ProcedureREADDIR(void) {
     Log("READDIR %s", path.c_str());
     
     uint32_t eof = 1;
-    size_t   ftnlen = strlen(FILE_TABLE_NAME);
-    handle          = nfsd_fts[0]->opendir(path);
+    handle          = nfsd_fts[0]->vfsOpendir(path);
 	if (handle) {
         m_out->Write(NFS_OK);
         int skip = cookie;
         for(struct dirent* fileinfo = readdir(handle); fileinfo; fileinfo = readdir(handle)) {
-            if(ftnlen != fileinfo->d_namlen || strncmp(FILE_TABLE_NAME, fileinfo->d_name, fileinfo->d_namlen)) {
-                if(--skip >= 0) continue;
-                
-                m_out->Write(1);  //value follows
-                m_out->Write(nfsd_fts[0]->FileId(fileinfo->d_ino));
-                string dname(fileinfo->d_name, fileinfo->d_namlen);
-                XDRString name(dname);
-                Log("%d %s %s", cookie, path.c_str(), name.Get());
-                m_out->Write(name);
-                m_out->Write(cookie+1);
-                cookie++;
-            }
+            if(--skip >= 0) continue;
+            
+            m_out->Write(1);  //value follows
+            m_out->Write(nfsd_fts[0]->fileId(fileinfo->d_ino));
+            string dname(fileinfo->d_name, fileinfo->d_namlen);
+            XDRString name(dname);
+            Log("%d %s %s", cookie, path.c_str(), name.Get());
+            m_out->Write(name);
+            m_out->Write(cookie+1);
+            cookie++;
             if(m_out->GetSize() >= count - 128) { // 128: give some space for XDR data
                 eof = 0;
                 break;
@@ -444,7 +458,7 @@ static uint32_t nfs_blocks(const struct statvfs* fsstat, uint32_t fsblocks) {
     result *= (uint64_t)fsstat->f_bsize;
     if(result >= 0x7FFFFFFF) result = 0x7FFFFFFF; // fix size for NS 2GB limit
     result /= BLOCK_SIZE;
-    return result;
+    return static_cast<uint32_t>(result);
 }
 
 int CNFS2Prog::ProcedureSTATFS(void) {
@@ -456,7 +470,7 @@ int CNFS2Prog::ProcedureSTATFS(void) {
 	if(!(CheckFile(path)))
 		return PRC_OK;
 
-    if(int err = nfsd_fts[0]->statvfs(path, fsstat)) {
+    if(int err = nfsd_fts[0]->vfsStatvfs(path, fsstat)) {
         m_out->Write(nfs_err(err));
     } else {
         m_out->Write(NFS_OK);
@@ -474,7 +488,7 @@ bool CNFS2Prog::GetPath(string& result, uint64_t* handle) {
     uint64_t data[4];
     m_in->Read((void*)data, FHSIZE);
     if(handle) *handle = data[0];
-    return nfsd_fts[0]->GetCanonicalPath(data[0], result);
+    return nfsd_fts[0]->getCanonicalPath(data[0], result);
 }
 
 bool CNFS2Prog::GetFullPath(string& result) {
@@ -496,10 +510,10 @@ bool CNFS2Prog::CheckFile(const string& path) {
     
     // links always pass (will be resolved on the client side via readlink)
     struct stat fstat;
-    if(nfsd_fts[0]->Stat(path, fstat) == 0 && (fstat.st_mode & S_IFMT) == S_IFLNK)
+    if(nfsd_fts[0]->stat(path, fstat) == 0 && (fstat.st_mode & S_IFMT) == S_IFLNK)
         return true;
     
-    if(nfsd_fts[0]->access(path, F_OK)) {
+    if(nfsd_fts[0]->vfsAccess(path, F_OK)) {
 		m_out->Write(NFSERR_NOENT);
 		return false;
 	}
@@ -510,7 +524,7 @@ bool CNFS2Prog::CheckFile(const string& path) {
 bool CNFS2Prog::WriteFileAttributes(const string& path) {
 	struct stat fstat;
 
-	if (nfsd_fts[0]->Stat(path, fstat) != 0)
+	if (nfsd_fts[0]->stat(path, fstat) != 0)
 		return false;
 
     uint32_t type = NFNON;
@@ -525,17 +539,17 @@ bool CNFS2Prog::WriteFileAttributes(const string& path) {
 	m_out->Write(fstat.st_nlink);  //nlink
 	m_out->Write(fstat.st_uid);  //uid
 	m_out->Write(fstat.st_gid);  //gid
-	m_out->Write(fstat.st_size);  //size
+	m_out->Write(static_cast<uint32_t>(fstat.st_size));  //size
 	m_out->Write(fstat.st_blksize);  //blocksize
 	m_out->Write(fstat.st_rdev);  //rdev
-	m_out->Write(fstat.st_blocks);  //blocks
+	m_out->Write(static_cast<uint32_t>(fstat.st_blocks));  //blocks
 	m_out->Write(fstat.st_dev);  //fsid
-    m_out->Write(nfsd_fts[0]->FileId(fstat.st_ino));
-	m_out->Write(fstat.st_atimespec.tv_sec);  //atime
-	m_out->Write(fstat.st_atimespec.tv_nsec / 1000);  //atime
-	m_out->Write(fstat.st_mtimespec.tv_sec);  //mtime
-	m_out->Write(fstat.st_mtimespec.tv_nsec / 1000);  //mtime
-	m_out->Write(fstat.st_mtimespec.tv_sec);  //ctime -- ignored, we use mtime instead
-	m_out->Write(fstat.st_mtimespec.tv_nsec / 1000);  //ctime
+    m_out->Write(nfsd_fts[0]->fileId(fstat.st_ino));
+	m_out->Write(static_cast<uint32_t>(fstat.st_atimespec.tv_sec));  //atime
+	m_out->Write(static_cast<uint32_t>(fstat.st_atimespec.tv_nsec / 1000));  //atime
+	m_out->Write(static_cast<uint32_t>(fstat.st_mtimespec.tv_sec));  //mtime
+	m_out->Write(static_cast<uint32_t>(fstat.st_mtimespec.tv_nsec / 1000));  //mtime
+	m_out->Write(static_cast<uint32_t>(fstat.st_mtimespec.tv_sec));  //ctime -- ignored, we use mtime instead
+	m_out->Write(static_cast<uint32_t>(fstat.st_mtimespec.tv_nsec / 1000));  //ctime
 	return true;
 }

@@ -132,10 +132,10 @@ extern "C" int nfsd_vdns_match(struct mbuf *m) {
 void VDNS::SocketReceived(CSocket* pSocket) {
     NFSDLock lock(m_hMutex);
     
-    XDRInput*  in    = pSocket->GetInputStream();
-    XDROutput* out   = pSocket->GetOutputStream();
-    uint8_t*   msg   = &in->GetBuffer()[in->GetPosition()];
-    int        n     = in->GetSize();
+    XDRInput*  in  = pSocket->GetInputStream();
+    XDROutput* out = pSocket->GetOutputStream();
+    uint8_t*   msg = &in->GetBuffer()[in->GetPosition()];
+    int        n   = static_cast<int>(in->GetSize());
 
     // SameId
     msg[2]=0x81;msg[3]=0x80;
