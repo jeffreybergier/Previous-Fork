@@ -3,7 +3,8 @@
 #include "enet_slirp.h"
 #include "queue.h"
 #include "host.h"
-#include "slirp/ctl.h"
+#include "libslirp.h"
+#include "nfs/nfsd.h"
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -15,19 +16,6 @@ int inet_aton(const char *cp, struct in_addr *addr);
 
 /****************/
 /* -- SLIRP -- */
-
-
-/* slirp prototypes */
-int slirp_init(void);
-int slirp_redir(int is_udp, int host_port, struct in_addr guest_addr, int guest_port);
-void slirp_input(const uint8_t *pkt, int pkt_len);
-int slirp_select_fill(int *pnfds,
-                              fd_set *readfds, fd_set *writefds, fd_set *xfds);
-void slirp_select_poll(fd_set *readfds, fd_set *writefds, fd_set *xfds);
-void slirp_exit(int);
-void slirp_debug_init(char*,int);
-void slirp_output(const unsigned char *pkt, int pkt_len);
-int slirp_can_output(void);
 
 /* queue prototypes */
 queueADT	slirpq;
@@ -56,7 +44,7 @@ void slirp_output (const unsigned char *pkt, int pkt_len)
     memcpy(p->data,pkt,pkt_len);
     QueueEnter(slirpq,p);
     SDL_UnlockMutex(slirp_mutex);
-  //  Log_Printf(LOG_WARN, "[SLIRP] Output packet with %i bytes to queue",pkt_len);
+    Log_Printf(LOG_WARN, "[SLIRP] Output packet with %i bytes to queue",pkt_len);
 }
 
 //This function is to be periodically called
@@ -110,7 +98,7 @@ void enet_slirp_queue_poll(void)
     {
         struct queuepacket *qp;
         qp=QueueDelete(slirpq);
-       // Log_Printf(LOG_WARN, "[SLIRP] Getting packet from queue");
+        Log_Printf(LOG_WARN, "[SLIRP] Getting packet from queue");
         enet_receive(qp->data,qp->len);
         free(qp);
     }
@@ -119,7 +107,7 @@ void enet_slirp_queue_poll(void)
 
 void enet_slirp_input(Uint8 *pkt, int pkt_len) {
     if (slirp_started) {
-        // Log_Printf(LOG_WARN, "[SLIRP] Input packet with %i bytes",enet_tx_buffer.size);
+        Log_Printf(LOG_WARN, "[SLIRP] Input packet with %i bytes",enet_tx_buffer.size);
         SDL_LockMutex(slirp_mutex);
         slirp_input(pkt,pkt_len);
         SDL_UnlockMutex(slirp_mutex);
@@ -138,16 +126,13 @@ void enet_slirp_stop(void) {
     }
 }
 
-extern struct in_addr special_addr;
-
 void enet_slirp_start(Uint8 *mac) {
     struct in_addr guest_addr;
     
     if (!slirp_inited) {
         Log_Printf(LOG_WARN, "Initializing SLIRP");
         slirp_inited=1;
-        slirp_init();
-        guest_addr.s_addr = special_addr.s_addr | htonl(CTL_HOST);
+        slirp_init(&guest_addr);
         slirp_redir(0, 42323, guest_addr, 23);
     }
     if (slirp_inited && !slirp_started) {
@@ -157,4 +142,7 @@ void enet_slirp_start(Uint8 *mac) {
         slirp_mutex=SDL_CreateMutex();
         tick_func_handle=SDL_CreateThread(tick_func,"SLiRPTickThread", (void *)NULL);
     }
+    
+    /* (re)start local nfs deamon */
+    nfsd_start();
 }

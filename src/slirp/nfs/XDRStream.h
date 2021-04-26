@@ -25,7 +25,7 @@ class XDRString : public XDROpaque {
     char* m_str;
 public:
     XDRString(void);
-    XDRString(const std::string& str);
+    XDRString(std::string& str);
     virtual ~XDRString();
     
     const char*  Get(void);

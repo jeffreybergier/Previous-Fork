@@ -6,8 +6,6 @@
  */
 
 #include <slirp.h>
-#include "configuration.h"
-
 
 size_t if_mtu, if_mru;
 int if_comp;

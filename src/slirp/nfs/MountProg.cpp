@@ -53,12 +53,12 @@ const char* CMountProg::GetClientAddr(int nIndex) const {
 
 int CMountProg::ProcedureMNT(void) {
     XDRString path;
-    int i;
+    int i, addr_len;
 
     m_in->Read(path);
     Log("MNT from %s for '%s'\n", m_param->remoteAddr, path.Get());
     
-    uint64_t handle = nfsd_fts[0]->getFileHandle(path.Get());
+    uint64_t handle = nfsd_fts[0]->GetFileHandle(path.Get());
     if(handle) {
         m_out->Write(MNT_OK); //OK
         
@@ -73,11 +73,12 @@ int CMountProg::ProcedureMNT(void) {
         }
         
         ++m_nMountNum;
+	addr_len = strlen(m_param->remoteAddr);
         
         for (i = 0; i < MOUNT_NUM_MAX; i++) {
             if (m_clientAddr[i] == NULL) { //search an empty space
-                m_clientAddr[i] = new char[strlen(m_param->remoteAddr) + 1];
-                strncpy(m_clientAddr[i], m_param->remoteAddr, strlen(m_param->remoteAddr) + 1);  //remember the client address
+                m_clientAddr[i] = new char[addr_len + 1];
+                strncpy(m_clientAddr[i], m_param->remoteAddr, addr_len + 1);  //remember the client address
                 break;
             }
         }
@@ -110,7 +111,7 @@ int CMountProg::ProcedureUMNT(void) {
 int CMountProg::ProcedureEXPORT(void) {
     Log("EXPORT");
     
-    auto path = nfsd_fts[0]->getBasePathAlias();
+    string path = nfsd_fts[0]->GetBasePathAlias();
     // dirpath
     m_out->Write(1);
     m_out->Write(MAXPATHLEN, path.c_str());

@@ -7,7 +7,12 @@
 
 #include <string>
 #include <string.h>
-#include <sys/syslimits.h>
+#if HAVE_SYS_SYSLIMITS_H
+    #include <sys/syslimits.h>
+#endif
+#if HAVE_LIMITS_H
+    #include <limits.h>
+#endif
 #include <netinet/in.h>
 
 #include "nfsd.h"
@@ -70,12 +75,16 @@ int CBootparamProg::ProcedureGETFILE(void) {
     XDRString key;
     m_in->Read(client);
     m_in->Read(key);
-    auto path = nfsd_fts[0]->getBasePathAlias();
-    if(strcmp("root", key.Get())) {
-        path /= VFSPath(key.Get());
+    string path = nfsd_fts[0]->GetBasePathAlias();
+    /*if(strcmp("private", key.Get()) == 0) {
+        if(path != "/") path += "/";
+        path += "clients/previous";
+    } else */if(strcmp("root", key.Get())) {
+        if(path != "/") path += "/";
+            path += key.Get();
     }
 
-    if(path.length()) {
+    if(path.size()) {
         m_out->Write(_SC_HOST_NAME_MAX, NAME_NFSD);
         WriteInAddr(m_out, ntohl(special_addr.s_addr) | CTL_NFSD);
         m_out->Write(PATH_MAX, path.c_str());

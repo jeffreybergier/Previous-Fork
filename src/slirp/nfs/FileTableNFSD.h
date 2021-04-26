@@ -8,33 +8,38 @@
 #ifndef FileTableNFSD_hpp
 #define FileTableNFSD_hpp
 
-#include "../../ditool/VirtualFS.h"
+#include "../../ditool/FileTable.h"
 #include "XDRStream.h"
 #include "host.h"
-#include <filesystem>
 
-class FileTableNFSD : public VirtualFS {
+class FileTableNFSD : public FileTable {
+    atomic_int                      doRun;
+    thread_t*                       thread;
     mutex_t*                        mutex;
     
     std::map<std::string, uint32_t> blockDevices;
     std::map<std::string, uint32_t> characterDevices;
-    std::map<uint64_t, std::string> handle2path;
 
-    bool        isBlockDevice(const std::string& fname);
-    bool        isCharDevice (const std::string& fname);
-    bool        isDevice     (const VFSPath& absoluteVFSpath, std::string& fname);
+    static int  ThreadProc(void *lpParameter);
+    
+    bool        IsBlockDevice(const std::string& fname);
+    bool        IsCharDevice(const std::string& fname);
+    bool        IsDevice    (const std::string & path, std::string& fname);
+    void        Write       (void);
+    FileAttrDB* GetDB       (uint64_t handle);
+    FileAttrs*  GetFileAttrs(const std::string& path);
 public:
-    FileTableNFSD(const std::filesystem::path& basePath, const VFSPath& basePathAlias);
+    FileTableNFSD(const std::string& basePath, const std::string& basePathAlias);
     virtual ~FileTableNFSD(void);
     
-    int         stat            (const VFSPath& absoluteVFSpath, struct stat& stat) override;
-    void        move            (const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo) override;
-    void        remove          (const VFSPath& absoluteVFSpath) override;
-    uint64_t    getFileHandle   (const VFSPath& absoluteVFSpath) override;
-    void        setFileAttrs    (const VFSPath& absoluteVFSpath, const FileAttrs& fstat) override;
-    FileAttrs   getFileAttrs    (const VFSPath& absoluteVFSpath) override;
-
-    bool        getCanonicalPath(uint64_t handle, std::string& result);
+    int         Stat           (const std::string& path, struct stat& stat);
+    bool        GetCanonicalPath(uint64_t fhandle, std::string& result);
+    void        Move           (const std::string& pathFrom, const std::string& pathTo);
+    void        Remove         (const std::string& path);
+    uint64_t    GetFileHandle  (const std::string& path);
+    void        SetFileAttrs   (const std::string& path, const FileAttrs& fstat);
+    
+    void Run(void);
 };
 
 #endif /* FileTableNFSD_hpp */

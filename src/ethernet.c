@@ -19,7 +19,7 @@
 #include "enet_pcap.h"
 #include "cycInt.h"
 #include "statusbar.h"
-#include "slirp/nfs/nfsd.h"
+
 
 #define LOG_EN_LEVEL        LOG_DEBUG
 #define LOG_EN_REG_LEVEL    LOG_DEBUG
@@ -27,6 +27,8 @@
 
 #define IO_SEG_MASK	0x1FFFF
 
+EthernetBuffer enet_tx_buffer;
+EthernetBuffer enet_rx_buffer;
 
 struct {
     Uint8 tx_status;
@@ -279,6 +281,7 @@ static void enet_rx_interrupt(Uint8 intr) {
 #define RX_ANY          0x01    // Accept any packets
 #define RX_OWN          0x02    // Accept own packets
 
+/* Ethernet frame size limits */
 #define ENET_FRAMESIZE_MIN  64      /* 46 byte data and 14 byte header, 4 byte CRC */
 #define ENET_FRAMESIZE_MAX  1518    /* 1500 byte data and 14 byte header, 4 byte CRC */
 
@@ -286,20 +289,21 @@ static void enet_rx_interrupt(Uint8 intr) {
 #define ENET_IO_DELAY   500     /* use 500 for NeXT hardware test, 20 for status test */
 #define ENET_IO_SHORT   40      /* use 40 for 68030 hardware test */
 
+/* Ethernet states */
 enum {
     RECV_STATE_WAITING,
     RECV_STATE_RECEIVING
 } receiver_state;
 
-bool tx_done;
-bool rx_chain;
-int old_size;
-int en_state;
+static bool tx_done;
+static bool rx_chain;
+static int old_size;
+static int en_state;
 
 #define EN_DISCONNECTED    0
 #define EN_LOOPBACK        1
 #define EN_THINWIRE        2
-#define EN_TWISTEDPAIR    3
+#define EN_TWISTEDPAIR     3
 
 static bool recv_multicast(Uint8 *packet) {
     if (packet[0]&0x01)
@@ -740,12 +744,8 @@ void enet_reset(void) {
         /* Start SLIRP/PCAP */
         if (ConfigureParams.Ethernet.bEthernetConnected) {
             enet_start(enet.mac_addr);
-            
-            /* (re)start local nfs deamon */
-            nfsd_start();
         }
     }
-    
 }
 
 void Ethernet_Reset(bool hard) {
