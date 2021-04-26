@@ -13,7 +13,7 @@
 #include "ditool.h"
 #include "fsdir.h"
 #include "UFS.h"
-#include "FileTable.h"
+#include "VirtualFS.h"
 
 using namespace std;
 
@@ -289,56 +289,86 @@ static void copy_inode(UFS& ufs, map<uint32_t, string>& inode2path, set<string>&
     }
 }
 
-static void dump_part(DiskImage& im, int part, const char* outPath, ostream& os) {
-    FileTable* ft = NULL;
+static void dump_part(DiskImage& im, int part, const filesystem::path& outPath, ostream& os, const char* listType) {
+    VirtualFS* ft = NULL;
     UFS ufs(im.parts[part]);
 
-    if(outPath)
-        ft = new FileTable(outPath, ufs.mountPoint());
+    if(!(outPath.empty()))
+        ft = new VirtualFS(outPath, ufs.mountPoint());
     
-    if(ft) cout << "---- copying " << im.path << " to " << ft->GetBasePath() << endl;
     map<uint32_t, string> inode2path;
     set<string>           skip;
-    copy_inode(ufs, inode2path, skip, ROOTINO, "", ft, os);
-    set_attr  (ufs, skip, ROOTINO, "", ft);
     if(ft) {
-        cout << "---- writing file attributes for NFSD" << endl;
-        ft->Write();
-        cout << "---- verifying file attributes and sizes for NFSD" << endl;
-        verify_attr(ufs, skip, ROOTINO, "", ft);
+        cout << "---- copying " << im.path << " to " << ft->getBasePath() << endl;
+        process_inodes_recr(ufs, inode2path, skip, ROOTINO, "", ft, os, listType);
+        cout << "---- setting file attributes for NFSD" << endl;
+        set_attrs_recr(ufs, skip, ROOTINO, "", *ft);
+        cout << "---- verifying inode structure" << endl;
+        map<uint32_t, uint64_t> inode2inode;
+        verify_inodes_recr(ufs, inode2inode, skip, ROOTINO, "", *ft);
+        cout << "---- verifying file attributes and sizes" << endl;
+        verify_attr_recr(ufs, skip, ROOTINO, "", *ft);
         delete ft;
+    } else {
+        process_inodes_recr(ufs, inode2path, skip, ROOTINO, "", ft, os, listType);
     }
 }
 
-static void clean_dir(const char* path) {
+static bool is_mount(const filesystem::path& path) {
+    struct stat sdir;  /* inode info */
+    struct stat spdir; /* parent inode info */
+    int res = ::stat(path.c_str(), &sdir);
+    if (res < 0) return false;
+    auto pdir(path / "..");
+    res = ::stat(pdir.string().c_str(), &spdir);
+    if (res < 0) return false;
+    return    sdir.st_dev != spdir.st_dev  /* different devices */
+           || sdir.st_ino == spdir.st_ino; /* root dir case */
+}
+
+static void clean_dir(const filesystem::path& path) {
     cout << "---- cleaning " << path << endl;
-    nftw(path, FileTable::Remove, 1024, FTW_DEPTH | FTW_PHYS);
-    if(access(path, F_OK | R_OK | W_OK) == 0) {
+    ::nftw(path.c_str(), VirtualFS::remove, 1024, FTW_DEPTH | FTW_PHYS);
+    if(is_mount(path)) {
+        cout << "directory " << path << " is a mount point, using as-is" << endl;
+    } else if(::access(path.c_str(), F_OK | R_OK | W_OK) == 0) {
         char tmp[32];
         sprintf(tmp, ".%08X", rand());
         string newName = path;
         newName += tmp;
-        cout << "directory " << path << " still exists. trying to rename it to " << newName;
+        cout << "directory " << path << " still exists. trying to rename it to " << newName << endl;
         rename(path, newName.c_str());
     }
 }
 
-class NullBuffer : public streambuf {
-public: int overflow(int c) {return c;};
-};
+class NullBuffer : public streambuf {public: int overflow(int c) {return c;};};
+
+static filesystem::path to_fs_path(const char* path) {
+    return path ? filesystem::path(path) : filesystem::path();
+}
+
+static bool is_case_insensitive(const filesystem::path& path) {
+    string testFile(".nfsd__CASE__TEST__");
+    fstream fs;
+    fs.open(path / testFile, ios::out);
+    fs.close();
+    transform(testFile.begin(), testFile.end(), testFile.begin(), ::tolower);
+    return filesystem::exists(path / testFile);
+}
 
 extern "C" int main(int argc, const char * argv[]) {
     if(has_option(argv, argv+argc, "-h") || has_option(argv, argv+argc, "--help"))
         print_help();
     
-    const char* imageFile = get_option(argv, argv + argc, "-im");
+    auto        imageFile = to_fs_path(get_option(argv, argv + argc, "-im"));
     bool        listParts = has_option(argv, argv+argc,   "-lsp");
     const char* partNum   = get_option(argv, argv + argc, "-p");
     bool        listFiles = has_option(argv, argv + argc, "-ls");
-    const char* outPath   = get_option(argv, argv + argc, "-out");
+    const char* listType  = get_option(argv, argv + argc, "-lst");
+    auto        outPath   = to_fs_path(get_option(argv, argv + argc, "-out"));
     bool        clean     = has_option(argv, argv + argc, "-clean");
 
-    if (imageFile) {
+    if (!(imageFile).empty()) {
         ifstream imf(imageFile, ios::binary | ios::in);
         
         if(!(imf)) {
@@ -349,26 +379,35 @@ extern "C" int main(int argc, const char * argv[]) {
         DiskImage  im(imageFile, imf);
         NullBuffer nullBuffer;
         ostream    nullStream(&nullBuffer);
+
+        if(listType)
+            listFiles = true;
         
         if(listParts)
             cout << im << endl;
         
-        if(listFiles || outPath) {
-            if(outPath) {
+        if(listFiles || !(outPath.empty())) {
+            if(!(outPath.empty())) {
+                if(is_case_insensitive(outPath)) {
+                    cout << "WARNING: " << outPath << " is on a case insensitive file system." << endl;
+                    cout << "         NeXTstep requires a case sensitive file system to run properly." << endl;
+                    cout << "         Use i.e. OSX DiskUtility to create a disk image with a" << endl;
+                    cout << "         case sensitive file system for your NFS directory." << endl;
+                }
                 if(clean) clean_dir(outPath);
-                mkdir(outPath, DEFAULT_PERM);
-                if(access(outPath, F_OK | R_OK | W_OK) < 0) {
+                ::mkdir(outPath.c_str(), DEFAULT_PERM);
+                if(::access(outPath.c_str(), F_OK | R_OK | W_OK) < 0) {
                     cout << "Can't access '" << outPath << "'" << endl;
                     return 1;
                 }
             }
             
             int part = partNum ? atoi(partNum) : -1;
-            if(part >= 0 && part < (int)im.parts.size() && im.parts[part].isUFS()) {
-                dump_part(im, part, outPath, listFiles ? cout : nullStream);
+            if(part >= 0 && part < static_cast<int>(im.parts.size()) && im.parts[part].isUFS()) {
+                dump_part(im, part, outPath, listFiles ? cout : nullStream, listType);
             } else {
                 for(int part = 0; part < (int)im.parts.size(); part++)
-                    dump_part(im, part, outPath, listFiles ? cout : nullStream);
+                    dump_part(im, part, outPath, listFiles ? cout : nullStream, listType);
             }
         }
     } else {
