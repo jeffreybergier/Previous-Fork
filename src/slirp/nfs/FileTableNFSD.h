@@ -11,7 +11,6 @@
 #include "../../ditool/VirtualFS.h"
 #include "XDRStream.h"
 #include "host.h"
-#include <filesystem>
 
 class FileTableNFSD : public VirtualFS {
     mutex_t*                        mutex;

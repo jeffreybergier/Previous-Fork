@@ -9,7 +9,6 @@
 #include "devices.h"
 #include "compat.h"
 #include <unistd.h>
-#include <filesystem>
 
 using namespace std;
 

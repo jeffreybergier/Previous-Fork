@@ -4,14 +4,11 @@
 #include <iostream>
 #include <string>
 #include <map>
-#include <set>
 #include <vector>
 #include <dirent.h>
 #include <ftw.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <filesystem>
-#include <memory>
 
 #define DEFAULT_PERM 0755
 #define FATTR_INVALID ~0

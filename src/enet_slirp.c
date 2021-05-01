@@ -18,7 +18,6 @@ int inet_aton(const char *cp, struct in_addr *addr);
 /* -- SLIRP -- */
 
 /* queue prototypes */
-/* queue prototypes */
 queueADT	slirpq;
 
 int slirp_inited;
