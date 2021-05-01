@@ -13,7 +13,7 @@
 
 using namespace std;
 
-FileTableNFSD::FileTableNFSD(const filesystem::path& basePath, const VFSPath& basePathAlias) : VirtualFS(basePath, basePathAlias), mutex(host_mutex_create()) {
+FileTableNFSD::FileTableNFSD(const HostPath& basePath, const VFSPath& basePathAlias) : VirtualFS(basePath, basePathAlias), mutex(host_mutex_create()) {
     for(int d = 0; DEVICES[d][0]; d++) {
         const char* perm  = DEVICES[d][0];
         uint32_t    major = atoi(DEVICES[d][1]);

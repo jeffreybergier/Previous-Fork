@@ -5,12 +5,13 @@
 //  Created by Simon Schubiger on 22.02.19.
 //
 
-#include <string.h>
-
 #include "VDNS.h"
 #include "nfsd.h"
 
 #include "compat.h"
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 
 vdns_record VDNS::s_dns_db[32];
 size_t      VDNS::s_dns_db_sz = 0;
@@ -113,7 +114,7 @@ error:
 vdns_record* VDNS::Query(uint8_t* data, size_t size) {
     char  qname[_SC_HOST_NAME_MAX];
     vdns_rec_type qtype = to_dot(qname, data, size);
-    printf("[VDNS] query(%d) '%s'\n", qtype, qname);
+    std::cout << "[VDNS] query(" << qtype << ") '" << qname << "'" << std::endl;
     
     if(qtype < 0) return NULL;
     
@@ -122,6 +123,21 @@ vdns_record* VDNS::Query(uint8_t* data, size_t size) {
             return &s_dns_db[n];
     
     return NULL;
+}
+
+extern "C" void dump_packet(const char* ptr, size_t len) {
+    static std::fstream dumpFile("/tmp/previous_dump_packet.txt", std::fstream::out | std::fstream::trunc);
+    
+    std::string ascii;
+    for(size_t i = 0; i < len; i++) {
+        if((i % 32) == 0) {
+            dumpFile << " " << ascii << std::endl << std::hex << std::setfill('0') << std::setw(8) << static_cast<int>(i) << " ";
+            ascii.clear();
+        }
+        dumpFile << std::hex << std::setfill('0') << std::setw(2) << (ptr[i] & 0x0FF) << " ";
+        ascii.push_back(isprint(ptr[i]) ? ptr[i] : '.');
+    }
+    dumpFile << std::endl;
 }
 
 extern "C" int nfsd_vdns_match(struct mbuf *m) {

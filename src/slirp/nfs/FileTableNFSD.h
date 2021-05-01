@@ -24,7 +24,7 @@ class FileTableNFSD : public VirtualFS {
     bool        isCharDevice (const std::string& fname);
     bool        isDevice     (const VFSPath& absoluteVFSpath, std::string& fname);
 public:
-    FileTableNFSD(const std::filesystem::path& basePath, const VFSPath& basePathAlias);
+    FileTableNFSD(const HostPath& basePath, const VFSPath& basePathAlias);
     virtual ~FileTableNFSD(void);
     
     int         stat            (const VFSPath& absoluteVFSpath, struct stat& stat) override;

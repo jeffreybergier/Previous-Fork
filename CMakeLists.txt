@@ -76,8 +76,6 @@ endif(PCAP_FOUND)
 # CPP Definitions:
 # ################
 
-set(CMAKE_CXX_STANDARD 17)
-
 add_definitions(-DCONFDIR=\"/etc\")
 
 # Test for large file support:

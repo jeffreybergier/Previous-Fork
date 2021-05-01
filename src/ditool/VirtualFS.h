@@ -16,28 +16,63 @@
 #define DEFAULT_PERM 0755
 #define FATTR_INVALID ~0
 
-class VFSPath : public std::vector<std::string> {
-    std::string path;
-    std::string to_string(void) const;
+class PathCommon  : public std::vector<std::string> {
 public:
-    VFSPath(void) {}
-    VFSPath(const char* path);
-    VFSPath(const std::string& path);
-    ~VFSPath() {}
+    PathCommon(const std::string& sep) : sep(sep) {}
+    PathCommon(const std::string& sep, const char* path);
+    PathCommon(const std::string& sep, const std::string& path);
     
-    const char*        c_str(void) const {return path.c_str();}
+    const char*  c_str(void)  const {return path.c_str();}
+    size_t       length(void) const {return path.length();};
+    std::string  string(void) const {return path;}
+    void         append(const PathCommon& path);
+    bool         exists(void);
+    
+    virtual bool is_absolute(void) const = 0;
+
+    static std::vector<std::string> split(const std::string& sep, const std::string& path);
+protected:
+    std::string sep;
+    std::string path;
+    
+    std::string to_string(void) const;
+    
+    friend std::ostream& operator<<(std::ostream& os, const PathCommon& path);
+};
+
+class VFSPath : public PathCommon {
+public:
+    VFSPath(void)                    : PathCommon("/")       {}
+    VFSPath(const char* path)        : PathCommon("/", path) {};
+    VFSPath(const std::string& path) : PathCommon("/", path) {};
+    
     VFSPath            canonicalize(void) const;
     std::string        filename(void) const;
     VFSPath            parent_path(void) const;
-    bool               is_absolute(void) const;
-    size_t             length(void) const {return path.length();};
-    std::string        string(void) const {return path;}
-
-    VFSPath& operator /= (const VFSPath& path);
-    VFSPath  operator / (const VFSPath& path) const;
+    virtual bool       is_absolute(void) const;
+    
+    VFSPath&  operator /= (const VFSPath& path);
+    VFSPath   operator / (const VFSPath& path) const;
 
     static VFSPath relative(const VFSPath& path, const VFSPath& basePath);
-    static std::vector<std::string> split(const std::string& path);
+};
+
+#ifdef _WIN32
+    #define HOST_SEPARATOR "\\"
+#else
+    #define HOST_SEPARATOR "/"
+#endif
+
+class HostPath : public PathCommon {
+public:
+    HostPath(void)                    : PathCommon(HOST_SEPARATOR)       {}
+    HostPath(const char* path)        : PathCommon(HOST_SEPARATOR, path) {};
+    HostPath(const std::string& path) : PathCommon(HOST_SEPARATOR, path) {};
+        
+    virtual bool       is_absolute(void) const;
+    
+    HostPath&  operator /= (const HostPath& path);
+    HostPath   operator / (const HostPath& path) const;
 };
 
 class FileAttrs {
@@ -64,24 +99,24 @@ public:
 
 class VirtualFS {
     VFSPath                     basePathAlias;
-    std::filesystem::path       basePath;
+    HostPath                    basePath;
 
     VFSPath                     removeAlias(const VFSPath& absoluteVFSpath);
 public:
-    VirtualFS(const std::filesystem::path& basePath, const VFSPath& basePathAlias);
+    VirtualFS(const HostPath& basePath, const VFSPath& basePathAlias);
     virtual ~VirtualFS(void);
     
-    virtual std::filesystem::path getBasePath    (void);
-    virtual VFSPath               getBasePathAlias(void);
-    virtual int                   stat           (const VFSPath& absoluteVFSpath, struct stat& stat);
-    virtual void                  move           (const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo);
-    virtual void                  remove         (const VFSPath& absoluteVFSpath);
-    virtual uint64_t              getFileHandle  (const VFSPath& absoluteVFSpath);
-    virtual void                  setFileAttrs   (const VFSPath& absoluteVFSpath, const FileAttrs& fstat);
-    virtual FileAttrs             getFileAttrs(const VFSPath& path);
-    virtual uint32_t              fileId         (uint64_t ino);
-    virtual void                  touch          (const VFSPath& absoluteVFSpath);
-    virtual std::filesystem::path toHostPath     (const VFSPath& absoluteVFSpath);
+    virtual HostPath  getBasePath     (void);
+    virtual VFSPath   getBasePathAlias(void);
+    virtual int       stat            (const VFSPath& absoluteVFSpath, struct stat& stat);
+    virtual void      move            (const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo);
+    virtual void      remove          (const VFSPath& absoluteVFSpath);
+    virtual uint64_t  getFileHandle   (const VFSPath& absoluteVFSpath);
+    virtual void      setFileAttrs    (const VFSPath& absoluteVFSpath, const FileAttrs& fstat);
+    virtual FileAttrs getFileAttrs    (const VFSPath& path);
+    virtual uint32_t  fileId          (uint64_t ino);
+    virtual void      touch           (const VFSPath& absoluteVFSpath);
+    virtual HostPath  toHostPath      (const VFSPath& absoluteVFSpath);
 
     int                   vfsChmod   (const VFSPath& absoluteVFSpath, mode_t mode);
     int                   vfsAccess  (const VFSPath& absoluteVFSpath, int mode);

@@ -68,23 +68,56 @@ void FileAttrs::update(const FileAttrs& attrs) {
 
 //----- VFS path
 
-VFSPath::VFSPath(const std::string& path)
-: vector(split(path))
+PathCommon::PathCommon(const std::string& sep, const std::string& path)
+: vector(split(sep, path))
+, sep(sep)
 , path(path)
 {}
 
-VFSPath::VFSPath(const char* path)
-: vector(split(path))
+PathCommon::PathCommon(const std::string& sep, const char* path)
+: vector(split(sep, path))
+, sep(sep)
 , path(path)
 {}
 
-std::string VFSPath::to_string() const {
-    std::string newPath(empty() ? "/" : "");
+std::string PathCommon::to_string() const {
+    std::string newPath(empty() ? sep : "");
     for(const auto& comp : *this) {
-        newPath += "/";
+        newPath += sep;
         newPath += comp;
     }
     return is_absolute() ? newPath : newPath.substr(1);
+}
+
+vector<string> PathCommon::split(const std::string& sep, const std::string& path) {
+    vector<std::string> result;
+    std::string relPath = sep == "/"
+    ? path.substr(!(path.empty())    && path[0] == '/' ? 1 : 0)
+    : path.substr(!(path.size() > 1) && path[1] == ':' ? 2 : 0);
+        
+    stringstream ss(relPath);
+    std::string comp;
+
+    while (getline (ss, comp, sep[0]))
+        result.push_back (comp);
+    
+    return result;
+}
+
+void PathCommon::append(const PathCommon& path) {
+    for(const auto& comp : path)
+        push_back(comp);
+    this->path = to_string();
+}
+
+bool PathCommon::exists() {
+    struct stat buffer;
+    return (stat (c_str(), &buffer) == 0);
+}
+
+ostream& operator<<(ostream& os, const PathCommon& path) {
+    os << path.string();
+    return os;
 }
 
 VFSPath VFSPath::canonicalize(void) const {
@@ -194,9 +227,7 @@ bool VFSPath::is_absolute() const {
 }
 
 VFSPath& VFSPath::operator /= (const VFSPath& path) {
-    for(const auto& comp : path)
-        emplace_back(comp);
-    this->path = to_string();
+    append(path);
     return *this;
 }
 
@@ -210,14 +241,22 @@ VFSPath VFSPath::relative(const VFSPath& path, const VFSPath& basePath) {
     return VFSPath(path.string().find(basePath.string(), 0) == 0 ? path.string().substr(basePath.length()) : path);
 }
 
-vector<string> VFSPath::split(const std::string& path) {
-    vector<std::string> result;
-    stringstream ss(path.substr(!(path.empty()) && path[0] == '/' ? 1 : 0));
-    std::string comp;
+bool HostPath::is_absolute() const {
+#ifdef _WIN32
+    return !(path.size() > 1) && path[1] == ':' && ::toupper(paht[0]) >= 'A' && && ::toupper(paht[0]) <= 'Z' ;
+#else
+    return !(path.empty()) && path[0] == '/';
+#endif
+}
 
-    while (getline (ss, comp, '/'))
-        result.emplace_back (comp);
-    
+HostPath& HostPath::operator /= (const HostPath& path) {
+    append(path);
+    return *this;
+}
+
+HostPath HostPath::operator / (const HostPath& path) const {
+    auto result(*this);
+    result /= path;
     return result;
 }
 
@@ -237,7 +276,7 @@ bool FileAttrs::valid(uint32_t statval) {return statval != 0xFFFFFFFF;}
 
 //----- VFS
 
-VirtualFS::VirtualFS(const filesystem::path& basePath, const VFSPath& basePathAlias)
+VirtualFS::VirtualFS(const HostPath& basePath, const VFSPath& basePathAlias)
 : basePathAlias(basePathAlias)
 , basePath(basePath)
 {
@@ -246,7 +285,7 @@ VirtualFS::VirtualFS(const filesystem::path& basePath, const VFSPath& basePathAl
 VirtualFS::~VirtualFS() {
 }
 
-filesystem::path VirtualFS::getBasePath() {return basePath;}
+HostPath VirtualFS::getBasePath() {return basePath;}
 
 VFSPath VirtualFS::getBasePathAlias() {return basePathAlias;}
 
@@ -335,7 +374,7 @@ FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
     if(::getxattr(hostPath.c_str(), NFSD_ATTRS.c_str(), buffer, sizeof(buffer), 0, XATTR_NOFOLLOW) > 0)
         return FileAttrs(buffer);
     else {
-        struct stat fstat{};
+        struct stat fstat;
         ::lstat(hostPath.c_str(), &fstat);
         return FileAttrs(fstat);
     }
@@ -392,15 +431,13 @@ bool VFSFile::isOpen(void) {
     return file != NULL;
 }
 
-filesystem::path VirtualFS::toHostPath(const VFSPath& absoluteVFSpath) {
+HostPath VirtualFS::toHostPath(const VFSPath& absoluteVFSpath) {
     auto path(removeAlias(absoluteVFSpath));
     
     assert(path.is_absolute());
     
-    filesystem::path result(basePath);
-    for(const auto& comp : path.canonicalize())
-        result.append(comp);
-        
+    HostPath result(basePath);
+    result.append(path.canonicalize());
     return result;
 }
 
@@ -462,8 +499,8 @@ int VirtualFS::vfsReadlink(const VFSPath& absoluteVFSpath, VFSPath& result) {
 }
 
 int VirtualFS::vfsLink(const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo, bool soft) {
-    string from = soft ? absoluteVFSpathFrom.string() : toHostPath(absoluteVFSpathFrom).string();
-    string to   = toHostPath(absoluteVFSpathTo);
+    std::string from = soft ? absoluteVFSpathFrom.string() : toHostPath(absoluteVFSpathFrom).string();
+    std::string to   = toHostPath(absoluteVFSpathTo).string();
     
     if(soft) return get_error(::symlink(from.c_str(), to.c_str()));
     else     return get_error(::link   (from.c_str(), to.c_str()));

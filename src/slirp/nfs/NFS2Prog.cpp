@@ -88,8 +88,8 @@ int CNFS2Prog::ProcedureGETATTR(void) {
 
 static void set_attrs(const string& path, const FileAttrs& fstat) {
     FileAttrs newAttrs = nfsd_fts[0]->getFileAttrs(path);
-    
-    if(FileAttrs::valid(fstat.mode)) {
+
+    if(FileAttrs::valid(fstat.mode)) {
         newAttrs.mode &= S_IFMT;
         newAttrs.mode |= fstat.mode & (S_IRWXU|S_IRWXG|S_IRWXO);
         nfsd_fts[0]->vfsChmod(path, fstat.mode);
@@ -438,9 +438,9 @@ int CNFS2Prog::ProcedureREADDIR(void) {
         int skip = cookie;
         for(struct dirent* fileinfo = readdir(handle); fileinfo; fileinfo = readdir(handle)) {
 #if HAVE_STRUCT_DIRENT_D_NAMELEN
-            namelen = fileinfo->d_namlen;
+            auto namelen = fileinfo->d_namlen;
 #else
-            namelen = strlen(fileinfo->d_name);
+            auto namelen = strlen(fileinfo->d_name);
 #endif
             if(--skip >= 0) continue;
             
