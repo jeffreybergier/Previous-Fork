@@ -8,5 +8,6 @@
 #define CTL_NFSD    254
 #define NAME_NFSD   "shared.local"
 
-#define CTL_NET          0x0A000200 //10.0.2.0
-#define CTL_NET_MASK     0xFFFFFF00 //255.255.255.0
+#define CTL_NET            0x0A000200 //10.0.2.0
+#define CTL_NET_MASK       0xFFFFFF00 //255.255.255.0
+#define NET_MASK_255_0_0_0 0xFF000000 //255.0.0.0
