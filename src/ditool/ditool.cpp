@@ -64,6 +64,18 @@ static string join(const string& path, const string& name) {
     return result;
 }
 
+static void copy_attrs(struct stat& fstat, icommon& inode, uint32_t rdev) {
+    fstat.st_mode              = fsv(inode.ic_mode);
+    fstat.st_uid               = fsv(inode.ic_uid);
+    fstat.st_gid               = fsv(inode.ic_gid);
+    fstat.st_size              = fsv(inode.ic_size);
+    fstat.st_atimespec.tv_sec  = fsv(inode.ic_atime.tv_sec);
+    fstat.st_atimespec.tv_nsec = fsv(inode.ic_atime.tv_usec) * 1000;
+    fstat.st_mtimespec.tv_sec  = fsv(inode.ic_mtime.tv_sec);
+    fstat.st_mtimespec.tv_nsec = fsv(inode.ic_mtime.tv_usec) * 1000;
+    fstat.st_rdev              = rdev;
+}
+
 static void set_attrs_recr(UFS& ufs, set<string>& skip, uint32_t ino, const string& path, VirtualFS& ft) {
     vector<direct> entries = ufs.list(ino);
     
@@ -89,18 +101,9 @@ static void set_attrs_recr(UFS& ufs, set<string>& skip, uint32_t ino, const stri
                 break;
 
         }
-                
+    
         struct stat fstat;
-        fstat.st_mode              = fsv(inode.ic_mode);
-        fstat.st_uid               = fsv(inode.ic_uid);
-        fstat.st_gid               = fsv(inode.ic_gid);
-        fstat.st_size              = fsv(inode.ic_size);
-        fstat.st_atimespec.tv_sec  = fsv(inode.ic_atime.tv_sec);
-        fstat.st_atimespec.tv_nsec = fsv(inode.ic_atime.tv_usec) * 1000;
-        fstat.st_mtimespec.tv_sec  = fsv(inode.ic_mtime.tv_sec);
-        fstat.st_mtimespec.tv_nsec = fsv(inode.ic_mtime.tv_usec) * 1000;
-        fstat.st_rdev              = rdev;
-        
+        copy_attrs(fstat, inode, rdev);
         FileAttrs fattr(fstat);
         ft.setFileAttrs(dirEntPath, fattr);
         
@@ -109,11 +112,32 @@ static void set_attrs_recr(UFS& ufs, set<string>& skip, uint32_t ino, const stri
         times[0].tv_usec = fattr.atime_usec;
         times[1].tv_sec  = fattr.mtime_sec;
         times[1].tv_usec = fattr.mtime_usec;
+        
         if(ft.vfsChmod(dirEntPath, fstat.st_mode & ~IFMT))
             cout << "Unable to set mode for " << dirEntPath << endl;
         if(ft.vfsUtimes(dirEntPath, times))
             cout << "Unable to set times for " << dirEntPath << endl;
     }
+}
+
+static void set_attrs_inode(UFS& ufs, uint32_t ino, const string& path, VirtualFS& ft) {
+    icommon inode;
+    ufs.readInode(inode, ino);
+    struct stat fstat;
+    copy_attrs(fstat, inode, 0);
+    FileAttrs fattr(fstat);
+    ft.setFileAttrs(path, fattr);
+    
+    timeval times[2];
+    times[0].tv_sec  = fattr.atime_sec;
+    times[0].tv_usec = fattr.atime_usec;
+    times[1].tv_sec  = fattr.mtime_sec;
+    times[1].tv_usec = fattr.mtime_usec;
+    
+    if(ft.vfsChmod(path, fstat.st_mode & ~IFMT))
+        cout << "Unable to set mode for " << path << endl;
+    if(ft.vfsUtimes(path, times))
+        cout << "Unable to set times for " << path << endl;
 }
 
 static void verify_attr_recr(UFS& ufs, set<string>& skip, uint32_t ino, const string& path, VirtualFS& ft) {
@@ -139,6 +163,9 @@ static void verify_attr_recr(UFS& ufs, set<string>& skip, uint32_t ino, const st
                 rdev = fsv(inode.ic_db[0]);
                 break;
         }
+        
+        if(dirEntPath == "/NextAdmin")
+            cout << endl;
         
         struct stat fstat;
         ft.stat(dirEntPath, fstat);
@@ -327,6 +354,7 @@ static void dump_part(DiskImage& im, int part, const HostPath& outPath, ostream&
         cout << "---- copying " << im.path << " to " << ft->getBasePath() << endl;
         process_inodes_recr(ufs, inode2path, skip, ROOTINO, "", ft, os, listType);
         cout << "---- setting file attributes for NFSD" << endl;
+        set_attrs_inode(ufs, ROOTINO, "", *ft);
         set_attrs_recr(ufs, skip, ROOTINO, "", *ft);
         cout << "---- verifying inode structure" << endl;
         map<uint32_t, uint64_t> inode2inode;
