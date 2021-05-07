@@ -372,7 +372,7 @@ static bool is_mount(const HostPath& path) {
     struct stat spdir; /* parent inode info */
     int res = ::stat(path.c_str(), &sdir);
     if (res < 0) return false;
-    auto pdir(path / "..");
+    HostPath pdir(path / "..");
     res = ::stat(pdir.string().c_str(), &spdir);
     if (res < 0) return false;
     return    sdir.st_dev != spdir.st_dev  /* different devices */
@@ -396,7 +396,7 @@ static void clean_dir(const HostPath& path) {
 
 class NullBuffer : public streambuf {public: int overflow(int c) {return c;};};
 
-static HostPath to_fs_path(const char* path) {
+static HostPath to_host_path(const char* path) {
     return path ? HostPath(path) : HostPath();
 }
 
@@ -413,12 +413,12 @@ extern "C" int main(int argc, const char * argv[]) {
     if(has_option(argv, argv+argc, "-h") || has_option(argv, argv+argc, "--help"))
         print_help();
     
-    auto        imageFile = to_fs_path(get_option(argv, argv + argc, "-im"));
+    HostPath    imageFile = to_host_path(get_option(argv, argv + argc, "-im"));
     bool        listParts = has_option(argv, argv+argc,   "-lsp");
     const char* partNum   = get_option(argv, argv + argc, "-p");
     bool        listFiles = has_option(argv, argv + argc, "-ls");
     const char* listType  = get_option(argv, argv + argc, "-lst");
-    auto        outPath   = to_fs_path(get_option(argv, argv + argc, "-out"));
+    HostPath    outPath   = to_host_path(get_option(argv, argv + argc, "-out"));
     bool        clean     = has_option(argv, argv + argc, "-clean");
 
     if (!(imageFile).empty()) {

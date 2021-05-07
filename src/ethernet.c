@@ -764,8 +764,10 @@ void Ethernet_Reset(bool hard) {
 
 /* Packet printer and analyzer */
 
-#define LOG_EN_DATA    0
-#define LOG_EN_ANALYZE 0
+#define LOG_EN_DATA    1
+#define LOG_EN_ANALYZE 1
+#define WIRESHARK_LOG  "/tmp/previous_wireshark.hex"
+/* #define WIRESHARK_LOG  "" */
 
 void print_packet(Uint8 *buf, int size, int out) {
 #if LOG_EN_DATA
@@ -775,6 +777,18 @@ void print_packet(Uint8 *buf, int size, int out) {
         printf("<<        Outgoing packet (%d byte)        >>\n", size);
     } else {
         printf(">>        Incoming packet (%d byte)        <<\n", size);
+    }
+    
+    if(strlen(WIRESHARK_LOG)) {
+        static FILE* wiresharkLogFile = NULL;
+        if(!(wiresharkLogFile))
+            wiresharkLogFile = fopen(WIRESHARK_LOG, "w");
+        if(wiresharkLogFile) {
+            fprintf(wiresharkLogFile, "\n\n000000 ");
+            for(i = 0; i < size; i++)
+                fprintf(wiresharkLogFile, "%02x ", buf[i]);
+            fflush(wiresharkLogFile);
+        }
     }
 #if LOG_EN_ANALYZE
     Uint8 protocol, ihl, options = 0;
