@@ -296,8 +296,8 @@ int CNFS2Prog::ProcedureCREATE(void) {
 
     FileAttrs fstat(read_stat(m_in));
     if(nfsd_fts[0]->vfsAccess(path, F_OK)) {
-        if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = nfsd_fts[0]->vfsGetUID(path);
-        if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = nfsd_fts[0]->vfsGetGID(path);
+        if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = nfsd_fts[0]->vfsGetUID(path, false);
+        if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = nfsd_fts[0]->vfsGetGID(path, true);
     }
      // touch
     VFSFile file(*nfsd_fts[0], path, "wb");

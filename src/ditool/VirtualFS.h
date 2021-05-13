@@ -138,8 +138,8 @@ public:
     int                   vfsStatvfs (const VFSPath& absoluteVFSpath, struct statvfs& fsstat);
     int                   vfsStat    (const VFSPath& absoluteVFSpath, struct stat& fstat);
     int                   vfsUtimes  (const VFSPath& absoluteVFSpath, const struct timeval times[2]);
-    uint32_t              vfsGetUID  (const VFSPath& absoluteVFSpath);
-    uint32_t              vfsGetGID  (const VFSPath& absoluteVFSpath);
+    uint32_t              vfsGetUID  (const VFSPath& absoluteVFSpath, bool useParent);
+    uint32_t              vfsGetGID  (const VFSPath& absoluteVFSpath, bool useParent);
 
     static int            remove(const char* fpath, const struct stat* sb, int typeflag, struct FTW* ftwbuf);
     

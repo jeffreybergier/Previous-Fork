@@ -392,8 +392,8 @@ FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
     else {
         struct stat fstat;
         ::lstat(hostPath.c_str(), &fstat);
-        fstat.st_uid = vfsGetUID(absoluteVFSpath.parent_path());
-        fstat.st_gid = vfsGetGID(absoluteVFSpath.parent_path());
+        fstat.st_uid = vfsGetUID(absoluteVFSpath.parent_path(), true);
+        fstat.st_gid = vfsGetGID(absoluteVFSpath.parent_path(), true);
         return FileAttrs(fstat);
     }
 }
@@ -467,18 +467,27 @@ int VirtualFS::vfsChmod(const VFSPath& absoluteVFSpath, mode_t mode) {
     return get_error(::fchmodat(AT_FDCWD, toHostPath(absoluteVFSpath).c_str(), mode | S_IWUSR  | S_IRUSR, AT_SYMLINK_NOFOLLOW));
 }
 
-uint32_t VirtualFS::vfsGetUID(const VFSPath& absoluteVFSpath) {
+uint32_t VirtualFS::vfsGetUID(const VFSPath& absoluteVFSpath, bool useParent) {
+    if(useParent) {
+        if(absoluteVFSpath.empty())
+            return m_defaultUID;
+        else if(toHostPath(absoluteVFSpath).is_directory()) {
+            FileAttrs attrs = getFileAttrs(absoluteVFSpath);
+            return attrs.uid;
+        }
+        return vfsGetUID(absoluteVFSpath.parent_path(), useParent);
+    }
     return m_defaultUID;
 }
 
-uint32_t VirtualFS::vfsGetGID(const VFSPath& absoluteVFSpath) {
+uint32_t VirtualFS::vfsGetGID(const VFSPath& absoluteVFSpath, bool useParent) {
     if(absoluteVFSpath.empty())
         return m_defaultGID;
     else if(toHostPath(absoluteVFSpath).is_directory()) {
         FileAttrs attrs = getFileAttrs(absoluteVFSpath);
         return attrs.gid;
     }
-    return vfsGetGID(absoluteVFSpath.parent_path());
+    return vfsGetGID(absoluteVFSpath.parent_path(), useParent);
 }
 
 int VirtualFS::vfsAccess(const VFSPath& absoluteVFSpath, int mode) {
