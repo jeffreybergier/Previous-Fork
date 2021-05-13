@@ -36,14 +36,7 @@ enum {
 	NFSERR_WFLUSH = 99,
 };
 
-enum {
-	NFNON = 0,
-	NFREG = 1,
-	NFDIR = 2,
-	NFBLK = 3,
-	NFCHR = 4,
-	NFLNK = 5,
-};
+enum NFTYPE { NFNON, NFREG, NFDIR, NFBLK, NFCHR, NFLNK, NFSOCK, NFFIFO, NFBAD };
 
 CNFS2Prog::CNFS2Prog() : CRPCProg(PROG_NFS, 2, "nfsd") {
     #define RPC_PROG_CLASS CNFS2Prog

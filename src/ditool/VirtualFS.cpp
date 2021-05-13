@@ -280,16 +280,16 @@ string FileAttrs::serialize() const {
     return string(buffer);
 }
 
-bool FileAttrs::valid16(uint32_t statval) {return statval != 0xFFFFFFFF;}
-bool FileAttrs::valid32(uint32_t statval) {return (statval & 0x0000FFFF) != 0x0000FFFF;}
+bool FileAttrs::valid32(uint32_t statval) {return statval != 0xFFFFFFFF;}
+bool FileAttrs::valid16(uint32_t statval) {return (statval & 0x0000FFFF) != 0x0000FFFF;}
 
 //----- VFS
 
 VirtualFS::VirtualFS(const HostPath& basePath, const VFSPath& basePathAlias)
 : basePathAlias(basePathAlias)
 , basePath(basePath)
-, m_defaultUID(0)
-, m_defaultGID(0)
+, m_defaultUID(-2) // -2 = traditionally user nobody
+, m_defaultGID(-2)
 {
 }
 
@@ -392,6 +392,8 @@ FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
     else {
         struct stat fstat;
         ::lstat(hostPath.c_str(), &fstat);
+        fstat.st_uid = vfsGetUID(absoluteVFSpath.parent_path());
+        fstat.st_gid = vfsGetGID(absoluteVFSpath.parent_path());
         return FileAttrs(fstat);
     }
 }
@@ -466,16 +468,7 @@ int VirtualFS::vfsChmod(const VFSPath& absoluteVFSpath, mode_t mode) {
 }
 
 uint32_t VirtualFS::vfsGetUID(const VFSPath& absoluteVFSpath) {
-    return 20; // crude hack for unknown UID. Still need to figure out how to properly get an uid if not specified in fstat
-    /*
-    if(absoluteVFSpath.empty())
-        return m_defaultUID;
-    else if(toHostPath(absoluteVFSpath).is_directory()) {
-        FileAttrs attrs = getFileAttrs(absoluteVFSpath);
-        return attrs.uid;
-    }
-    return vfsGetUID(absoluteVFSpath.parent_path());
-     */
+    return m_defaultUID;
 }
 
 uint32_t VirtualFS::vfsGetGID(const VFSPath& absoluteVFSpath) {
