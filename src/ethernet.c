@@ -766,8 +766,8 @@ void Ethernet_Reset(bool hard) {
 
 #define LOG_EN_DATA    0
 #define LOG_EN_ANALYZE 0
-// #define WIRESHARK_LOG  "/tmp/previous_wireshark.hex"
-#define WIRESHARK_LOG  ""
+#define WIRESHARK_LOG  "/tmp/previous_wireshark.hex"
+// #define WIRESHARK_LOG  ""
 
 void print_packet(Uint8 *buf, int size, int out) {
 #if LOG_EN_DATA

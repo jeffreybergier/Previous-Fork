@@ -25,7 +25,14 @@ public:
     std::string  string(void) const {return path;}
     void         append(const PathCommon& path);
     bool         exists(void);
-    
+
+    bool         operator == (const PathCommon& path) {return string() == path.string();}
+    bool         operator != (const PathCommon& path) {return string() != path.string();}
+    bool         operator <  (const PathCommon& path) {return string() <  path.string();}
+    bool         operator >  (const PathCommon& path) {return string() >  path.string();}
+    bool         operator <= (const PathCommon& path) {return string() <= path.string();}
+    bool         operator >= (const PathCommon& path) {return string() >= path.string();}
+
     virtual bool is_absolute(void) const = 0;
 
     static std::vector<std::string> split(const std::string& sep, const std::string& path);

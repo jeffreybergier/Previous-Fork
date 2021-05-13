@@ -52,28 +52,34 @@ static void printAbout(void) {
     printf("[NFSD] Edited in 2013 by Alexander Schneider (Jankowfsky AG)\n");
     printf("[NFSD] Edited in 2014 2015 by Yann Schepens\n");
     printf("[NFSD] Edited in 2016 by Peter Philipp (Cando Image GmbH), Marc Harding\n");
-    printf("[NFSD] Mostly rewritten in 2019 by Simon Schubiger for Previous NeXT emulator\n");
+    printf("[NFSD] Mostly rewritten in 2019-2021 by Simon Schubiger for Previous NeXT emulator\n");
 }
 
 extern "C" void nfsd_start(void) {
-    delete nfsd_fts[0];
-    nfsd_fts[0] = NULL;
-        
     if(access(ConfigureParams.Ethernet.szNFSroot, F_OK | R_OK | W_OK) < 0) {
         printf("[NFSD] can not access directory '%s'. nfsd startup canceled.\n", ConfigureParams.Ethernet.szNFSroot);
+        delete nfsd_fts[0];
+        nfsd_fts[0] = NULL;
         return;
     }
     
+    if(nfsd_fts[0]) {
+        if(nfsd_fts[0]->getBasePath() != HostPath(ConfigureParams.Ethernet.szNFSroot)) {
+            VFSPath basePath = nfsd_fts[0]->getBasePathAlias();
+            delete nfsd_fts[0];
+            nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, basePath);
+        }
+    } else {
+        nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, "/netboot");
+    }
+    if(initialized) return;
+
     char nfsd_hostname[_SC_HOST_NAME_MAX];
     gethostname(nfsd_hostname, sizeof(nfsd_hostname));
     
     printf("[NFSD] starting local NFS daemon on '%s', exporting '%s'\n", nfsd_hostname, ConfigureParams.Ethernet.szNFSroot);
     printAbout();
     
-    nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, "/netboot");
-
-    if(initialized) return;
-
     static CNFSProg       NFSProg;
     static CMountProg     MountProg;
     static CBootparamProg BootparamProg;
