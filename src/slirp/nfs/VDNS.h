@@ -52,9 +52,9 @@ public:
     void   SocketReceived(CSocket* pSocket);
 };
 
-extern "C" int nfsd_vdns_match(struct mbuf *m);
+extern "C" int nfsd_vdns_match(struct mbuf *m, int dport);
 #else
-int nfsd_vdns_match(struct mbuf *m);
+int nfsd_vdns_match(struct mbuf *m, int dport);
 
 #endif /* __cplusplus */
 

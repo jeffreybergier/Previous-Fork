@@ -16,13 +16,13 @@
 vdns_record VDNS::s_dns_db[32];
 size_t      VDNS::s_dns_db_sz = 0;
 
-static size_t from_dot(uint8_t* dst, const char* src) {
+static size_t domain_name(uint8_t* dst, const char* src) {
     size_t   result = strlen(src) + 2;
     uint8_t* len    = dst++;
     *len            = 0;
     while(*src) {
         if(*src == '.') {
-            len = dst;
+            len = dst++;
             *len = 0;
             src++;
             continue;
@@ -35,9 +35,8 @@ static size_t from_dot(uint8_t* dst, const char* src) {
 }
 
 void VDNS::AddRecord(uint32_t addr, const char* _name) {
-    
     size_t size = strlen(_name);
-    char name[size + 1];
+    char name[size + 2];
     for(size_t i = 0; i < size; i++)
         name[i] = tolower(_name[i]);
     name[size] = '\0';
@@ -63,11 +62,13 @@ void VDNS::AddRecord(uint32_t addr, const char* _name) {
         rec->type   = REC_PTR;
         rec->inaddr = addr;
         sprintf(rec->key,  "%d.%d.%d.%d.in-addr.arpa.", 0xFF&(addr), 0xFF&(addr >> 8),  0xFF&(addr >> 16), 0xFF&(addr >> 24));
-        rec->size = from_dot(rec->data , name);
+        rec->size = domain_name(rec->data , name);
     }
 }
 
-VDNS::VDNS(void)  : m_hMutex(host_mutex_create()) {
+VDNS::VDNS(void)
+: m_hMutex(host_mutex_create())
+{
     m_udp = new UDPServerSocket(this);
     m_udp->Open(PROG_VDNS, PORT_DNS);
     
@@ -76,9 +77,10 @@ VDNS::VDNS(void)  : m_hMutex(host_mutex_create()) {
     gethostname(hostname, sizeof(hostname));
     
     AddRecord(ntohl(special_addr.s_addr) | CTL_ALIAS, hostname);
+    AddRecord(ntohl(special_addr.s_addr) | CTL_HOST,  FQDN_HOST);
+    AddRecord(ntohl(special_addr.s_addr) | CTL_DNS,   FQDN_DNS);
+    AddRecord(ntohl(special_addr.s_addr) | CTL_NFSD,  FQDN_NFSD);
     AddRecord(ntohl(special_addr.s_addr) | CTL_HOST,  NAME_HOST);
-    AddRecord(ntohl(special_addr.s_addr) | CTL_DNS,   NAME_DNS);
-    AddRecord(ntohl(special_addr.s_addr) | CTL_NFSD,  NAME_NFSD);
     AddRecord(0x7F000001,                             "localhost");
 }
 
@@ -125,23 +127,9 @@ vdns_record* VDNS::Query(uint8_t* data, size_t size) {
     return NULL;
 }
 
-extern "C" void dump_packet(const char* ptr, size_t len) {
-    static std::fstream dumpFile("/tmp/previous_dump_packet.txt", std::fstream::out | std::fstream::trunc);
-    
-    std::string ascii;
-    for(size_t i = 0; i < len; i++) {
-        if((i % 32) == 0) {
-            dumpFile << " " << ascii << std::endl << std::hex << std::setfill('0') << std::setw(8) << static_cast<int>(i) << " ";
-            ascii.clear();
-        }
-        dumpFile << std::hex << std::setfill('0') << std::setw(2) << (ptr[i] & 0x0FF) << " ";
-        ascii.push_back(isprint(ptr[i]) ? ptr[i] : '.');
-    }
-    dumpFile << std::endl;
-}
 
-extern "C" int nfsd_vdns_match(struct mbuf *m) {
-    if(m->m_hdr.mh_len <= 40) return false;
+extern "C" int nfsd_vdns_match(struct mbuf *m, int dport) {
+    if(m->m_hdr.mh_len <= 40 || dport != PORT_DNS) return false;
     return VDNS::Query((uint8_t*)&m->m_data[40], m->m_hdr.mh_len-40) != NULL;
 }
 
@@ -153,8 +141,21 @@ void VDNS::SocketReceived(CSocket* pSocket) {
     uint8_t*   msg = &in->GetBuffer()[in->GetPosition()];
     int        n   = static_cast<int>(in->GetSize());
 
-    // SameId
-    msg[2]=0x81;msg[3]=0x80;
+    /*
+    1... .... .... .... = Response: Message is a response
+    .000 0... .... .... = Opcode: Standard query (0)
+    .... .1.. .... .... = Authoritative: Server is an authority for domain
+    .... ..0. .... .... = Truncated: Message is not truncated
+    .... ...0 .... .... = Recursion desired: Do not query recursively
+    .... .... 0... .... = Recursion available: Server can not do recursive queries
+    .... .... .0.. .... = Z: reserved (0)
+    .... .... ..1. .... = Answer authenticated: Answer/authority portion was authenticated by the server
+    .... .... ...1 .... = Non-authenticated data: Acceptable
+    .... .... .... 0000 = Reply code: No error (0)
+    */
+
+    msg[2]=0x84;
+    msg[3]=0x30;
     // Change Opcode and flags
     msg[8]=0;msg[9]=0; // NSCOUNT
     msg[10]=0;msg[11]=0; // ARCOUNT

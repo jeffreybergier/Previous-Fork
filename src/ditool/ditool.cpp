@@ -190,7 +190,7 @@ static void verify_attr_recr(UFS& ufs, set<string>& skip, uint32_t ino, const st
                 cout << "mtime_nsec mismatch diff:" << (fstat.st_mtimespec.tv_nsec << - (fsv(inode.ic_mtime.tv_usec)) * 1000) << " " << dirEntPath << endl;
         }
         if((uint32_t)fstat.st_rdev != rdev)
-            cout << "rdev mismatch " << dirEntPath << endl;
+            cout << "rdev mismatch (act/exp)" << dirEntPath << fstat.st_rdev << "!=" << rdev << endl;
     }
 }
 

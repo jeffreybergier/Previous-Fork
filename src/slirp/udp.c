@@ -163,7 +163,7 @@ udp_input(m, iphlen)
                     ip->ip_dst   = loopback_addr;
                 break;
         }
-    } else if(nfsd_vdns_match(m)) {
+    } else if(nfsd_vdns_match(m, dport)) {
         switch(dport) {
             case PORT_DNS:
                 // map port & address for virtual DNS

@@ -74,7 +74,7 @@ int CBootparamProg::ProcedureGETFILE(void) {
     }
 
     if(path.length()) {
-        m_out->Write(_SC_HOST_NAME_MAX, NAME_NFSD);
+        m_out->Write(_SC_HOST_NAME_MAX, FQDN_NFSD);
         WriteInAddr(m_out, ntohl(special_addr.s_addr) | CTL_NFSD);
         m_out->Write(PATH_MAX, path.c_str());
         return PRC_OK;
