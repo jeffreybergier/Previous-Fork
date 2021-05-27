@@ -772,14 +772,8 @@ void Ethernet_Reset(bool hard) {
 void print_packet(Uint8 *buf, int size, int out) {
 #if LOG_EN_DATA
     int i, offset = 0;
-    
-    if (out) {
-        printf("<<        Outgoing packet (%d byte)        >>\n", size);
-    } else {
-        printf(">>        Incoming packet (%d byte)        <<\n", size);
-    }
-    
-    if(strlen(WIRESHARK_LOG)) {
+        
+    if(WIRESHARK_LOG[0]) {
         static FILE* wiresharkLogFile = NULL;
         if(!(wiresharkLogFile))
             wiresharkLogFile = fopen(WIRESHARK_LOG, "w");
@@ -788,6 +782,12 @@ void print_packet(Uint8 *buf, int size, int out) {
             for(i = 0; i < size; i++)
                 fprintf(wiresharkLogFile, "%02x ", buf[i]);
             fflush(wiresharkLogFile);
+        }
+    } else {
+        if (out) {
+            printf("<<        Outgoing packet (%d byte)        >>\n", size);
+        } else {
+            printf(">>        Incoming packet (%d byte)        <<\n", size);
         }
     }
 #if LOG_EN_ANALYZE
@@ -942,13 +942,15 @@ print_data:
         printf("Data:      no additional data");
     }
 #endif // LOG_EN_ANALYZE
-    for (i=offset; i<size; i++) {
-        if (i > offset && (i - offset) % 16 == 0) {
-            printf("\n");
+    if(!(WIRESHARK_LOG[0])) {
+        for (i=offset; i<size; i++) {
+            if (i > offset && (i - offset) % 16 == 0) {
+                printf("\n");
+            }
+            printf("%02X ",buf[i]);
         }
-        printf("%02X ",buf[i]);
+        printf("\n");
     }
-    printf("\n");
 #if LOG_EN_ANALYZE
     if (padding) {
         printf("Padding:   %d byte at end of packet\n", padding);

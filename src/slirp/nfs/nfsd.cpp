@@ -101,7 +101,7 @@ extern "C" void nfsd_start(void) {
             nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, basePath);
         }
     } else {
-        nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, "/netboot");
+        nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, "/");
     }
     if(initialized) return;
 
