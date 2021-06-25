@@ -42,11 +42,45 @@ static double       unixTimeOffset = 0;
 static double       perfFrequency;
 static Uint64       pauseTimeStamp;
 static bool         osDarkmatter;
+static double       saveTime;
+
+// external
+extern Sint64       nCyclesMainCounter;
+extern struct regstruct regs;
 
 static inline double real_time(void) {
     double rt  = (SDL_GetPerformanceCounter() - perfCounterStart);
     rt        /= perfFrequency;
     return rt;
+}
+
+// Report counter capacity
+void host_report_limits(void) {
+    Uint64 cycleCounterLimit, perfCounterLimit, perfCounter;
+    
+    cycleCounterLimit = INT64_MAX - nCyclesMainCounter;
+    if (cycleCounterLimit > (1ULL<<DBL_MANT_DIG)-1) {
+        cycleCounterLimit = (1ULL<<DBL_MANT_DIG)-1;
+    }
+    cycleCounterLimit /= cycleDivisor;
+    cycleCounterLimit -= cycleSecsStart;
+    cycleCounterLimit /= 60 * 60 * 24;
+    
+    perfCounter = SDL_GetPerformanceCounter();
+    perfCounterLimit = UINT64_MAX - perfCounter;
+    if (perfCounterLimit > (1ULL<<DBL_MANT_DIG)-1) {
+        perfCounterLimit = (1ULL<<DBL_MANT_DIG)-1;
+    }
+    perfCounterLimit /= perfFrequency;
+    perfCounterLimit /= 60 * 60 * 24;
+    
+    Log_Printf(LOG_WARN, "[Hosttime] Timing system reset:");
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle counter:    %lld", nCyclesMainCounter);
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle divisor:    %f", cycleDivisor);
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle timer will start losing precision after %lld days", cycleCounterLimit);
+    Log_Printf(LOG_WARN, "[Hosttime] Realtime counter: %lld", perfCounter);
+    Log_Printf(LOG_WARN, "[Hosttime] Realtime divisor: %f", perfFrequency);
+    Log_Printf(LOG_WARN, "[Hosttime] Realtime timer will start losing precision after %lld days", perfCounterLimit);
 }
 
 void host_reset(void) {
@@ -62,6 +96,7 @@ void host_reset(void) {
     hardClockActual   = 0;
     enableRealtime    = ConfigureParams.System.bRealtime;
     osDarkmatter      = false;
+    saveTime          = 0;
     
     for(int i = NUM_BLANKS; --i >= 0;) {
         vblCounter[i] = 0;
@@ -69,6 +104,8 @@ void host_reset(void) {
     }
     
     cycleDivisor = ConfigureParams.System.nCpuFreq * 1000 * 1000;
+    
+    host_report_limits();
     
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 }
@@ -106,9 +143,16 @@ void host_hardclock(int expected, int actual) {
     }
 }
 
-extern Sint64           nCyclesMainCounter;
-extern struct regstruct regs;
+// this can be used by other threads to read hostTime
+Uint32 host_get_save_time(void) {
+    double hostTime;
+    host_lock(&timeLock);
+    hostTime = saveTime;
+    host_unlock(&timeLock);
+    return (Uint32)hostTime;
+}
 
+// Return current time as seconds with double precision
 double host_time_sec() {
     double hostTime;
     
@@ -121,6 +165,9 @@ double host_time_sec() {
         hostTime /= cycleDivisor;
         hostTime += cycleSecsStart;
     }
+    
+    // save hostTime to be read by other threads
+    saveTime = hostTime;
     
     // switch to realtime if...
     // 1) ...realtime mode is enabled and...
