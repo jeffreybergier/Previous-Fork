@@ -12,6 +12,8 @@ typedef struct {
     int nfs;
     int mount;
     int dns;
+    int netinfo;
+    int netinfobind;
 } nfsd_mapped_ports;
 
 typedef struct {
@@ -24,13 +26,16 @@ extern nfsd_NAT nfsd_ports;
 #define PORT_DNS      53
 #define PORT_PORTMAP  111
 #define PORT_NFS      2049
+#define PORT_NETINFO  1043
 
 enum {
-    PROG_PORTMAP   = 100000,
-    PROG_NFS       = 100003,
-    PROG_MOUNT     = 100005,
-    PROG_BOOTPARAM = 100026,
-    PROG_VDNS      = 200053, // virtual DNS
+    PROG_PORTMAP     = 100000,
+    PROG_NFS         = 100003,
+    PROG_MOUNT       = 100005,
+    PROG_BOOTPARAM   = 100026,
+    PROG_NETINFO     = 200100000,
+    PROG_NETINFOBIND = 200100001,
+    PROG_VDNS        = 200053, // virtual DNS
 };
 
 extern char nfsd_hostname[_SC_HOST_NAME_MAX];

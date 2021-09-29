@@ -9,10 +9,10 @@ class UDPServerSocket
 public:
 	UDPServerSocket(ISocketListener* pListener);
 	~UDPServerSocket();
-	bool Open(int porgNum, uint16_t nPort = 0);
-	void Close(void);
-	int GetPort(void);
-	void Run(void);
+	bool open(int porgNum, uint16_t nPort = 0);
+	void close(void);
+	int  getPort(void);
+	void run(void);
 
 private:
 	int              m_nPort;

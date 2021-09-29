@@ -19,7 +19,7 @@
 using namespace std;
 
 vector<vdns_record> VDNS::sDB;
-vdns_record         VDNS::errNonSuchName;
+vdns_record         VDNS::errNoSuchName;
 
 static size_t domain_name(uint8_t* dst, const char* src) {
     size_t   result = strlen(src) + 2;
@@ -45,7 +45,7 @@ static string ip_addr_str(uint32_t addr, string suffix) {
     return ss.str();
 }
 
-void VDNS::AddRecord(uint32_t addr, const char* _name) {
+void VDNS::addRecord(uint32_t addr, const char* _name) {
     size_t size = strlen(_name);
     char name[size + 2];
     for(size_t i = 0; i < size; i++)
@@ -74,7 +74,7 @@ void VDNS::AddRecord(uint32_t addr, const char* _name) {
         rec.type   = REC_PTR;
         rec.inaddr = addr;
         rec.key    = ip_addr_str(SDL_Swap32(addr), ".in-addr.arpa.");
-        rec.size = domain_name(rec.data , name);
+        rec.size   = domain_name(rec.data , name);
         sDB.push_back(rec);
     }
 }
@@ -83,25 +83,22 @@ VDNS::VDNS(void)
 : mMutex(host_mutex_create())
 {
     mUDP = new UDPServerSocket(this);
-    mUDP->Open(PROG_VDNS, PORT_DNS);
+    mUDP->open(PROG_VDNS, PORT_DNS);
     
     char hostname[_SC_HOST_NAME_MAX];
     hostname[0] = '\0';
     gethostname(hostname, sizeof(hostname));
     
-    // for some unknonw reason NS 2.x-3.x doesn't like DNS responses
-    // for "previous.local.". Don't add them to the DNS
-    
-    AddRecord(ntohl(special_addr.s_addr) | CTL_ALIAS, hostname);
-//    AddRecord(ntohl(special_addr.s_addr) | CTL_HOST,  FQDN_HOST);
-    AddRecord(ntohl(special_addr.s_addr) | CTL_DNS,   FQDN_DNS);
-    AddRecord(ntohl(special_addr.s_addr) | CTL_NFSD,  FQDN_NFSD);
-//    AddRecord(ntohl(special_addr.s_addr) | CTL_HOST,  NAME_HOST);
-    AddRecord(0x7F000001,                             "localhost");
+    addRecord(ntohl(special_addr.s_addr) | CTL_ALIAS, hostname);
+    addRecord(ntohl(special_addr.s_addr) | CTL_HOST,  FQDN_HOST);
+    addRecord(ntohl(special_addr.s_addr) | CTL_DNS,   FQDN_DNS);
+    addRecord(ntohl(special_addr.s_addr) | CTL_NFSD,  FQDN_NFSD);
+    addRecord(ntohl(special_addr.s_addr) | CTL_HOST,  NAME_HOST);
+    addRecord(0x7F000001,                             "localhost");
 }
 
 VDNS::~VDNS(void) {
-    mUDP->Close();
+    mUDP->close();
     delete mUDP;
     host_mutex_destroy(mMutex);
 }
@@ -128,7 +125,7 @@ error:
     return static_cast<vdns_rec_type>(result);
 }
 
-vdns_record* VDNS::Query(uint8_t* data, size_t size) {
+vdns_record* VDNS::query(uint8_t* data, size_t size) {
     string  qname;
     vdns_rec_type qtype = to_dot(qname, data, size);
     std::cout << "[VDNS] query(" << qtype << ") '" << qname << "'" << std::endl;
@@ -141,7 +138,7 @@ vdns_record* VDNS::Query(uint8_t* data, size_t size) {
     
     string domain(NAME_DOMAIN + string("."));
     if(qname.rfind(domain) == qname.size() -  domain.size())
-        return &errNonSuchName;
+        return &errNoSuchName;
     
     return nullptr;
 }
@@ -151,22 +148,22 @@ extern "C" int nfsd_vdns_match(struct mbuf *m, uint32_t addr, int dport) {
     if(m->m_len > 40 &&
        dport == PORT_DNS &&
        addr == (CTL_NET | CTL_DNS))
-        return VDNS::Query(reinterpret_cast<uint8_t*>(&m->m_data[40]), m->m_len-40) != NULL;
+        return VDNS::query(reinterpret_cast<uint8_t*>(&m->m_data[40]), m->m_len-40) != NULL;
     else
         return false;
 }
 
-void VDNS::SocketReceived(CSocket* pSocket) {
+void VDNS::socketReceived(CSocket* pSocket, uint32_t header) {
     NFSDLock lock(mMutex);
     
-    XDRInput*    in  = pSocket->GetInputStream();
-    XDROutput*   out = pSocket->GetOutputStream();
-    uint8_t*     msg = &in->GetBuffer()[in->GetPosition()];
-    int          n   = static_cast<int>(in->GetSize());
+    XDRInput*    in  = pSocket->getInputStream();
+    XDROutput*   out = pSocket->getOutputStream();
+    uint8_t*     msg = &in->data()[in->getPosition()];
+    int          n   = static_cast<int>(in->size());
     size_t       off = 12;
-    vdns_record* rec = Query(&msg[off], in->GetSize()-(in->GetPosition()+off));
+    vdns_record* rec = query(&msg[off], in->size()-(in->getPosition()+off));
 
-    if(rec == &errNonSuchName) {
+    if(rec == &errNoSuchName) {
         /*
         1... .... .... .... = Response: Message is a response
         .000 0... .... .... = Opcode: Standard query (0)
@@ -239,6 +236,6 @@ void VDNS::SocketReceived(CSocket* pSocket) {
     }
     
     // Send the answer
-    out->Write(msg, n);
-    pSocket->Send();  //send response
+    out->write(msg, n);
+    pSocket->send();  //send response
 }

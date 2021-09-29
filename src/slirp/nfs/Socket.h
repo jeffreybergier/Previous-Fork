@@ -13,21 +13,22 @@
 class CSocket
 {
 public:
-	CSocket(int nType);
+	CSocket(int nType, int serverPort);
 	virtual       ~CSocket();
-	int            GetType(void);
-	void           Open(int socket, ISocketListener *pListener, struct sockaddr_in *pRemoteAddr = NULL);
-	void           Close(void);
-	void           Send(void);
-	bool           Active(void);
-	char*          GetRemoteAddress(void);
-	int            GetRemotePort(void);
-	XDRInput*      GetInputStream(void);
-	XDROutput*     GetOutputStream(void);
-	void           Run(void);
+	int            getType(void);
+	void           open(int socket, ISocketListener *pListener, struct sockaddr_in *pRemoteAddr = NULL);
+	void           close(void);
+	void           send(void);
+	bool           active(void);
+	const char*    getRemoteAddress(void);
+	int            getRemotePort(void);
+	XDRInput*      getInputStream(void);
+	XDROutput*     getOutputStream(void);
+	void           run(void);
+    int            getServerPort(void);
     
     static uint16_t map_and_htons(int type, uint16_t port);
-    static void     map_port(int type, int progNum, uint16_t port);
+    static void     map_port(int type, int progNum, uint16_t origPort, uint16_t port);
     
 private:
 	int                m_nType;
@@ -38,6 +39,7 @@ private:
 	thread_t*          m_hThread;
     XDRInput           m_Input;
     XDROutput          m_Output;
+    int                m_serverPort;
 };
 
 const int INVALID_SOCKET = -1;

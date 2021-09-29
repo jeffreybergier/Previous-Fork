@@ -185,7 +185,7 @@ udp_input(m, iphlen)
             goto done;
             break;
         case RIP_ROUTER:
-            rip_input(m);
+           //rip_input(m);
             goto done;
             break;
         default:

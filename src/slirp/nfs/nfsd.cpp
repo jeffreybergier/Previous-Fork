@@ -14,12 +14,13 @@
 #include "SocketListener.h"
 #include "VDNS.h"
 #include "FileTableNFSD.h"
+#include "NetInfoBindProg.h"
 
 static bool         g_bLogOn = true;
 static CPortmapProg g_PortmapProg;
 static CRPCServer   g_RPCServer;
 
-nfsd_NAT nfsd_ports = {{0,0,0,0},{0,0,0,0}};
+nfsd_NAT nfsd_ports = {{0,0,0,0,0,0},{0,0,0,0,0,0}};
 
 static std::vector<UDPServerSocket*> SERVER_UDP;
 static std::vector<TCPServerSocket*> SERVER_TCP;
@@ -28,20 +29,20 @@ FileTableNFSD* nfsd_fts[] = {NULL}; // to be extended for multiple exports
 
 static bool initialized = false;
 
-static void add_program(CRPCProg *pRPCProg, uint16_t port = 0) {
+void add_rpc_program(CRPCProg *pRPCProg, uint16_t port = 0) {
     UDPServerSocket* udp = new UDPServerSocket(&g_RPCServer);
     TCPServerSocket* tcp = new TCPServerSocket(&g_RPCServer);
     
-    g_RPCServer.Set(pRPCProg->GetProgNum(), pRPCProg);
+    g_RPCServer.set(pRPCProg->getProgNum(), pRPCProg);
 
-    if (tcp->Open(pRPCProg->GetProgNum(), port) && udp->Open(pRPCProg->GetProgNum(), port)) {
-        printf("[NFSD] %s started\n", pRPCProg->GetName());
-        pRPCProg->Init(tcp->GetPort(), udp->GetPort());
+    if (tcp->open(pRPCProg->getProgNum(), port) && udp->open(pRPCProg->getProgNum(), port)) {
+        printf("[NFSD] %s started\n", pRPCProg->getName().c_str());
+        pRPCProg->init(tcp->getPort(), udp->getPort());
         g_PortmapProg.Add(pRPCProg);
         SERVER_TCP.push_back(tcp);
         SERVER_UDP.push_back(udp);
     } else {
-        printf("[NFSD] %s start failed.\n", pRPCProg->GetName());
+        printf("[NFSD] %s start failed.\n", pRPCProg->getName().c_str());
     }
 }
 
@@ -111,22 +112,26 @@ extern "C" void nfsd_start(void) {
     printf("[NFSD] starting local NFS daemon on '%s', exporting '%s'\n", nfsd_hostname, ConfigureParams.Ethernet.szNFSroot);
     printAbout();
     
-    static CNFSProg       NFSProg;
-    static CMountProg     MountProg;
-    static CBootparamProg BootparamProg;
+    static CNFSProg         sNFSProg;
+    static CMountProg       sMountProg;
+    static CBootparamProg   sBootparamProg;
+    static CNetInfoProg     sNetInfoProg("");
+    static CNetInfoBindProg sNetInfoBindProg;
 
     int uid;
     int gid;
     if(getUID_GID("me", &uid, &gid))
-       NFSProg.SetUserID(uid, gid);
+       sNFSProg.setUserID(uid, gid);
     
-    g_RPCServer.SetLogOn(g_bLogOn);
+    g_RPCServer.setLogOn(g_bLogOn);
 
-    add_program(&g_PortmapProg, PORT_PORTMAP);
-    add_program(&NFSProg,       PORT_NFS);
-    add_program(&MountProg);
-    add_program(&BootparamProg);
-    
+    add_rpc_program(&g_PortmapProg,  PORT_PORTMAP);
+    add_rpc_program(&sNFSProg,       PORT_NFS);
+    add_rpc_program(&sMountProg);
+    add_rpc_program(&sBootparamProg);
+    add_rpc_program(&sNetInfoProg,   PORT_NETINFO);
+    add_rpc_program(&sNetInfoBindProg);
+
     static VDNS vdns;
     
     initialized = true;

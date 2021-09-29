@@ -8,10 +8,10 @@ class TCPServerSocket{
 public:
 	TCPServerSocket(ISocketListener* pListener);
 	~TCPServerSocket();
-	bool Open(int progNum, uint16_t port = 0);
-	void Close(void);
-	int  GetPort(void);
-	void Run(void);
+	bool open(int progNum, uint16_t port = 0);
+	void close(void);
+	int  getPort(void);
+	void run(void);
 
 private:
 	uint16_t         m_nPort;

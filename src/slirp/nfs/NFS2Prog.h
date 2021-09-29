@@ -13,22 +13,22 @@ public:
 	void SetUserID(unsigned int nUID, unsigned int nGID);
 
 protected:
-	int ProcedureGETATTR(void);
-	int ProcedureSETATTR(void);
-	int ProcedureLOOKUP(void);
-    int ProcedureREADLINK(void);
-	int ProcedureREAD(void);
-    int ProcedureWRITECACHE(void);
-	int ProcedureWRITE(void);
-	int ProcedureCREATE(void);
-	int ProcedureREMOVE(void);
-	int ProcedureRENAME(void);
-    int ProcedureLINK(void);
-    int ProcedureSYMLINK(void);
-	int ProcedureMKDIR(void);
-	int ProcedureRMDIR(void);
-	int ProcedureREADDIR(void);
-	int ProcedureSTATFS(void);
+	int procedureGETATTR(void);
+	int procedureSETATTR(void);
+	int procedureLOOKUP(void);
+    int procedureREADLINK(void);
+	int procedureREAD(void);
+    int procedureWRITECACHE(void);
+	int procedureWRITE(void);
+	int procedureCREATE(void);
+	int procedureREMOVE(void);
+	int procedureRENAME(void);
+    int procedureLINK(void);
+    int procedureSYMLINK(void);
+	int procedureMKDIR(void);
+	int procedureRMDIR(void);
+	int procedureREADDIR(void);
+	int procedureSTATFS(void);
 
 private:
     bool GetPath(std::string& result, uint64_t* handle = NULL);

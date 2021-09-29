@@ -132,6 +132,10 @@ int slirp_init(struct in_addr *guest_addr)
 {
     // debug_init("/tmp/slirp.log", DEBUG_DEFAULT);
     
+#ifdef DEBUG
+    dfd = stdout;
+#endif
+    
 #ifdef _WIN32
     {
         WSADATA Data;
@@ -683,5 +687,5 @@ int slirp_add_exec(int do_pty, const char *args, int addr_low_byte,
 
 void slirp_rip_broadcast(void)
 {
-    rip_broadcast();
+   // rip_broadcast();
 }

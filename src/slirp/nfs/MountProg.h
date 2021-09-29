@@ -24,10 +24,10 @@ protected:
     char  m_exportPath[MAXPATHLEN];
 	char* m_clientAddr[MOUNT_NUM_MAX];
 
-	int   ProcedureMNT(void);
-	int   ProcedureUMNT(void);
-    int   ProcedureUMNTALL(void);
-    int   ProcedureEXPORT(void);
+	int   procedureMNT(void);
+	int   procedureUMNT(void);
+    int   procedureUMNTALL(void);
+    int   procedureEXPORT(void);
 };
 
 #endif

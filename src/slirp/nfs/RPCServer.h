@@ -5,20 +5,21 @@
 #include "Socket.h"
 #include "RPCProg.h"
 #include "host.h"
-
-#define PROG_NUM 128
+#include <map>
+#include <vector>
 
 class CRPCServer : public ISocketListener {
 public:
 	CRPCServer();
 	virtual ~CRPCServer();
-	void Set(int nProg, CRPCProg* pRPCProg);
-	void SetLogOn(bool bLogOn);
-	void SocketReceived(CSocket* pSocket);
+	void set(int nProg, CRPCProg* pRPCProg);
+	void setLogOn(bool bLogOn);
+	void socketReceived(CSocket* pSocket, uint32_t header);
 protected:
-	CRPCProg* m_pProgTable[PROG_NUM];
-	mutex_t*  m_hMutex;
-    int Process(int nType, XDRInput* pInStream, XDROutput* pOutStream, const char* pRemoteAddr);
+    std::map<int, std::vector<CRPCProg*> > m_pProgTable;
+	mutex_t*                               m_hMutex;
+    
+    int process(int nType, int port, XDRInput* pInStream, XDROutput* pOutStream, uint32_t headerIn, const char* pRemoteAddr);
 };
 
 #endif

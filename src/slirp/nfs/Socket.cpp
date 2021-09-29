@@ -3,29 +3,42 @@
 #include "Socket.h"
 #include "nfsd.h"
 
+using namespace std;
+
 static int ThreadProc(void *lpParameter)
 {
 	CSocket *pSocket;
 
 	pSocket = (CSocket *)lpParameter;
-	pSocket->Run();
+	pSocket->run();
 	return 0;
 }
 
-CSocket::CSocket(int nType) : m_nType(nType), m_Socket(-1), m_pListener(NULL), m_bActive(false), m_hThread(NULL)  {
+CSocket::CSocket(int nType, int serverPort)
+  : m_nType(nType)
+  , m_Socket(-1)
+  , m_pListener(NULL)
+  , m_bActive(false)
+  , m_hThread(NULL)
+  , m_serverPort(serverPort)
+{
 	memset(&m_RemoteAddr, 0, sizeof(m_RemoteAddr));
 }
 
 CSocket::~CSocket() {
-	Close();
+	close();
 }
 
-int CSocket::GetType(void) {
+int CSocket::getType() {
 	return m_nType;  //socket type
 }
 
-void CSocket::Open(int socket, ISocketListener *pListener, struct sockaddr_in *pRemoteAddr) {
-	Close();
+int CSocket::getServerPort() {
+    return m_serverPort;
+}
+
+void CSocket::open(int socket, ISocketListener *pListener, struct sockaddr_in *pRemoteAddr) {
+	close();
 
 	m_Socket = socket;  //socket
 	m_pListener = pListener;  //listener
@@ -38,64 +51,80 @@ void CSocket::Open(int socket, ISocketListener *pListener, struct sockaddr_in *p
 	}
 }
 
-void CSocket::Close(void) {
+void CSocket::close(void) {
 	if (m_Socket != INVALID_SOCKET) {
-		close(m_Socket);
+		::close(m_Socket);
 		m_Socket = INVALID_SOCKET;
 	}
 
     m_hThread = NULL;
 }
 
-void CSocket::Send(void) {
+void CSocket::send(void) {
 	if (m_Socket == INVALID_SOCKET)
 		return;
 
     ssize_t nBytes = 0;
 	if (m_nType == SOCK_STREAM)
-		nBytes = send(m_Socket, (const char *)m_Output.GetBuffer(), m_Output.GetSize(), 0);
+		nBytes = ::send(m_Socket, (const char *)m_Output.data(), m_Output.size(), 0);
 	else if (m_nType == SOCK_DGRAM)
-		nBytes = sendto(m_Socket, (const char *)m_Output.GetBuffer(), m_Output.GetSize(), 0, (struct sockaddr *)&m_RemoteAddr, sizeof(struct sockaddr));
+		nBytes = sendto(m_Socket, (const char *)m_Output.data(), m_Output.size(), 0, (struct sockaddr *)&m_RemoteAddr, sizeof(struct sockaddr));
+    
     if(nBytes < 0)
-        perror("[NFSD]Socket send");
-    m_Output.Reset();  //clear output buffer
+        perror("[NFSD] Socket send");
+    else if(nBytes != m_Output.size())
+        perror("[NFSD] Socket send, size mismatch");
+    m_Output.reset();  //clear output buffer
 }
 
-bool CSocket::Active(void) {
+bool CSocket::active(void) {
 	return m_bActive;  //thread is active or not
 }
 
-char *CSocket::GetRemoteAddress(void) {
+const char* CSocket::getRemoteAddress(void) {
     return inet_ntoa(m_RemoteAddr.sin_addr);
 }
 
-int CSocket::GetRemotePort(void) {
+int CSocket::getRemotePort(void) {
     return htons(m_RemoteAddr.sin_port);
 }
 
-XDRInput* CSocket::GetInputStream(void) {
+XDRInput* CSocket::getInputStream(void) {
 	return &m_Input;
 }
 
-XDROutput* CSocket::GetOutputStream(void) {
+XDROutput* CSocket::getOutputStream(void) {
 	return &m_Output;
 }
 
-void CSocket::Run(void) {
+void CSocket::run(void) {
     socklen_t nSize;
 
     ssize_t nBytes = 0;
 	for (;;) {
+        uint32_t header = 0;
 		if (m_nType == SOCK_STREAM)
-			nBytes = recv(m_Socket, (void*)m_Input.GetBuffer(), m_Input.GetCapacity(), 0);
+			nBytes = recv(m_Socket, (void*)m_Input.data(), m_Input.getCapacity(), 0);
         else if (m_nType == SOCK_DGRAM) {
             nSize = sizeof(m_RemoteAddr);
-			nBytes = recvfrom(m_Socket, (void*)m_Input.GetBuffer(), m_Input.GetCapacity(), 0, (struct sockaddr *)&m_RemoteAddr, &nSize);
+			nBytes = recvfrom(m_Socket, (void*)m_Input.data(), m_Input.getCapacity(), 0, (struct sockaddr *)&m_RemoteAddr, &nSize);
         }
-		if (nBytes > 0) {
-			m_Input.SetSize(nBytes);  //bytes received
+        if(nBytes == 0) {
+            perror("[NFSD] Socket closed");
+            break;
+        }
+        else if(nBytes == -1 && errno == EAGAIN)
+            continue;
+		else if (nBytes > 0) {
+			m_Input.resize(nBytes);  //bytes received
+            if (m_nType == SOCK_STREAM) {
+                m_Input.read(&header);
+                if((nBytes - 4) < (header & ~0x80000000)) {
+                    perror("[NFSD] Missing data");
+                }
+            }
 			if (m_pListener != NULL)
-				m_pListener->SocketReceived(this);  //notify listener
+				m_pListener->socketReceived(this, header);  //notify listener
         } else {
             perror("[NFSD] Socket recv");
             break;
@@ -104,22 +133,26 @@ void CSocket::Run(void) {
 	m_bActive = false;
 }
 
-void CSocket::map_port(int type, int progNum, uint16_t port) {
+void CSocket::map_port(int type, int progNum, uint16_t origPort, uint16_t port) {
     switch(type) {
         case SOCK_DGRAM:
             switch(progNum) {
-                case PROG_VDNS:    nfsd_ports.udp.dns     = port; break;
-                case PROG_PORTMAP: nfsd_ports.udp.portmap = port; break;
-                case PROG_MOUNT:   nfsd_ports.udp.mount   = port; break;
-                case PROG_NFS:     nfsd_ports.udp.nfs     = port; break;
+                case PROG_VDNS:        nfsd_ports.udp.dns         = port; break;
+                case PROG_PORTMAP:     nfsd_ports.udp.portmap     = port; break;
+                case PROG_MOUNT:       nfsd_ports.udp.mount       = port; break;
+                case PROG_NFS:         nfsd_ports.udp.nfs         = port; break;
+                case PROG_NETINFO:     if(origPort == PORT_NETINFO) nfsd_ports.udp.netinfo = port; break;
+                case PROG_NETINFOBIND: nfsd_ports.udp.netinfobind = port; break;
             }
             break;
         case SOCK_STREAM:
             switch(progNum) {
-                case PROG_VDNS:    nfsd_ports.tcp.dns     = port; break;
-                case PROG_PORTMAP: nfsd_ports.tcp.portmap = port; break;
-                case PROG_MOUNT:   nfsd_ports.tcp.mount   = port; break;
-                case PROG_NFS:     nfsd_ports.tcp.nfs     = port; break;
+                case PROG_VDNS:        nfsd_ports.tcp.dns         = port; break;
+                case PROG_PORTMAP:     nfsd_ports.tcp.portmap     = port; break;
+                case PROG_MOUNT:       nfsd_ports.tcp.mount       = port; break;
+                case PROG_NFS:         nfsd_ports.tcp.nfs         = port; break;
+                case PROG_NETINFO:     if(origPort == PORT_NETINFO) nfsd_ports.tcp.netinfo = port; break;
+                case PROG_NETINFOBIND: nfsd_ports.tcp.netinfobind = port; break;
             }
             break;
     }
@@ -131,12 +164,14 @@ uint16_t CSocket::map_and_htons(int sockType, uint16_t port) {
             case PORT_DNS:     return htons(nfsd_ports.tcp.dns);
             case PORT_PORTMAP: return htons(nfsd_ports.tcp.portmap);
             case PORT_NFS:     return htons(nfsd_ports.tcp.nfs);
+            case PORT_NETINFO: return htons(nfsd_ports.tcp.netinfo);
         }
     } else {
         switch (port) {
             case PORT_DNS:     return htons(nfsd_ports.udp.dns);
             case PORT_PORTMAP: return htons(nfsd_ports.udp.portmap);
             case PORT_NFS:     return htons(nfsd_ports.udp.nfs);
+            case PORT_NETINFO: return htons(nfsd_ports.udp.netinfo);
         }
     }
     return htons(port);

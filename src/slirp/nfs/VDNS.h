@@ -41,17 +41,17 @@ typedef struct {
 
 class VDNS : public ISocketListener {
     static std::vector<vdns_record> sDB;
-    static vdns_record              errNonSuchName;
+    static vdns_record              errNoSuchName;
     mutex_t*                        mMutex;
     UDPServerSocket*                mUDP;
     
-    void AddRecord(uint32_t addr, const char* name = NULL);
+    void addRecord(uint32_t addr, const char* name = NULL);
 public:
     VDNS(void);
     ~VDNS(void);
     
-    static vdns_record* Query(uint8_t* data, size_t size);
-    void   SocketReceived(CSocket* pSocket);
+    static vdns_record* query(uint8_t* data, size_t size);
+    void   socketReceived(CSocket* pSocket, uint32_t header);
 };
 
 extern "C" int nfsd_vdns_match(struct mbuf *m, uint32_t addr, int dport);
