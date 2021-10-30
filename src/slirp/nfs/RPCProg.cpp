@@ -2,7 +2,8 @@
 #include <stdio.h>
 
 #include "RPCProg.h"
-#include "Socket.h"
+#include "TCPServerSocket.h"
+#include "UDPServerSocket.h"
 
 using namespace std;
 
@@ -16,9 +17,9 @@ CRPCProg::~CRPCProg() {}
 void CRPCProg::init(uint16_t portTCP, uint16_t portUDP) {
     m_portTCP = portTCP;
     m_portUDP = portUDP;
-    log(" init tcp:%d->%d udp%d->%d",
-        getPortTCP(), ntohs(CSocket::map_and_htons(SOCK_STREAM, getPortTCP())),
-        getPortUDP(), ntohs(CSocket::map_and_htons(SOCK_DGRAM,  getPortUDP())));
+    log(" init tcp:%d->%d udp:%d->%d",
+        getPortTCP(), TCPServerSocket::toLocalPort(getPortTCP()),
+        getPortUDP(), UDPServerSocket::toLocalPort(getPortUDP()));
 }
 
 void CRPCProg::setup(XDRInput* xin, XDROutput* xout, ProcessParam* param) {

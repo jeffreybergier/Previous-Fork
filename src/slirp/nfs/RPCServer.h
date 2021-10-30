@@ -2,7 +2,7 @@
 #define _RPCSERVER_H_
 
 #include "SocketListener.h"
-#include "Socket.h"
+#include "CSocket.h"
 #include "RPCProg.h"
 #include "host.h"
 #include <map>

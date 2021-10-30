@@ -9,12 +9,12 @@
 #include "nfsd.h"
 
 #include "compat.h"
-#include <socket.h>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <string>
 #include <sstream>
+#include <arpa/inet.h>
 
 using namespace std;
 
@@ -45,8 +45,8 @@ static string ip_addr_str(uint32_t addr, string suffix) {
     return ss.str();
 }
 
-void VDNS::addRecord(uint32_t addr, const char* _name) {
-    size_t size = strlen(_name);
+void VDNS::addRecord(uint32_t addr, const string& _name) {
+    size_t size = _name.size();
     char name[size + 2];
     for(size_t i = 0; i < size; i++)
         name[i] = tolower(_name[i]);
@@ -61,40 +61,38 @@ void VDNS::addRecord(uint32_t addr, const char* _name) {
     memcpy(rec.data, &inaddr, rec.size);
     sDB.push_back(rec);
     
-    if(_name) {
-        rec.type   = REC_A;
-        rec.inaddr = addr;
-        rec.key    = name;
-        rec.key    += ".";
-        uint32_t inaddr = htonl(addr);
-        rec.size = 4;
-        memcpy(rec.data, &inaddr, rec.size);
-        sDB.push_back(rec);
+    rec.type   = REC_A;
+    rec.inaddr = addr;
+    rec.key    = name;
+    rec.key    += ".";
+    inaddr = htonl(addr);
+    rec.size = 4;
+    memcpy(rec.data, &inaddr, rec.size);
+    sDB.push_back(rec);
 
-        rec.type   = REC_PTR;
-        rec.inaddr = addr;
-        rec.key    = ip_addr_str(SDL_Swap32(addr), ".in-addr.arpa.");
-        rec.size   = domain_name(rec.data , name);
-        sDB.push_back(rec);
-    }
+    rec.type   = REC_PTR;
+    rec.inaddr = addr;
+    rec.key    = ip_addr_str(SDL_Swap32(addr), ".in-addr.arpa.");
+    rec.size   = domain_name(rec.data , name);
+    sDB.push_back(rec);
 }
 
-VDNS::VDNS(void)
+VDNS::VDNS(CNetInfoBindProg* netInfoBind)
 : mMutex(host_mutex_create())
 {
     mUDP = new UDPServerSocket(this);
     mUDP->open(PROG_VDNS, PORT_DNS);
     
-    char hostname[_SC_HOST_NAME_MAX];
-    hostname[0] = '\0';
-    gethostname(hostname, sizeof(hostname));
-    
-    addRecord(ntohl(special_addr.s_addr) | CTL_ALIAS, hostname);
-    addRecord(ntohl(special_addr.s_addr) | CTL_HOST,  FQDN_HOST);
-    addRecord(ntohl(special_addr.s_addr) | CTL_DNS,   FQDN_DNS);
-    addRecord(ntohl(special_addr.s_addr) | CTL_NFSD,  FQDN_NFSD);
-    addRecord(ntohl(special_addr.s_addr) | CTL_HOST,  NAME_HOST);
-    addRecord(0x7F000001,                             "localhost");
+    vector<NetInfoNode*> machines = netInfoBind->m_Network.mRoot.find("name", "machines")[0]->mChildren;
+    for(size_t i = 0; i < machines.size(); i++) {
+        string name = machines[i]->getPropValues(machines[i]->mProps, "name")[0];
+        name += NAME_DOMAIN;
+        string ip   = machines[i]->getPropValues(machines[i]->mProps, "ip_address")[0];
+        in_addr addr;
+        inet_aton(ip.c_str(), &addr);
+        addRecord(ntohl(addr.s_addr), name);
+    }
+    addRecord(0x7F000001, "localhost");
 }
 
 VDNS::~VDNS(void) {
@@ -144,13 +142,25 @@ vdns_record* VDNS::query(uint8_t* data, size_t size) {
 }
 
 
-extern "C" int nfsd_vdns_match(struct mbuf *m, uint32_t addr, int dport) {
+extern "C" int vdns_match(struct mbuf *m, uint32_t addr, int dport) {
     if(m->m_len > 40 &&
        dport == PORT_DNS &&
        addr == (CTL_NET | CTL_DNS))
         return VDNS::query(reinterpret_cast<uint8_t*>(&m->m_data[40]), m->m_len-40) != NULL;
     else
         return false;
+}
+
+extern "C" void vdns_udp_map_to_local_port(uint32_t* ipNBO, uint16_t* dportNBO) {
+    switch(ntohs(*dportNBO)) {
+        case PORT_DNS:
+            // map port & address for virtual DNS
+            *dportNBO = htons(UDPServerSocket::toLocalPort(PORT_DNS));
+            *ipNBO    = loopback_addr.s_addr;
+            break;
+        default:
+            break;
+    }
 }
 
 void VDNS::socketReceived(CSocket* pSocket, uint32_t header) {

@@ -7,22 +7,6 @@
 
 #include "RPCProg.h"
 
-typedef struct {
-    int portmap;
-    int nfs;
-    int mount;
-    int dns;
-    int netinfo;
-    int netinfobind;
-} nfsd_mapped_ports;
-
-typedef struct {
-    nfsd_mapped_ports tcp;
-    nfsd_mapped_ports udp;
-} nfsd_NAT;
-
-extern nfsd_NAT nfsd_ports;
-
 #define PORT_DNS      53
 #define PORT_PORTMAP  111
 #define PORT_NFS      2049
@@ -50,10 +34,14 @@ extern "C" {
     
     void nfsd_start(void);
     int  nfsd_match_addr(uint32_t addr);
+
 #ifdef __cplusplus
 }
 #else
-    int nfsd_read(const char* path, size_t fileOffset, void* dst, size_t count);
+    int  nfsd_read(const char* path, size_t fileOffset, void* dst, size_t count);
+    void nfsd_udp_map_to_local_port(uint32_t* ip, uint16_t* dport);
+    void nfsd_udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO);
+    void nfsd_tcp_map_to_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO);
 #endif
 
 #define NFSD_NOTIMPL nfsd_not_implemented(__FILE__, __LINE__);

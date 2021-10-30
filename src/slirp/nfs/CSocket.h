@@ -1,7 +1,8 @@
-#ifndef _SOCKET_H_
-#define _SOCKET_H_
+#ifndef _CSOCKET_H_
+#define _CSOCKET_H_
 
 #include <sys/socket.h>
+#include <sys/errno.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
@@ -28,8 +29,8 @@ public:
     int            getServerPort(void);
     
     static uint16_t map_and_htons(int type, uint16_t port);
-    static void     map_port(int type, int progNum, uint16_t origPort, uint16_t port);
-    
+    static void     unmapTCP(uint16_t port);
+    static void     unmapUDP(uint16_t port);    
 private:
 	int                m_nType;
 	int                m_Socket;

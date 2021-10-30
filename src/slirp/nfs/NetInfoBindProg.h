@@ -5,8 +5,8 @@
 //  Created by Simon Schubiger on 9/1/21.
 //
 
-#ifndef NetInfoBindProg_hpp
-#define NetInfoBindProg_hpp
+#ifndef NetInfoBindProg_h
+#define NetInfoBindProg_h
 
 
 #include <stdio.h>
@@ -36,11 +36,12 @@ class CNetInfoBindProg : public CRPCProg
     void doRegister(const std::string& tag, uint32_t udpPort, uint32_t tcpPort);
     
     std::map<std::string, nibind_addrinfo> m_Register;
-    CNetInfoProg                           m_Local;
-    CNetInfoProg                           m_Network;
 public:
     CNetInfoBindProg();
     virtual ~CNetInfoBindProg();
+    
+    CNetInfoProg  m_Local;
+    CNetInfoProg  m_Network;
 };
 
-#endif /* NetInfoBindProg_hpp */
+#endif /* NetInfoBindProg_h */

@@ -63,14 +63,21 @@ CNetInfoBindProg::CNetInfoBindProg()
     add_rpc_program(&m_Local);
     doRegister(m_Local.mTag, m_Local.getPortUDP(), m_Local.getPortTCP());
     
-    add_rpc_program(&m_Network);
+    add_rpc_program(&m_Network, PORT_NETINFO);
     doRegister(m_Network.mTag, m_Network.getPortUDP(), m_Network.getPortTCP());
     
     m_Network.mRoot.add("master", NAME_NFSD "/network");
     m_Network.mRoot.add("trusted_networks", ip_addr_str(CTL_NET, 3));
     NetInfoNode* machines   = m_Network.mRoot.add(NIProps("name","machines"));
-    machines->add(NIProps("name",NAME_NFSD)("ip_address",ip_addr_str(CTL_NET|CTL_NFSD, 4))("serves","./network,../network,"NAME_NFSD"/local"));
-    machines->add(NIProps("name",NAME_HOST)("ip_address",ip_addr_str(CTL_NET|CTL_HOST, 4))("serves",NAME_HOST"/local")("netgroups",""));
+    
+    char hostname[_SC_HOST_NAME_MAX];
+    hostname[0] = '\0';
+    gethostname(hostname, sizeof(hostname));
+    
+    machines->add(NIProps("name",hostname) ("ip_address",ip_addr_str(CTL_NET|CTL_ALIAS, 4)));
+    machines->add(NIProps("name",NAME_HOST)("ip_address",ip_addr_str(CTL_NET|CTL_HOST,  4))("serves",NAME_HOST"/local")("netgroups",""));
+    machines->add(NIProps("name",NAME_DNS) ("ip_address",ip_addr_str(CTL_NET|CTL_DNS, 4)));
+    machines->add(NIProps("name",NAME_NFSD)("ip_address",ip_addr_str(CTL_NET|CTL_NFSD,  4))("serves","./network,../network,"NAME_NFSD"/local"));
                   
     NetInfoNode* printers   = m_Network.mRoot.add(NIProps("name","printers"));
     NetInfoNode* fax_modems = m_Network.mRoot.add(NIProps("name","fax_modems"));

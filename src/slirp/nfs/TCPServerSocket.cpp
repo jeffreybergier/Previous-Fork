@@ -28,7 +28,7 @@ bool TCPServerSocket::open(int progNum, uint16_t nPort) {
     
     memset(&localAddr, 0, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
-    localAddr.sin_port = CSocket::map_and_htons(SOCK_STREAM, nPort);
+    localAddr.sin_port = htons(nPort ? TCPServerSocket::toLocalPort(nPort) : nPort);
     localAddr.sin_addr = loopback_addr;
     if (bind(m_ServerSocket, (struct sockaddr *)&localAddr, sizeof(localAddr)) < 0) {
         ::close(m_ServerSocket);
@@ -41,7 +41,7 @@ bool TCPServerSocket::open(int progNum, uint16_t nPort) {
         return false;
     }
     m_nPort = nPort == 0 ? ntohs(localAddr.sin_port) : nPort;
-    CSocket::map_port(SOCK_STREAM, progNum, nPort, ntohs(localAddr.sin_port));
+    TCPServerSocket::portMap(progNum, m_nPort, ntohs(localAddr.sin_port));
 
     if (listen(m_ServerSocket, BACKLOG) < 0) {
         ::close(m_ServerSocket);
@@ -67,12 +67,9 @@ void TCPServerSocket::close(void)
 
 	::close(m_ServerSocket);
 
-    if      (m_nPort == PORT_DNS)             nfsd_ports.tcp.dns     = 0;
-    else if (m_nPort == PORT_PORTMAP)         nfsd_ports.tcp.portmap = 0;
-    else if (m_nPort == nfsd_ports.tcp.mount) nfsd_ports.tcp.mount   = 0;
-    else if (m_nPort == PORT_NFS)             nfsd_ports.tcp.nfs     = 0;
-    else if (m_nPort == PORT_NETINFO)         nfsd_ports.tcp.netinfo = 0;
-
+    //CSocket::unmapTCP(m_nPort);
+    TCPServerSocket::portUnmap(m_nPort);
+    
 	if (m_hThread != NULL)
 	{
 		host_thread_wait(m_hThread);
@@ -108,4 +105,41 @@ void TCPServerSocket::run(void) {
 				}
 		}
 	}
+}
+
+lock_t                       TCPServerSocket::natLock;
+std::map<uint16_t, uint16_t> TCPServerSocket::toLocal;
+std::map<uint16_t, uint16_t> TCPServerSocket::fromLocal;
+
+
+void TCPServerSocket::portMap(int progNum, uint16_t src, uint16_t local) {
+    assert(local);
+    host_lock(&natLock);
+    toLocal[src] = local;
+    fromLocal[local] = src;
+    host_unlock(&natLock);
+}
+
+void TCPServerSocket::portUnmap(uint16_t src) {
+    host_lock(&natLock);
+    uint16_t local = toLocal[src];
+    toLocal.erase(src);
+    fromLocal.erase(local);
+    host_unlock(&natLock);
+}
+
+uint16_t TCPServerSocket::toLocalPort(uint16_t src) {
+    assert(src);
+    host_lock(&natLock);
+    uint16_t result = toLocal[src];
+    host_unlock(&natLock);
+    return result;
+}
+
+uint16_t TCPServerSocket::fromLocalPort(uint16_t local) {
+    assert(local);
+    host_lock(&natLock);
+    uint16_t result = fromLocal[local];
+    host_unlock(&natLock);
+    return result;
 }

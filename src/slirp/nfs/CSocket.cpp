@@ -1,6 +1,6 @@
 #include <arpa/inet.h>
 
-#include "Socket.h"
+#include "CSocket.h"
 #include "nfsd.h"
 
 using namespace std;
@@ -131,48 +131,4 @@ void CSocket::run(void) {
         }
 	}
 	m_bActive = false;
-}
-
-void CSocket::map_port(int type, int progNum, uint16_t origPort, uint16_t port) {
-    switch(type) {
-        case SOCK_DGRAM:
-            switch(progNum) {
-                case PROG_VDNS:        nfsd_ports.udp.dns         = port; break;
-                case PROG_PORTMAP:     nfsd_ports.udp.portmap     = port; break;
-                case PROG_MOUNT:       nfsd_ports.udp.mount       = port; break;
-                case PROG_NFS:         nfsd_ports.udp.nfs         = port; break;
-                case PROG_NETINFO:     if(origPort == PORT_NETINFO) nfsd_ports.udp.netinfo = port; break;
-                case PROG_NETINFOBIND: nfsd_ports.udp.netinfobind = port; break;
-            }
-            break;
-        case SOCK_STREAM:
-            switch(progNum) {
-                case PROG_VDNS:        nfsd_ports.tcp.dns         = port; break;
-                case PROG_PORTMAP:     nfsd_ports.tcp.portmap     = port; break;
-                case PROG_MOUNT:       nfsd_ports.tcp.mount       = port; break;
-                case PROG_NFS:         nfsd_ports.tcp.nfs         = port; break;
-                case PROG_NETINFO:     if(origPort == PORT_NETINFO) nfsd_ports.tcp.netinfo = port; break;
-                case PROG_NETINFOBIND: nfsd_ports.tcp.netinfobind = port; break;
-            }
-            break;
-    }
-}
-
-uint16_t CSocket::map_and_htons(int sockType, uint16_t port) {
-    if(sockType == SOCK_STREAM) {
-        switch (port) {
-            case PORT_DNS:     return htons(nfsd_ports.tcp.dns);
-            case PORT_PORTMAP: return htons(nfsd_ports.tcp.portmap);
-            case PORT_NFS:     return htons(nfsd_ports.tcp.nfs);
-            case PORT_NETINFO: return htons(nfsd_ports.tcp.netinfo);
-        }
-    } else {
-        switch (port) {
-            case PORT_DNS:     return htons(nfsd_ports.udp.dns);
-            case PORT_PORTMAP: return htons(nfsd_ports.udp.portmap);
-            case PORT_NFS:     return htons(nfsd_ports.udp.nfs);
-            case PORT_NETINFO: return htons(nfsd_ports.udp.netinfo);
-        }
-    }
-    return htons(port);
 }

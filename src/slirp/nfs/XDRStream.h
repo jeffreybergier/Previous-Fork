@@ -4,6 +4,7 @@
 #include <string>
 #include <stdio.h>
 #include <stdint.h>
+#include <ostream>
 
 class XDROpaque {
 public:
@@ -32,6 +33,8 @@ public:
     operator std::string() {return std::string(c_str());}
     virtual void set(const void* dataWillBeCopied, size_t size);
     void         set(const char* str);
+    
+    friend std::ostream& operator<<(std::ostream& os, const XDRString& s);
 };
 
 class XDRStream {

@@ -49,6 +49,10 @@ XDRString::XDRString(const string& str) : XDROpaque(str.c_str(), str.size()), m_
 
 XDRString::XDRString(void) : XDROpaque(), m_str(NULL) {}
 
+XDRString::~XDRString() {
+    if(m_str) delete[] m_str;
+}
+
 const char* XDRString::c_str(void) {
     if(!(m_str)) {
         m_str = new char[m_size+1];
@@ -68,8 +72,11 @@ void XDRString::set(const char* str) {
     set((uint8_t*)str, strlen(str) + 1);
 }
 
-XDRString::~XDRString() {
-    if(m_str) delete[] m_str;
+ostream& operator<<(ostream& os, const XDRString& s)
+{
+    for(size_t i = 0; i < s.m_size; i++)
+        os << static_cast<char>(s.m_data[i]);
+    return os;
 }
 
 XDRStream::XDRStream(bool deleteBuffer, uint8_t* buffer, size_t capacity, size_t size) :

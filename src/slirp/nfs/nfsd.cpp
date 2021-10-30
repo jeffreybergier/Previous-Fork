@@ -20,8 +20,6 @@ static bool         g_bLogOn = true;
 static CPortmapProg g_PortmapProg;
 static CRPCServer   g_RPCServer;
 
-nfsd_NAT nfsd_ports = {{0,0,0,0,0,0},{0,0,0,0,0,0}};
-
 static std::vector<UDPServerSocket*> SERVER_UDP;
 static std::vector<TCPServerSocket*> SERVER_TCP;
 
@@ -115,7 +113,6 @@ extern "C" void nfsd_start(void) {
     static CNFSProg         sNFSProg;
     static CMountProg       sMountProg;
     static CBootparamProg   sBootparamProg;
-    static CNetInfoProg     sNetInfoProg("");
     static CNetInfoBindProg sNetInfoBindProg;
 
     int uid;
@@ -129,10 +126,9 @@ extern "C" void nfsd_start(void) {
     add_rpc_program(&sNFSProg,       PORT_NFS);
     add_rpc_program(&sMountProg);
     add_rpc_program(&sBootparamProg);
-    add_rpc_program(&sNetInfoProg,   PORT_NETINFO);
     add_rpc_program(&sNetInfoBindProg);
 
-    static VDNS vdns;
+    static VDNS vdns(&sNetInfoBindProg);
     
     initialized = true;
 }
@@ -141,4 +137,34 @@ extern "C" int nfsd_match_addr(uint32_t addr) {
     return (addr == (ntohl(special_addr.s_addr) | CTL_NFSD)) ||
            (addr == (ntohl(special_addr.s_addr) | ~(uint32_t)CTL_NET_MASK)) ||
            (addr == (ntohl(special_addr.s_addr) | ~(uint32_t)CTL_CLASS_MASK(CTL_NET))); // NS kernel seems to broadcast on 10.255.255.255
+}
+
+extern "C" void nfsd_udp_map_to_local_port(uint32_t* ipNBO, uint16_t* dportNBO) {
+    uint16_t dport = ntohs(*dportNBO);
+    uint16_t port  = UDPServerSocket::toLocalPort(dport);
+    if(port) {
+        *dportNBO = htons(port);
+        *ipNBO    = loopback_addr.s_addr;
+    }
+}
+
+extern "C" void nfsd_tcp_map_to_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO) {
+    uint16_t localPort = TCPServerSocket::toLocalPort(port);
+    if(localPort)
+        *sin_portNBO = htons(localPort);
+}
+
+extern "C" void nfsd_udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO) {
+    uint16_t localPort = UDPServerSocket::fromLocalPort(port);
+    if(localPort) {
+        *sin_portNBO = htons(localPort);
+        switch(port) {
+            case PORT_DNS:
+                *saddrNBO = special_addr.s_addr | htonl(CTL_DNS);
+                break;
+            default:
+                *saddrNBO = special_addr.s_addr | htonl(CTL_NFSD);
+                break;
+        }
+    }
 }

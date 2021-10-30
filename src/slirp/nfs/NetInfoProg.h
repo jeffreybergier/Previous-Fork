@@ -6,7 +6,7 @@
 //
 
 #ifndef NetInfoProg_hpp
-#define NetInfoPorg_hpp
+#define NetInfoProg_hpp
 
 #include <stdio.h>
 #include <map>
@@ -77,8 +77,12 @@ public:
     void                      add(const std::string& key, const std::string& value);
     NetInfoNode*              find(struct ni_id& ni_id, ni_status& status, bool forWrite = false) const;
     std::vector<NetInfoNode*> find(const std::string& key, const std::string& value) const;
-    std::vector<std::string>  getProps(const std::string& key) const;
-    std::vector<std::string>  getProps(uint32_t index) const;
+    int                       checksum(void);
+    std::string               getPath(void);
+    std::vector<std::string>  getPropNames();
+    
+    static std::vector<std::string>  getPropValues(const std::map<std::string, std::string>& props, const std::string& key);
+    static std::vector<std::string>  getPropValues(const std::map<std::string, std::string>& props, uint32_t index);
 };
 
 class CNetInfoProg : public CRPCProg

@@ -24,7 +24,7 @@ bool UDPServerSocket::open(int progNum, uint16_t nPort) {
     setsockopt(m_Socket, SOL_SOCKET, SO_RCVBUF, &size, len);
     memset(&localAddr, 0, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
-    localAddr.sin_port = CSocket::map_and_htons(SOCK_DGRAM, nPort);
+    localAddr.sin_port = htons(nPort ? UDPServerSocket::toLocalPort(nPort) : nPort);
     localAddr.sin_addr = loopback_addr;
     if (bind(m_Socket, (struct sockaddr *)&localAddr, sizeof(struct sockaddr)) < 0) {
         ::close(m_Socket);
@@ -38,7 +38,7 @@ bool UDPServerSocket::open(int progNum, uint16_t nPort) {
     }
     
     m_nPort = nPort == 0 ? ntohs(localAddr.sin_port) : nPort;
-    CSocket::map_port(SOCK_DGRAM, progNum, nPort, ntohs(localAddr.sin_port));
+    UDPServerSocket::portMap(progNum, m_nPort, ntohs(localAddr.sin_port));
 
 	m_bClosed = false;
 	m_pSocket = new CSocket(SOCK_DGRAM, getPort());
@@ -53,15 +53,47 @@ void UDPServerSocket::close(void)
 
 	m_bClosed = true;
 	::close(m_Socket);
-    
-    if      (m_nPort == PORT_DNS)             nfsd_ports.udp.dns     = 0;
-    else if (m_nPort == PORT_PORTMAP)         nfsd_ports.udp.portmap = 0;
-    else if (m_nPort == nfsd_ports.udp.mount) nfsd_ports.udp.mount   = 0;
-    else if (m_nPort == PORT_NFS)             nfsd_ports.udp.nfs     = 0;
-    
+    //CSocket::unmapUDP(m_nPort);
+    portUnmap(m_nPort);
 	delete m_pSocket;
 }
 
 int UDPServerSocket::getPort(void) {
 	return m_nPort;
+}
+
+lock_t                       UDPServerSocket::natLock;
+std::map<uint16_t, uint16_t> UDPServerSocket::toLocal;
+std::map<uint16_t, uint16_t> UDPServerSocket::fromLocal;
+
+void UDPServerSocket::portMap(int progNum, uint16_t src, uint16_t local) {
+    assert(local);
+    host_lock(&natLock);
+    toLocal[src] = local;
+    fromLocal[local] = src;
+    host_unlock(&natLock);
+}
+
+void UDPServerSocket::portUnmap(uint16_t src) {
+    host_lock(&natLock);
+    uint16_t local = toLocal[src];
+    toLocal.erase(src);
+    fromLocal.erase(local);
+    host_unlock(&natLock);
+}
+
+uint16_t UDPServerSocket::toLocalPort(uint16_t src) {
+    assert(src);
+    host_lock(&natLock);
+    uint16_t result = toLocal[src];
+    host_unlock(&natLock);
+    return result;
+}
+
+uint16_t UDPServerSocket::fromLocalPort(uint16_t local) {
+    assert(local);
+    host_lock(&natLock);
+    uint16_t result = fromLocal[local];
+    host_unlock(&natLock);
+    return result;
 }
