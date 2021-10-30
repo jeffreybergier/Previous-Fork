@@ -29,28 +29,28 @@ FileAttrs::FileAttrs(XDRInput* xin) : rdev(INVALID) {
 }
 #endif
 
-FileAttrs::FileAttrs(const struct stat& stat) :
-mode      (stat.st_mode),
-uid       (stat.st_uid),
-gid       (stat.st_gid),
-size      (static_cast<uint32_t>(stat.st_size)),
-atime_sec (static_cast<uint32_t>(stat.st_atimespec.tv_sec)),
-atime_usec(static_cast<uint32_t>(stat.st_atimespec.tv_nsec / 1000)),
-mtime_sec (static_cast<uint32_t>(stat.st_mtimespec.tv_sec)),
-mtime_usec(static_cast<uint32_t>(stat.st_mtimespec.tv_nsec / 1000)),
-rdev      (stat.st_rdev)
+FileAttrs::FileAttrs(const struct stat& stat)
+: mode      (stat.st_mode)
+, uid       (stat.st_uid)
+, gid       (stat.st_gid)
+, size      (static_cast<uint32_t>(stat.st_size))
+, atime_sec (static_cast<uint32_t>(stat.st_atimespec.tv_sec))
+, atime_usec(static_cast<uint32_t>(stat.st_atimespec.tv_nsec / 1000))
+, mtime_sec (static_cast<uint32_t>(stat.st_mtimespec.tv_sec))
+, mtime_usec(static_cast<uint32_t>(stat.st_mtimespec.tv_nsec / 1000))
+, rdev      (stat.st_rdev)
 {}
 
-FileAttrs::FileAttrs(const FileAttrs& attrs) :
-mode      (FATTR_INVALID),
-uid       (FATTR_INVALID),
-gid       (FATTR_INVALID),
-size      (FATTR_INVALID),
-atime_sec (FATTR_INVALID),
-atime_usec(FATTR_INVALID),
-mtime_sec (FATTR_INVALID),
-mtime_usec(FATTR_INVALID),
-rdev      (FATTR_INVALID)
+FileAttrs::FileAttrs(const FileAttrs& attrs)
+: mode      (FATTR_INVALID)
+, uid       (FATTR_INVALID)
+, gid       (FATTR_INVALID)
+, size      (FATTR_INVALID)
+, atime_sec (FATTR_INVALID)
+, atime_usec(FATTR_INVALID)
+, mtime_sec (FATTR_INVALID)
+, mtime_usec(FATTR_INVALID)
+, rdev      (FATTR_INVALID)
 {update(attrs);}
 
 void FileAttrs::update(const FileAttrs& attrs) {
@@ -322,8 +322,8 @@ int VirtualFS::stat(const VFSPath& absoluteVFSpath, struct stat& fstat) {
         mode |= attrs.mode & (S_IWUSR | S_IRUSR | S_ISVTX); // copy user R/W permissions and directory restrcted delete from attributes
         if(S_ISREG(fstat.st_mode) && fstat.st_size == 0 && (attrs.mode & S_IFMT)) {
             // mode heursitics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes
-            mode &= ~S_IFMT;                // clear format
-            mode |= (attrs.mode & S_IFMT); // copy format from attributes
+            mode &= ~(S_IFMT | NFSMODE_STICKY);                // clear format
+            mode |= (attrs.mode & (S_IFMT | NFSMODE_STICKY)); // copy format from attributes
         }
         fstat.st_mode = mode;
     }
@@ -391,6 +391,7 @@ FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
     else {
         struct stat fstat;
         ::lstat(hostPath.c_str(), &fstat);
+        fstat.st_mode &= ~NFSMODE_STICKY;
         fstat.st_uid = vfsGetUID(absoluteVFSpath.parent_path(), true);
         fstat.st_gid = vfsGetGID(absoluteVFSpath.parent_path(), true);
         return FileAttrs(fstat);
