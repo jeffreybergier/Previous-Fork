@@ -168,6 +168,7 @@ static int brace_level;
 
 static char outbuffer[30000];
 static int last_access_offset_ipl;
+static int last_access_offset_ipl_prev;
 
 /* (SC) central hacking place for 030/040 instruction timinigs. This is carefully adjusted
  in order to
@@ -182,8 +183,8 @@ static int adjust_cycles(int cycles) {
     // General instruction timing scaling factors for 030/040. Mostly guesswork based
     // on NXbench scores
     switch(cpu_level) {
-        case 3: cycles *= 3; cycles /= 2; break;
-        case 4: cycles *= 1; cycles /= 3; break;
+        case 3: cycles *= 3; cycles /= 2; break; // *3/4 for correct MIPS
+        case 4: cycles *= 1; cycles /= 3; break; // *1/5 for correct MIPS
     }
     if(cycles == 0) cycles = 1;
     // special cases for timing loops, ROM POST depend on these
@@ -290,6 +291,12 @@ static void set_last_access_ipl(void)
 		return;
 	last_access_offset_ipl = strlen(outbuffer);
 }
+
+static void set_last_access_ipl_prev(void)
+{
+	last_access_offset_ipl_prev = strlen(outbuffer);
+}
+
 
 NORETURN static void term (void)
 {
@@ -532,17 +539,27 @@ static bool isprefetch020(void)
 
 static void check_ipl(void)
 {
-	if (ipl_fetched)
-		return;
-	if (using_ce || isce020() || using_prefetch_020)
-		out("ipl_fetch();\n");
-	ipl_fetched = 1;
+	// So far it seems 68000 IPL fetch happens when CPU is doing
+	// memory cycle data part followed by prefetch cycle. It must
+	// happen after possible bus error has been detected but before
+	// following prefetch memory cycle.
+	if (last_access_offset_ipl_prev < 0) {
+		set_last_access_ipl();
+	} else {
+		// if memory cycle happened previously: use it.
+		last_access_offset_ipl = last_access_offset_ipl_prev;
+		ipl_fetched = 1;
+	}
 }
 
 static void check_ipl_always(void)
 {
-	if (using_ce || isce020())
+	if (using_ce) {
 		out("ipl_fetch();\n");
+	}
+	if (isce020()) {
+		out("ipl_fetch();\n");
+	}
 }
 
 static void addcycles_020(int cycles)
@@ -578,7 +595,6 @@ static void get_prefetch_020 (void)
 {
 	if (!isprefetch020() || no_prefetch_ce020)
 		return;
-	check_ipl();
 	out("regs.irc = %s(%d);\n", prefetch_opcode, m68k_pc_offset);
 }
 static void get_prefetch_020_continue(void)
@@ -1240,6 +1256,7 @@ static void irc2ir_2 (bool dozero)
 	out("regs.ir = regs.irc;\n");
 	if (dozero)
 		out("regs.irc = 0;\n");
+	check_ipl();
 }
 static void irc2ir (void)
 {
@@ -1263,7 +1280,6 @@ static void fill_prefetch_bcc(void)
 		}
 		next_level_000();
 	}
-	set_last_access_ipl();
 	out("%s(%d);\n", prefetch_word, m68k_pc_offset + 2);
 	count_readw++;
 	check_prefetch_bus_error(m68k_pc_offset + 2, -1, 0);
@@ -1440,6 +1456,7 @@ static void fill_prefetch_full_000_special(int pctype, const char *format, ...)
 	}
 	check_prefetch_bus_error(-1, -1, -1);
 	irc2ir();
+	check_ipl_always();
 	if (using_bus_error) {
 		copy_opcode();
 		if (cpu_level == 0) {
@@ -1459,7 +1476,6 @@ static void fill_prefetch_full_000_special(int pctype, const char *format, ...)
 		va_end(parms);
 		out(outbuf);
 	}
-	set_last_access_ipl();
 	out("%s(%d);\n", prefetch_word, 2);
 	count_readw++;
 	if (pctype > 0) {
@@ -3705,6 +3721,8 @@ static void genamode2x (amodes mode, const char *reg, wordsizes size, const char
 		addmmufixup(reg, size, mode);
 	}
 
+	set_last_access_ipl_prev();
+
 	if (getv == 1) {
 		const char *srcbx = !(flags & GF_FC) ? srcb : "sfc_nommu_get_byte";
 		const char *srcwx = !(flags & GF_FC) ? srcw : "sfc_nommu_get_word";
@@ -3766,6 +3784,7 @@ static void genamode2x (amodes mode, const char *reg, wordsizes size, const char
 					out("uae_s32 %s = %s(%sa + 2);\n", name, srcwx, name);
 					count_readw++;
 					check_bus_error(name, 0, 0, 1, NULL, 1, 0);
+					set_last_access_ipl_prev();
 					out("%s |= %s(%sa) << 16; \n", name, srcwx, name);
 					count_readw++;
 					check_bus_error(name, -2, 0, 1, NULL, 1, 0);
@@ -3773,6 +3792,7 @@ static void genamode2x (amodes mode, const char *reg, wordsizes size, const char
 					out("uae_s32 %s = %s(%sa) << 16;\n", name, srcwx, name);
 					count_readw++;
 					check_bus_error(name, 0, 0, 1, NULL, 1, 0);
+					set_last_access_ipl_prev();
 					out("%s |= %s(%sa + 2); \n", name, srcwx, name);
 					count_readw++;
 					check_bus_error(name, 2, 0, 1, NULL, 1, 0);
@@ -3991,6 +4011,8 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
 		const char *dstbx = !(flags & GF_FC) ? dstb : "dfc_nommu_put_byte";
 		const char *dstwx = !(flags & GF_FC) ? dstw : "dfc_nommu_put_word";
 		const char *dstlx = !(flags & GF_FC) ? dstl : "dfc_nommu_put_long";
+
+		set_last_access_ipl_prev();
 		if (!(flags & GF_NOFAULTPC))
 			gen_set_fault_pc (false, false);
 		if (using_mmu) {
@@ -4076,7 +4098,7 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
 						fill_prefetch_next_after(0, NULL);
 						insn_n_cycles += 4;
 					}
-					check_ipl();
+					set_last_access_ipl_prev();
 					out("%s(%sa, %s >> 16);\n", dstwx, to, from);
 					sprintf(tmp, "%s >> 16", from);
 					count_writew++;
@@ -4089,7 +4111,7 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
 					if (flags & GF_SECONDWORDSETFLAGS) {
 						genflags(flag_logical, g_instr->size, "src", "", "");
 					}
-					check_ipl();
+					set_last_access_ipl_prev();
 					out("%s(%sa + 2, %s);\n", dstwx, to, from);
 					count_writew++;
 					check_bus_error(to, 2, 1, 1, from, 1, pcoffset);
@@ -4126,7 +4148,7 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
 					if (store_dir > 1) {
 						fill_prefetch_next_after(0, NULL);
 					}
-					check_ipl();
+					set_last_access_ipl_prev();
 					out("%s(%sa, %s >> 16); \n", dstwx, to, from);
 					sprintf(tmp, "%s >> 16", from);
 					count_writew++;
@@ -4139,7 +4161,7 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
 					if (flags & GF_SECONDWORDSETFLAGS) {
 						genflags(flag_logical, g_instr->size, "src", "", "");
 					}
-					check_ipl();
+					set_last_access_ipl_prev();
 					out("%s(%sa + 2, %s); \n", dstwx, to, from);
 					count_writew++;
 					check_bus_error(to, 2, 1, 1, from, 1, pcoffset);
@@ -4541,6 +4563,7 @@ static void genmovemel(uae_u16 opcode)
 		if (table68k[opcode].dmode == Aipi) {
 			out("m68k_areg(regs, dstreg) = srca;\n");
 		}
+		set_last_access_ipl_prev();
 		if (cpu_level <= 1) {
 			out("%s(srca);\n", srcw); // and final extra word fetch that goes nowhere..
 			count_readw++;
@@ -4616,6 +4639,7 @@ static void genmovemel_ce(uae_u16 opcode)
 		out("amask = movem_next[amask];\n");
 		out("}\n");
 	}
+	set_last_access_ipl_prev();
 	out("%s(srca);\n", srcw); // and final extra word fetch that goes nowhere..
 	count_readw++;
 	check_bus_error("src", 0, 0, 1, NULL, 1, -1);
@@ -4723,6 +4747,7 @@ static void genmovemle(uae_u16 opcode)
 			next_level_020_to_010();
 	}
 	count_ncycles++;
+	set_last_access_ipl_prev();
 	fill_prefetch_next_t();
 	get_prefetch_020();
 }
@@ -4831,6 +4856,7 @@ static void genmovemle_ce (uae_u16 opcode)
 		}
 	}
 	count_ncycles++;
+	set_last_access_ipl_prev();
 	fill_prefetch_next_t();
 }
 
@@ -5353,6 +5379,7 @@ static void gen_opcode (unsigned int opcode)
 	bus_error_code2[0] = 0;
 	opcode_nextcopy = 0;
 	last_access_offset_ipl = -1;
+	last_access_offset_ipl_prev = -1;
 
 	loopmode = 0;
 	// 68010 loop mode available if
@@ -6685,8 +6712,11 @@ static void gen_opcode (unsigned int opcode)
 		next_level_000();
 		break;
 	case i_RESET:
-		out("cpureset();\n");
+		out("bool r = cpureset();\n");
 		addcycles000(128);
+		out("if (r) {\n");
+		write_return_cycles(0);
+		out("}\n");
 		fill_prefetch_next_t();
 		break;
 	case i_NOP:
@@ -7573,7 +7603,6 @@ static void gen_opcode (unsigned int opcode)
 		if (using_prefetch) {
 			incpc ("(uae_s32)src + 2");
 			fill_prefetch_full_000_special(2, NULL);
-			check_ipl_always();
 			if (using_ce)
 				out("return;\n");
 			else
@@ -7581,8 +7610,8 @@ static void gen_opcode (unsigned int opcode)
 		} else {
 			incpc ("(uae_s32)src + 2");
 			add_head_cycs (6);
-			fill_prefetch_full_020();
 			check_ipl_always();
+			fill_prefetch_full_020();
 			returncycles (10);
 		}
 		pop_ins_cnt();
@@ -9977,8 +10006,9 @@ int main(int argc, char *argv[])
 
 	for (int i = 0; i <= 55; i++) {
 //		if ((i >= 6 && i < 11) || (i > 14 && i < 20) || (i > 25 && i < 31) || (i > 35 && i < 40)) // original Hatari
-        if (i!=31 && i!=32) // Previous
+		if (i!=31 && i!=32) // Previous
 			continue;
+		using_nocycles = 1; // Previous
 		generate_stbl = 1;
 		generate_cpu (i, 0);
 	}

@@ -23,8 +23,6 @@
 #include "snd.h"
 #include "dsp.h"
 #include "mmu_common.h"
-#include "kms.h"
-#include "audio.h"
 
 #define LOG_DMA_LEVEL LOG_DEBUG
 
@@ -231,8 +229,9 @@ void DMA_CSR_Write(void) {
     if (writecsr&DMA_CLRCOMPLETE) {
         dma[channel].csr &= ~DMA_COMPLETE;
     }
-
-    set_interrupt(interrupt, RELEASE_INT); // experimental
+    if (!(dma[channel].csr&DMA_COMPLETE)) {
+        set_interrupt(interrupt, RELEASE_INT);
+    }
 }
 
 void DMA_Saved_Next_Read(void) { // 0x02004000
@@ -383,8 +382,8 @@ void dma_interrupt(int channel) {
         } else {
             dma[channel].csr &= ~DMA_ENABLE; /* all done */
         }
-        set_interrupt(interrupt, SET_INT);
-    } else if (dma[channel].csr&DMA_BUSEXC) {
+    }
+    if (dma[channel].csr&DMA_COMPLETE) {
         set_interrupt(interrupt, SET_INT);
     }
 }
@@ -398,7 +397,7 @@ void dma_esp_write_memory(void) {
                dma[CHANNEL_SCSI].next,dma[CHANNEL_SCSI].limit-dma[CHANNEL_SCSI].next,esp_counter);
     
     if (!(dma[CHANNEL_SCSI].csr&DMA_ENABLE)) {
-        Log_Printf(LOG_WARN, "[DMA] Channel SCSI: Error! DMA not enabled!");
+        Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel SCSI: Error! DMA not enabled!");
         return;
     }
     if ((dma[CHANNEL_SCSI].limit%DMA_BURST_SIZE) || (dma[CHANNEL_SCSI].next%4)) {
@@ -573,7 +572,7 @@ void dma_mo_write_memory(void) {
                dma[CHANNEL_DISK].next,dma[CHANNEL_DISK].limit-dma[CHANNEL_DISK].next);
     
     if (!(dma[CHANNEL_DISK].csr&DMA_ENABLE)) {
-        Log_Printf(LOG_WARN, "[DMA] Channel MO: Error! DMA not enabled!");
+        Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel MO: Error! DMA not enabled!");
         return;
     }
     if ((dma[CHANNEL_DISK].limit%DMA_BURST_SIZE) || (dma[CHANNEL_DISK].next%4)) {
@@ -641,7 +640,7 @@ void dma_mo_read_memory(void) {
     
     TRY(prb) {
         if (modma_buf_size>0) {
-            Log_Printf(LOG_WARN, "[DMA] Channel MO: Starting with %i residual bytes in DMA buffer.", modma_buf_size);
+            Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel MO: Starting with %i residual bytes in DMA buffer.", modma_buf_size);
         }
         
         while (dma[CHANNEL_DISK].next<dma[CHANNEL_DISK].limit) {
@@ -690,10 +689,8 @@ void dma_mo_read_memory(void) {
 }
 
 
-Uint8* dma_sndout_read_memory(int* len) {
+void dma_sndout_read_memory(void) {
     int i;
-    Uint8* result = NULL;
-    *len          = 0;
     
     if (dma[CHANNEL_SOUNDOUT].csr&DMA_ENABLE) {
         
@@ -708,59 +705,63 @@ Uint8* dma_sndout_read_memory(int* len) {
         }
         
         TRY(prb) {
-            *len   = dma[CHANNEL_SOUNDOUT].limit - dma[CHANNEL_SOUNDOUT].next;
-            result = malloc(*len * 2);
-            for(i = 0; dma[CHANNEL_SOUNDOUT].next<dma[CHANNEL_SOUNDOUT].limit; dma[CHANNEL_SOUNDOUT].next++, i++)
-                result[i] = get_byte(dma[CHANNEL_SOUNDOUT].next);
+            snd_buffer_len = dma[CHANNEL_SOUNDOUT].limit - dma[CHANNEL_SOUNDOUT].next;
+            snd_buffer = malloc(snd_buffer_len * 2);
+            for (i = 0; dma[CHANNEL_SOUNDOUT].next<dma[CHANNEL_SOUNDOUT].limit; dma[CHANNEL_SOUNDOUT].next++, i++)
+                snd_buffer[i] = get_byte(dma[CHANNEL_SOUNDOUT].next);
         } CATCH(prb) {
             Log_Printf(LOG_WARN, "[DMA] Channel Sound Out: Bus error reading from %08x",dma[CHANNEL_SOUNDOUT].next);
             dma[CHANNEL_SOUNDOUT].csr &= ~DMA_ENABLE;
             dma[CHANNEL_SOUNDOUT].csr |= (DMA_COMPLETE|DMA_BUSEXC);
         } ENDTRY
     }
-    
-    return result;
 }
 
-void dma_sndout_intr() {
+void dma_sndout_intr(void) {
+    free(snd_buffer);
+    snd_buffer = NULL;
+    snd_buffer_len = 0;
+
     if (dma[CHANNEL_SOUNDOUT].csr&DMA_ENABLE) {
         dma_interrupt(CHANNEL_SOUNDOUT);
     }
 }
 
-int dma_sndin_write_memory() {
-	int value = 0;
-	
+bool dma_sndin_write_memory(Uint32 val) {
     if (dma[CHANNEL_SOUNDIN].csr&DMA_ENABLE) {
-		
-		Audio_Input_Lock();
+        
+        if ((dma[CHANNEL_SOUNDIN].next%4) || (dma[CHANNEL_SOUNDIN].limit%4)) {
+            Log_Printf(LOG_WARN, "[DMA] Channel Sound In: Error! Bad alignment! (Next: $%08X, Limit: $%08X)",
+                       dma[CHANNEL_SOUNDIN].next, dma[CHANNEL_SOUNDIN].limit);
+            abort();
+        }
 
         Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel Sound In: Write to memory at $%08x, %i bytes",
                    dma[CHANNEL_SOUNDIN].next,dma[CHANNEL_SOUNDIN].limit-dma[CHANNEL_SOUNDIN].next);
-
-		TRY(prb) {
-            while (dma[CHANNEL_SOUNDIN].next<dma[CHANNEL_SOUNDIN].limit) {
-                value = Audio_Input_Read();
-				if (value < 0) {
-					break;
-				}
-				put_byte(dma[CHANNEL_SOUNDIN].next, value);
-				dma[CHANNEL_SOUNDIN].next++;
+        
+        TRY(prb) {
+            if (dma[CHANNEL_SOUNDIN].next<dma[CHANNEL_SOUNDIN].limit) {
+                put_long(dma[CHANNEL_SOUNDIN].next, val);
+                dma[CHANNEL_SOUNDIN].next+=4;
             }
         } CATCH(prb) {
             Log_Printf(LOG_WARN, "[DMA] Channel Sound In: Bus error reading from %08x",dma[CHANNEL_SOUNDIN].next);
             dma[CHANNEL_SOUNDIN].csr &= ~DMA_ENABLE;
             dma[CHANNEL_SOUNDIN].csr |= (DMA_COMPLETE|DMA_BUSEXC);
         } ENDTRY
-		
-		Audio_Input_Unlock();
-
+        
         dma[CHANNEL_SOUNDIN].saved_limit = dma[CHANNEL_SOUNDIN].next;
-        dma_interrupt(CHANNEL_SOUNDIN);
-		
-		return (dma[CHANNEL_SOUNDIN].next==dma[CHANNEL_SOUNDIN].limit);
+        
+        return (dma[CHANNEL_SOUNDIN].next==dma[CHANNEL_SOUNDIN].limit);
     }
-	return 1;
+    return true;
+}
+
+bool dma_sndin_intr(void) {
+    if (dma[CHANNEL_SOUNDIN].csr&DMA_ENABLE) {
+        dma_interrupt(CHANNEL_SOUNDIN);
+    }
+    return !(dma[CHANNEL_SOUNDIN].csr&DMA_ENABLE);
 }
 
 /* Channel Printer */
@@ -1037,9 +1038,10 @@ bool dma_dsp_ready(void) {
 /* Interrupt Handler (called from Video_InterruptHandler in video.c) */
 void dma_video_interrupt(void) {
     if (dma[CHANNEL_VIDEO].limit==0xEA) {
+        dma[CHANNEL_VIDEO].csr |= DMA_COMPLETE;
         set_interrupt(INT_VIDEO, SET_INT); /* interrupt is released by writing to CSR */
     } else if (dma[CHANNEL_VIDEO].limit && dma[CHANNEL_VIDEO].limit!=0xEA) {
-        abort();
+        Log_Printf(LOG_WARN, "[DMA] Channel Video: Limit not supported: %08x", dma[CHANNEL_VIDEO].limit);
     }
 }
 
@@ -1147,8 +1149,9 @@ void TDMA_CSR_Write(void) {
 	if (writecsr&TDMA_CLRCOMPLETE) {
 		dma[channel].csr &= ~DMA_COMPLETE;
 	}
-	
-	set_interrupt(interrupt, RELEASE_INT);
+    if (!(dma[channel].csr&DMA_COMPLETE)) {
+        set_interrupt(interrupt, RELEASE_INT);
+    }
 }
 
 void TDMA_Saved_Next_Read(void) { // 0x02004050

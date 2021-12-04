@@ -339,8 +339,8 @@ int CNFS2Prog::ProcedureLINK(void) {
     string   to;
     string   from;
 
-    GetPath(to);
-    GetFullPath(from);
+    GetPath(from);
+    GetFullPath(to);
     Log("LINK %s->%s", from.c_str(), to.c_str());
     
     m_out->Write(nfs_err(nfsd_fts[0]->link(from, to, false)));

@@ -47,7 +47,7 @@ int FileTableNFSD::ThreadProc(void *lpParameter) {
 void FileTableNFSD::Run(void) {
     const int POLL = 10;
     for(int count = POLL; host_atomic_get(&doRun); count--) {
-        host_sleep_sec(1);
+        host_sleep_ms(1000);
         {
             NFSDLock lock(mutex);
             if(count <= 0 && dirty.size()) {

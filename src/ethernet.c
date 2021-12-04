@@ -23,7 +23,6 @@
 
 #define LOG_EN_LEVEL        LOG_DEBUG
 #define LOG_EN_REG_LEVEL    LOG_DEBUG
-#define LOG_EN_DATA 0
 
 #define IO_SEG_MASK	0x1FFFF
 
@@ -41,8 +40,6 @@ struct {
     
     Uint8 mac_addr[6];
 } enet;
-
-bool enet_stopped;
 
 #define TXSTAT_READY        0x80    /* r */
 #define TXSTAT_NET_BUSY     0x40    /* r */
@@ -69,10 +66,10 @@ bool enet_stopped;
 
 #define RXMASK_PKT_OK       0x80
 #define RXMASK_RESET_PKT    0x10
-#define RXMASK_SHORT_PKT    0x80
-#define RXMASK_ALIGN_ERR    0x40
-#define RXMASK_CRC_ERR      0x20
-#define RXMASK_OVERFLOW     0x10
+#define RXMASK_SHORT_PKT    0x08
+#define RXMASK_ALIGN_ERR    0x04
+#define RXMASK_CRC_ERR      0x02
+#define RXMASK_OVERFLOW     0x01
 
 #define TXMODE_COLL_ATMPT   0xF0    /* r */
 #define TXMODE_IGNORE_PAR   0x08    /* rw */
@@ -92,9 +89,11 @@ bool enet_stopped;
 void enet_reset(void);
 
 void (*enet_output)(void);
-void (*enet_input)(Uint8 *pkt, int pkt_len);
+void (*enet_input)(Uint8 *pkt, int len);
 void (*enet_start)(Uint8 *mac);
 void (*enet_stop)(void);
+
+void print_packet(Uint8 *pkt, int len, int out);
 
 void EN_TX_Status_Read(void) { // 0x02006000
     IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.tx_status;
@@ -105,18 +104,18 @@ void EN_TX_Status_Write(void) {
     Uint8 val=IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Transmitter status write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
 	if (ConfigureParams.System.bTurbo) {
-		enet.tx_status&=~val;
+		enet.tx_status&=~(val&0xBE);
 	} else {
 		enet.tx_status&=~(val&0x0F);
 	}
 	
-    if ((enet.tx_status&enet.tx_mask&0x0F)==0) {
+    if ((enet.tx_status&enet.tx_mask)==0) {
         set_interrupt(INT_EN_TX, RELEASE_INT);
     }
 }
 
 void EN_TX_Mask_Read(void) { // 0x02006001
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.tx_mask&0xAF;
+    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.tx_mask;
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Transmitter masks read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
 }
 
@@ -124,7 +123,10 @@ void EN_TX_Mask_Write(void) {
     enet.tx_mask=IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Transmitter masks write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
     
-    if ((enet.tx_status&enet.tx_mask&0x0F)==0) {
+    enet.tx_mask&=ConfigureParams.System.bTurbo?0xBE:0xAF;
+    if (enet.tx_status&enet.tx_mask) {
+        set_interrupt(INT_EN_TX, SET_INT);
+    } else {
         set_interrupt(INT_EN_TX, RELEASE_INT);
     }
 }
@@ -137,15 +139,19 @@ void EN_RX_Status_Read(void) { // 0x02006002
 void EN_RX_Status_Write(void) {
     Uint8 val=IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Receiver status write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
-    enet.rx_status&=~(val&0x8F);
+    if (ConfigureParams.System.bTurbo) {
+        enet.rx_status&=~(val&0xDF);
+    } else {
+        enet.rx_status&=~(val&0x8F);
+    }
     
-    if ((enet.rx_status&enet.rx_mask&0x8F)==0) {
+    if ((enet.rx_status&enet.rx_mask)==0) {
         set_interrupt(INT_EN_RX, RELEASE_INT);
     }
 }
 
 void EN_RX_Mask_Read(void) { // 0x02006003
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.rx_mask&0x9F;
+    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.rx_mask;
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Receiver masks read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
 }
 
@@ -153,7 +159,10 @@ void EN_RX_Mask_Write(void) {
     enet.rx_mask=IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] Receiver masks write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
     
-    if ((enet.rx_status&enet.rx_mask&0x8F)==0) {
+    enet.rx_mask&=ConfigureParams.System.bTurbo?0xDF:0x9F;
+    if (enet.rx_status&enet.rx_mask) {
+        set_interrupt(INT_EN_RX, SET_INT);
+    } else {
         set_interrupt(INT_EN_RX, RELEASE_INT);
     }
 }
@@ -242,6 +251,8 @@ void EN_NodeID5_Read(void) { // 0x0200600d
 void EN_NodeID5_Write(void) {
     enet.mac_addr[5]=IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
  	Log_Printf(LOG_EN_REG_LEVEL,"[EN] MAC byte 5 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    /* Make sure the interface has the correct MAC */
+    Ethernet_Reset(false);
 }
 
 void EN_CounterLo_Read(void) { // 0x02006007
@@ -258,6 +269,13 @@ static void enet_tx_interrupt(Uint8 intr) {
     enet.tx_status|=intr;
     if (enet.tx_status&enet.tx_mask) {
         set_interrupt(INT_EN_TX, SET_INT);
+    }
+}
+
+static void enet_tx_release(Uint8 intr) {
+    enet.tx_status&=~intr;
+    if ((enet.tx_status&enet.tx_mask)==0) {
+        set_interrupt(INT_EN_TX, RELEASE_INT);
     }
 }
 
@@ -393,13 +411,12 @@ static bool enet_packet_for_me(Uint8 *packet) {
 
 void enet_receive(Uint8 *pkt, int len) {
     if (enet_packet_for_me(pkt)) {
-#if 1   /* Hack for short packets from SLIRP */
-        if (len<60) {
-            Log_Printf(LOG_WARN, "[EN] HACK: short packet received (%i byte). Fixed.", len);
-            len = 60;
-        }
-#endif
+        print_packet(pkt, len, 0);
         memcpy(enet_rx_buffer.data,pkt,len);
+        len += 4; /* Checksum */
+        if (len < ENET_FRAMESIZE_MIN) { /* Hack for short packets from SLIRP */
+            len = ENET_FRAMESIZE_MIN;
+        }
         enet_rx_buffer.size=enet_rx_buffer.limit=len;
 		enet.tx_status |= TXSTAT_NET_BUSY;
     } else {
@@ -408,18 +425,23 @@ void enet_receive(Uint8 *pkt, int len) {
     }
 }
 
-static void print_buf(Uint8 *buf, Uint32 size) {
-#if LOG_EN_DATA
-    int i;
-    for (i=0; i<size; i++) {
-        if (i==14 || (i-14)%16==0) {
-            printf("\n");
+void enet_send(Uint8 *pkt, int len) {
+    print_packet(enet_tx_buffer.data, enet_tx_buffer.size, 1);
+    if (en_state == EN_LOOPBACK) {
+        /* Loop back */
+        Log_Printf(LOG_WARN, "[EN] Loopback packet.");
+        enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
+    } else {
+        /* Send to real world network */
+        enet_input(enet_tx_buffer.data,enet_tx_buffer.size);
+        /* Simultaneously receive packet on thin ethernet */
+        if (en_state == EN_THINWIRE) {
+            enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
         }
-        printf("%02X ",buf[i]);
     }
-    printf("\n");
-#endif
+    enet_tx_buffer.size=0;
 }
+
 
 /* Fujitsu ethernet controller */
 static int enet_state(void) {
@@ -463,11 +485,7 @@ static void enet_io(void) {
 				Log_Printf(LOG_EN_LEVEL, "[EN] Receiving packet from %02X:%02X:%02X:%02X:%02X:%02X",
 						   enet_rx_buffer.data[6], enet_rx_buffer.data[7], enet_rx_buffer.data[8],
 						   enet_rx_buffer.data[9], enet_rx_buffer.data[10], enet_rx_buffer.data[11]);
-				print_buf(enet_rx_buffer.data, enet_rx_buffer.size);
-				enet_rx_buffer.size+=4;
-				enet_rx_buffer.limit+=4;
 				rx_chain = false;
-				enet.rx_status&=~RXSTAT_PKT_OK;
 				if (enet_rx_buffer.size<ENET_FRAMESIZE_MIN && !(enet.rx_mode&RXMODE_ENA_SHORT)) {
 					Log_Printf(LOG_WARN, "[EN] Received packet is short (%i byte)",enet_rx_buffer.size);
 					enet_rx_interrupt(RXSTAT_SHORT_PKT);
@@ -518,47 +536,37 @@ static void enet_io(void) {
 	
 	/* Send packet */
 	if (enet.tx_status&TXSTAT_READY) {
-		if (en_state != EN_DISCONNECTED) {
-			if (enet.tx_status&TXSTAT_NET_BUSY) {
-				/* Wait until network is free */
-				Log_Printf(LOG_WARN, "[EN] Network is busy. Transmission delayed.");
-			} else {
-				old_size = enet_tx_buffer.size;
-				tx_done=dma_enet_read_memory();
-				if (enet_tx_buffer.size>0) {
-					enet.tx_status &= ~TXSTAT_TX_RECVD;
-					if (enet_tx_buffer.size==old_size && !tx_done) {
-						Log_Printf(LOG_WARN, "[EN] Sending packet: Error! Transmitter underflow (no EOP)!");
-						enet_tx_interrupt(TXSTAT_UNDERFLOW);
-						enet_tx_buffer.size=0;
-					} else if (enet_tx_buffer.size>15) {
-						enet_tx_buffer.size-=15;
-					} else if (tx_done) {
-						Log_Printf(LOG_WARN, "[EN] Transmitter error: Early EOP!");
-						enet_tx_buffer.size=0;
-						tx_done = false;
-					}
-				}
-				if (tx_done) {
-					Statusbar_BlinkLed(DEVICE_LED_ENET);
-					Log_Printf(LOG_EN_LEVEL, "[EN] Sending packet to %02X:%02X:%02X:%02X:%02X:%02X",
-							   enet_tx_buffer.data[0], enet_tx_buffer.data[1], enet_tx_buffer.data[2],
-							   enet_tx_buffer.data[3], enet_tx_buffer.data[4], enet_tx_buffer.data[5]);
-					print_buf(enet_tx_buffer.data, enet_tx_buffer.size);
-					if (en_state == EN_LOOPBACK) {
-						/* Loop back */
-						Log_Printf(LOG_WARN, "[EN] Loopback packet.");
-						enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
-					} else {
-						/* Send to real world network */
-						enet_input(enet_tx_buffer.data,enet_tx_buffer.size);
-						/* Simultaneously receive packet on thin ethernet */
-						if (en_state == EN_THINWIRE) {
-							enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
-						}
-					}
+		if (enet.tx_status&TXSTAT_NET_BUSY) {
+			/* Wait until network is free */
+			Log_Printf(LOG_EN_LEVEL, "[EN] Network is busy. Transmission delayed.");
+		} else {
+			old_size = enet_tx_buffer.size;
+			tx_done=dma_enet_read_memory();
+			if (enet_tx_buffer.size>0) {
+				enet_tx_release(TXSTAT_TX_RECVD|TXSTAT_SHORTED);
+				if (enet_tx_buffer.size==old_size && !tx_done) {
+					Log_Printf(LOG_WARN, "[EN] Sending packet: Error! Transmitter underflow (no EOP)!");
+					enet_tx_interrupt(TXSTAT_UNDERFLOW);
 					enet_tx_buffer.size=0;
+				} else if (en_state == EN_DISCONNECTED) {
+					Log_Printf(LOG_EN_LEVEL, "[EN] Ethernet disconnected. 16 collisions in a row!");
+					enet_tx_interrupt(TXSTAT_16COLLS);
+					enet_tx_buffer.size=0;
+					tx_done = false;
+				} else if (enet_tx_buffer.size>15) {
+					enet_tx_buffer.size-=15;
+				} else if (tx_done) {
+					Log_Printf(LOG_WARN, "[EN] Transmitter error: Early EOP!");
+					enet_tx_buffer.size=0;
+					tx_done = false;
 				}
+			}
+			if (tx_done) {
+				Statusbar_BlinkLed(DEVICE_LED_ENET);
+				Log_Printf(LOG_EN_LEVEL, "[EN] Sending packet to %02X:%02X:%02X:%02X:%02X:%02X",
+						   enet_tx_buffer.data[0], enet_tx_buffer.data[1], enet_tx_buffer.data[2],
+						   enet_tx_buffer.data[3], enet_tx_buffer.data[4], enet_tx_buffer.data[5]);
+				enet_send(enet_tx_buffer.data, enet_tx_buffer.size);
 			}
 		}
 	}
@@ -569,23 +577,29 @@ static void enet_io(void) {
 #define RXMODE_ENABLE	0x80
 #define TXMODE_LOOP     0x02
 #define TXMODE_TPE      0x04
-#define ENCTRL_TPE      0x40
+#define ENCTRL_BADTPE   0x40
 
-void EN_Control_Read(void) { // 0x02006006
-    Uint8 val = enet.reset;
-    if (ConfigureParams.Ethernet.bEthernetConnected && ConfigureParams.Ethernet.bTwistedPair) {
-        val &= ~ENCTRL_TPE;
-    } else {
-        val |= ENCTRL_TPE;
+void EN_Turbo_RX_Status_Read(void) { // 0x02006002
+    if (!(enet.tx_mode&(TXMODE_TPE|TXMODE_LOOP))) {
+        if (!ConfigureParams.Ethernet.bEthernetConnected || ConfigureParams.Ethernet.bTwistedPair) {
+            Log_Printf(LOG_WARN,"[newEN] Receiver status read bus error!\n");
+            M68000_BusError(IoAccessCurrentAddress, BUS_ERROR_READ, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, 0);
+            return;
+        }
     }
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = val;
-	Log_Printf(LOG_EN_REG_LEVEL,"[newEN] Control read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = enet.rx_status;
+    Log_Printf(LOG_EN_REG_LEVEL,"[EN] Receiver status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
 }
 
-void EN_Control_Write(void) {
-	enet.reset=(IoMem[IoAccessCurrentAddress & IO_SEG_MASK])&EN_RESET;
-	Log_Printf(LOG_EN_REG_LEVEL,"[newEN] Control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
-	enet_reset();
+void EN_Turbo_Control_Read(void) { // 0x02006006
+	Uint8 val = enet.reset&EN_RESET;
+	if (enet.tx_mode&TXMODE_TPE) {
+		if (!ConfigureParams.Ethernet.bEthernetConnected || !ConfigureParams.Ethernet.bTwistedPair) {
+			val |= ENCTRL_BADTPE;
+		}
+	}
+	IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = val;
+	Log_Printf(LOG_EN_REG_LEVEL,"[newEN] Control read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
 }
 
 static int new_enet_state(void) {
@@ -617,11 +631,7 @@ static void new_enet_io(void) {
 				Log_Printf(LOG_EN_LEVEL, "[newEN] Receiving packet from %02X:%02X:%02X:%02X:%02X:%02X",
 						   enet_rx_buffer.data[6], enet_rx_buffer.data[7], enet_rx_buffer.data[8],
 						   enet_rx_buffer.data[9], enet_rx_buffer.data[10], enet_rx_buffer.data[11]);
-				print_buf(enet_rx_buffer.data, enet_rx_buffer.size);
-				enet_rx_buffer.size+=4;
-				enet_rx_buffer.limit+=4;
 				rx_chain = false;
-				enet.rx_status&=~RXSTAT_PKT_OK;
 				if (enet_rx_buffer.size<ENET_FRAMESIZE_MIN && !(enet.rx_mode&RXMODE_ENA_SHORT)) {
 					Log_Printf(LOG_WARN, "[newEN] Received packet is short (%i byte)",enet_rx_buffer.size);
 					enet_rx_interrupt(RXSTAT_SHORT_PKT);
@@ -643,6 +653,7 @@ static void new_enet_io(void) {
 				if (enet_rx_buffer.size==old_size) {
 					Log_Printf(LOG_WARN, "[newEN] Receiving packet: Error! Receiver overflow (DMA disabled)!");
 					enet_rx_interrupt(RXSTAT_OVERFLOW);
+					enet.rx_mode &= ~RXMODE_ENABLE;
 					rx_chain = false;
 					enet_rx_buffer.size = 0;
 					enet.tx_status &= ~TXSTAT_NET_BUSY;
@@ -672,40 +683,24 @@ static void new_enet_io(void) {
 	
 	/* Send packet */
 	if (enet.tx_mode&TXMODE_ENABLE) {
-		if (en_state != EN_DISCONNECTED) {
-			if (enet.tx_status&TXSTAT_NET_BUSY) {
-				/* Wait until network is free */
-				Log_Printf(LOG_WARN, "[EN] Network is busy. Transmission delayed.");
-			} else {
-				dma_enet_read_memory();
-				if (enet_tx_buffer.size>0) {
+		if (enet.tx_status&TXSTAT_NET_BUSY) {
+			/* Wait until network is free */
+			Log_Printf(LOG_EN_LEVEL, "[newEN] Network is busy. Transmission delayed.");
+		} else {
+			dma_enet_read_memory();
+			if (enet_tx_buffer.size>0) {
+				if (en_state == EN_DISCONNECTED) {
+					Log_Printf(LOG_EN_LEVEL, "[newEN] Ethernet disconnected. 16 collisions in a row!");
+					enet_tx_interrupt(TXSTAT_16COLLS);
+					enet_tx_buffer.size=0;
+				} else {
 					Statusbar_BlinkLed(DEVICE_LED_ENET);
 					Log_Printf(LOG_EN_LEVEL, "[newEN] Sending packet to %02X:%02X:%02X:%02X:%02X:%02X",
 							   enet_tx_buffer.data[0], enet_tx_buffer.data[1], enet_tx_buffer.data[2],
 							   enet_tx_buffer.data[3], enet_tx_buffer.data[4], enet_tx_buffer.data[5]);
-					print_buf(enet_tx_buffer.data, enet_tx_buffer.size);
-					enet.tx_status &= ~TXSTAT_TX_RECVD;
-					if (en_state == EN_LOOPBACK) {
-						/* Loop back */
-						Log_Printf(LOG_WARN, "[newEN] Loopback packet.");
-						enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
-					} else {
-						/* Send to real world network */
-						enet_input(enet_tx_buffer.data,enet_tx_buffer.size);
-						/* Simultaneously receive packet on thin ethernet */
-						if (en_state == EN_THINWIRE) {
-							enet_receive(enet_tx_buffer.data, enet_tx_buffer.size);
-						}
-					}
-					enet_tx_buffer.size=0;
-					enet_tx_interrupt(TXSTAT_READY);
+					enet_send(enet_tx_buffer.data, enet_tx_buffer.size);
 				}
-			}
-		} else { /* disconnected - strange, but required by ROM and 2.2 kernel */
-			if (ConfigureParams.Ethernet.bEthernetConnected) {
-				if (!ConfigureParams.Ethernet.bTwistedPair) {
-					enet_tx_interrupt(TXSTAT_READY);
-				}
+				enet_tx_interrupt(TXSTAT_READY);
 			}
 		}
 		enet.tx_status |= TXSTAT_READY; /* really? */
@@ -717,7 +712,6 @@ void ENET_IO_Handler(void) {
 	
 	if (enet.reset&EN_RESET) {
 		Log_Printf(LOG_WARN, "Stopping Ethernet Transmitter/Receiver");
-		enet_stopped=true;
 		/* Stop SLIRP/PCAP */
 		if (ConfigureParams.Ethernet.bEthernetConnected) {
 			enet_stop();
@@ -737,23 +731,23 @@ void ENET_IO_Handler(void) {
 void enet_reset(void) {
     if (enet.reset&EN_RESET) {
         enet.tx_status=ConfigureParams.System.bTurbo?0:TXSTAT_READY;
-    } else if (enet_stopped==true) {
-        Log_Printf(LOG_WARN, "Starting Ethernet Transmitter/Receiver");
-        enet_stopped=false;
-        CycInt_AddRelativeInterruptUs(ENET_IO_DELAY, 0, INTERRUPT_ENET_IO);
+    } else {
         /* Start SLIRP/PCAP */
         if (ConfigureParams.Ethernet.bEthernetConnected) {
             enet_start(enet.mac_addr);
+        }
+        if (!CycInt_InterruptActive(INTERRUPT_ENET_IO)) {
+            Log_Printf(LOG_WARN, "Starting Ethernet Transmitter/Receiver");
+            CycInt_AddRelativeInterruptUs(ENET_IO_DELAY, 0, INTERRUPT_ENET_IO);
         }
     }
 }
 
 void Ethernet_Reset(bool hard) {
     static int init_done = 0;
-
+    
     if (hard) {
         enet.reset=EN_RESET;
-        enet_stopped=true;
         enet_rx_buffer.size=enet_tx_buffer.size=0;
         enet_rx_buffer.limit=enet_tx_buffer.limit=64*1024;
         enet.tx_status=ConfigureParams.System.bTurbo?0:TXSTAT_READY;
@@ -779,11 +773,187 @@ void Ethernet_Reset(bool hard) {
     }
     init_done = 1;
     
-    if (ConfigureParams.Ethernet.bEthernetConnected && !(enet.reset&EN_RESET)) {
-        /* Start SLIRP/PCAP */
-        enet_start(enet.mac_addr);
+    enet_reset();
+}
+
+
+/* Packet printer and analyzer */
+
+#define LOG_EN_DATA    0
+#define LOG_EN_ANALYZE 0
+
+void print_packet(Uint8 *buf, int size, int out) {
+#if LOG_EN_DATA
+    int i, offset = 0;
+    
+    if (out) {
+        printf("<<        Outgoing packet (%d byte)        >>\n", size);
     } else {
-        /* Stop SLIRP/PCAP */
-        enet_stop();
+        printf(">>        Incoming packet (%d byte)        <<\n", size);
     }
+#if LOG_EN_ANALYZE
+    Uint8 protocol, ihl, options = 0;
+    Uint16 type, length, fragment, padding = 0;
+    
+    printf("Layer 2 Ethernet frame:\n");
+    printf("MAC dst:   %02x:%02x:%02x:%02x:%02x:%02x\n", buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
+    printf("MAC src:   %02x:%02x:%02x:%02x:%02x:%02x\n", buf[6],buf[7],buf[8],buf[9],buf[10],buf[11]);
+    type = (buf[12]<<8) | buf[13];
+    offset = 14;
+    if (type == 0x8100 || type == 0x88a8) {
+        printf("TPID:      %04x\n",type);
+        printf("TCI:       %04x\n",(buf[14]<<8) | buf[15]);
+        printf("EtherType: %04x\n",(buf[16]<<8) | buf[17]);
+        printf("IEEE 802.1Q and 802.1ad tag not supported!\n");
+        offset += 4;
+        goto print_data;
+    }
+    if (type < 0x0600) {
+        printf("Length:    %04x\n",type);
+        printf("IEEE 802.3 length not supported!\n");
+        goto print_data;
+    }
+    printf("EtherType: %04x\n",type);
+    offset = 14;
+    
+    switch (type) {
+        case 0x0800:
+            printf("Internet Protocol version 4 (IPv4):\n");
+            printf("Version:   %d\n",buf[14]>>4);
+            ihl = buf[14]&0xF;
+            printf("IHL:       %d (%d byte)\n",ihl,ihl<<2);
+            printf("DSCP:      %d\n",buf[15]>>2);
+            printf("ECN:       %d\n", buf[15]&0x3);
+            length = (buf[16]<<8) | buf[17];
+            printf("Length:    %d\n", length);
+            printf("ID:        %04x\n", (buf[18]<<8) | buf[19]);
+            printf("Flags:     %d\n", buf[20]>>5);
+            fragment = ((buf[20]&0x1F)<<8) | buf[21];
+            printf("Offset:    %d\n", fragment);
+            printf("TTL:       %d\n", buf[22]);
+            protocol = buf[23];
+            printf("Protocol:  %02x\n", protocol);
+            printf("Checksum:  %04x\n", (buf[24]<<8) | buf[25]);
+            printf("IP src:    %d.%d.%d.%d\n",buf[26],buf[27],buf[28],buf[29]);
+            printf("IP dst:    %d.%d.%d.%d\n",buf[30],buf[31],buf[32],buf[33]);
+            offset = 34;
+            if (ihl > 5) {
+                printf("Options not supported!\n");
+                goto print_data;
+            }
+            if (fragment != 0) {
+                printf("Fragment data at offset %d (%d byte):\n", fragment, fragment << 3);
+                goto print_data;
+            }
+            
+            switch (protocol) {
+                case 0x01:
+                    printf("Internet Control Message Protocol (ICMP):\n");
+                    printf("Type:      %d\n", buf[34]);
+                    printf("Code:      %d\n", buf[35]);
+                    printf("Checksum:  %04x\n",(buf[36]<<8) | buf[37]);
+                    printf("Rest:      %02x %02x %02x %02x\n",buf[38],buf[39],buf[40],buf[41]);
+                    offset = 42;
+                    break;
+                case 0x06:
+                    printf("Transmission Control Protocol (TCP):\n");
+                    printf("Port src:  %d\n",(buf[34]<<8) | buf[35]);
+                    printf("Port dst:  %d\n",(buf[36]<<8) | buf[37]);
+                    printf("Seq num:   %u\n",(buf[38]<<24) | (buf[39]<<16) | (buf[40]<<8) | buf[41]);
+                    printf("Ack num:   %u\n",(buf[42]<<24) | (buf[43]<<16) | (buf[44]<<8) | buf[45]);
+                    options = buf[46]>>4;
+                    printf("Offset:    %d (%d byte)\n", options, options << 3);
+                    printf("Reserved:  %02x\n",(buf[46]>>1)&0x07);
+                    printf("Flags:     ");
+                    if (buf[46]&0x01) printf("NS ");
+                    if (buf[47]&0x80) printf("CWR ");
+                    if (buf[47]&0x40) printf("ECE ");
+                    if (buf[47]&0x20) printf("URG ");
+                    if (buf[47]&0x10) printf("ACK ");
+                    if (buf[47]&0x08) printf("PSH ");
+                    if (buf[47]&0x04) printf("RST ");
+                    if (buf[47]&0x02) printf("SYN ");
+                    if (buf[47]&0x01) printf("FIN ");
+                    printf("\n");
+                    printf("Window:    %d\n",(buf[48]<<8) | buf[49]);
+                    printf("Checksum:  %04x\n",(buf[50]<<8) | buf[51]);
+                    printf("Urg ptr:   %04x\n",(buf[52]<<8) | buf[53]);
+                    offset = 54;
+                    if (options > 5) {
+                        options -= 5;
+                        options <<= 2;
+                        printf("Options:   %d byte", options);
+                        for (i=0; i<options; i++) {
+                            if (i % 4 == 0) {
+                                printf("\n");
+                            }
+                            printf("%02X ",buf[offset + i]);
+                        }
+                        printf("\n");
+                        offset += options;
+                    }
+                    break;
+                case 0x11:
+                    printf("User Datagram Protocol (UDP):\n");
+                    printf("Port src:  %d\n",(buf[34]<<8) | buf[35]);
+                    printf("Port dst:  %d\n",(buf[36]<<8) | buf[37]);
+                    printf("Length:    %d\n",(buf[38]<<8) | buf[39]);
+                    printf("Checksum:  %04x\n",(buf[40]<<8) | buf[41]);
+                    offset = 42;
+                    break;
+                    
+                default:
+                    printf("IP Protocol %02x not supported!\n",protocol);
+                    goto print_data;
+            }
+            break;
+        case 0x0806:
+            printf("Address Resolution Protocol (ARP):\n");
+            printf("HTYPE:     %04x\n",(buf[14]<<8) | buf[15]);
+            printf("PTYPE:     %04x\n",(buf[16]<<8) | buf[17]);
+            printf("HLEN:      %d\n", buf[18]);
+            printf("PLEN:      %d\n", buf[19]);
+            printf("OPER:      %04x\n",(buf[20]<<8) | buf[21]);
+            if (buf[18] != 6 || buf[19] != 4) {
+                printf("HLEN or PLEN not supported!\n");
+                offset = 22;
+                goto print_data;
+            }
+            length = 8 + 2 * (6 + 4);
+            printf("SHA:       %02x:%02x:%02x:%02x:%02x:%02x\n",buf[22],buf[23],buf[24],buf[25],buf[26],buf[27]);
+            printf("SPA:       %d.%d.%d.%d\n",buf[28],buf[29],buf[30],buf[31]);
+            printf("THA:       %02x:%02x:%02x:%02x:%02x:%02x\n",buf[32],buf[33],buf[34],buf[35],buf[36],buf[37]);
+            printf("TPA:       %d.%d.%d.%d\n",buf[38],buf[39],buf[40],buf[41]);
+            offset = 42;
+            break;
+        default:
+            printf("EtherType %04x not supported!\n",type);
+            goto print_data;
+    }
+    
+    if (size > (length + 14)) {
+        padding = size - (length + 14);
+        size = length + 14;
+    }
+    
+print_data:
+    if (offset < size) {
+        printf("Data:      offset = %d, length = %d:\n", offset, size - offset);
+    } else {
+        printf("Data:      no additional data");
+    }
+#endif // LOG_EN_ANALYZE
+    for (i=offset; i<size; i++) {
+        if (i > offset && (i - offset) % 16 == 0) {
+            printf("\n");
+        }
+        printf("%02X ",buf[i]);
+    }
+    printf("\n");
+#if LOG_EN_ANALYZE
+    if (padding) {
+        printf("Padding:   %d byte at end of packet\n", padding);
+    }
+#endif // LOG_EN_ANALYZE
+#endif // LOG_EN_DATA
 }

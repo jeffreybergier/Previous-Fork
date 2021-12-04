@@ -27,49 +27,136 @@ static const char* BLANKS[] = {
 
 static volatile Uint32 blank[NUM_BLANKS];
 static Uint32       vblCounter[NUM_BLANKS];
-static Uint64       perfCounterStart;
 static Sint64       cycleCounterStart;
-static double       cycleSecsStart;
-static bool         currentIsRealtime;
-static double       cycleDivisor;
-static lock_t       timeLock;
-static Uint32       ticksStart;
+static Sint64       cycleDivisor;
+static Uint64       perfCounterStart;
+static Uint64       perfFrequency;
+static bool         perfCounterFreqInt;
+static Uint64       perfDivisor;
+static double       perfMultiplicator;
+static Uint64       pauseTimeStamp;
 static bool         enableRealtime;
+static bool         osDarkmatter;
+static bool         currentIsRealtime;
 static Uint64       hardClockExpected;
 static Uint64       hardClockActual;
 static time_t       unixTimeStart;
-static double       unixTimeOffset = 0;
-static double       perfFrequency;
-static Uint64       pauseTimeStamp;
-static bool         osDarkmatter;
+static lock_t       timeLock;
+static Uint64       saveTime;
 
-static inline double real_time(void) {
-    double rt  = (SDL_GetPerformanceCounter() - perfCounterStart);
-    rt        /= perfFrequency;
+// external
+extern Sint64       nCyclesMainCounter;
+extern struct regstruct regs;
+
+static inline Uint64 real_time(void) {
+    Uint64 rt = (SDL_GetPerformanceCounter() - perfCounterStart);
+    if (perfCounterFreqInt) {
+        rt /= perfDivisor;
+    } else {
+        rt *= perfMultiplicator;
+    }
     return rt;
+}
+
+#define DAY_TO_US (1000000ULL * 60 * 60 * 24)
+
+// Report counter capacity
+void host_report_limits(void) {
+    Uint64 cycleCounterLimit, perfCounterLimit, perfCounter;
+    
+    Log_Printf(LOG_WARN, "[Hosttime] Timing system reset:");
+    
+    cycleCounterLimit  = INT64_MAX - nCyclesMainCounter;
+    cycleCounterLimit /= cycleDivisor;
+    cycleCounterLimit /= DAY_TO_US;
+    
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle counter value: %lld", nCyclesMainCounter);
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle counter frequency: %lld MHz", cycleDivisor);
+    Log_Printf(LOG_WARN, "[Hosttime] Cycle timer will overflow in %lld days", cycleCounterLimit);
+    
+    perfCounter        = SDL_GetPerformanceCounter();
+    perfCounterLimit   = UINT64_MAX - perfCounter;
+    Log_Printf(LOG_WARN, "[Hosttime] Realtime counter value: %lld", perfCounter);
+    if (perfCounterFreqInt) {
+        perfCounterLimit /= perfDivisor;
+        if (perfCounterLimit > INT64_MAX)
+            perfCounterLimit = INT64_MAX;
+        perfCounterLimit /= DAY_TO_US;
+        Log_Printf(LOG_WARN, "[Hosttime] Realtime counter frequency: %lld MHz", perfDivisor);
+        Log_Printf(LOG_WARN, "[Hosttime] Realtime timer will overflow in %lld days", perfCounterLimit);
+    } else {
+        if (perfCounterLimit > (1ULL<<DBL_MANT_DIG)-1)
+            perfCounterLimit = (1ULL<<DBL_MANT_DIG)-1;
+        if (perfMultiplicator < 1.0)
+            perfCounterLimit *= perfMultiplicator;
+        else
+            Log_Printf(LOG_WARN, "[Hosttime] Warning: Realtime counter cannot resolve microseconds.");
+        perfCounterLimit /= DAY_TO_US;
+        Log_Printf(LOG_WARN, "[Hosttime] Realtime counter frequency: %f MHz", 1.0/perfMultiplicator);
+        Log_Printf(LOG_WARN, "[Hosttime] Realtime timer will start losing precision in %lld days", perfCounterLimit);
+    }
+}
+
+// Check NeXT specific UNIX time limits and adjust time if needed
+#define TIME_LIMIT_SECONDS 0
+
+void host_check_unix_time(void) {
+    struct tm* t = gmtime(&unixTimeStart);
+    char* s = asctime(t);
+    bool b = false;
+
+    s[strlen(s)-1] = 0;
+    Log_Printf(LOG_WARN, "[Hosttime] Unix time start: %s GMT", s);
+    Log_Printf(LOG_WARN, "[Hosttime] Unix time will overflow in %f days", difftime(NEXT_MAX_SEC, unixTimeStart)/(24*60*60));
+#if TIME_LIMIT_SECONDS
+    if (unixTimeStart < NEXT_MIN_SEC || unixTimeStart >= NEXT_LIMIT_SEC) {
+        unixTimeStart = NEXT_START_SEC;
+        t = gmtime(&unixTimeStart);
+        b = true;
+    }
+#else
+    if (t->tm_year < NEXT_MIN_YEAR || t->tm_year >= NEXT_LIMIT_YEAR) {
+        t->tm_year = NEXT_START_YEAR;
+        unixTimeStart = timegm(t);
+        b = true;
+    }
+#endif
+    if (b) {
+        s = asctime(t);
+        s[strlen(s)-1] = 0;
+        Log_Printf(LOG_WARN, "[Hosttime] Unix time is beyond valid range!");
+        Log_Printf(LOG_WARN, "[Hosttime] Unix time is valid from Thu Jan 1 00:00:00 1970 through Thu Dec 31 23:59:59 2037 GMT");
+        Log_Printf(LOG_WARN, "[Hosttime] Setting time to %s GMT", s);
+    }
 }
 
 void host_reset(void) {
     perfCounterStart  = SDL_GetPerformanceCounter();
     pauseTimeStamp    = perfCounterStart;
     perfFrequency     = SDL_GetPerformanceFrequency();
-    ticksStart        = SDL_GetTicks();
     unixTimeStart     = time(NULL);
     cycleCounterStart = 0;
-    cycleSecsStart    = 0;
     currentIsRealtime = false;
     hardClockExpected = 0;
     hardClockActual   = 0;
     enableRealtime    = ConfigureParams.System.bRealtime;
     osDarkmatter      = false;
+    saveTime          = 0;
     
     for(int i = NUM_BLANKS; --i >= 0;) {
         vblCounter[i] = 0;
         blank[i]      = 0;
     }
     
-    cycleDivisor = ConfigureParams.System.nCpuFreq * 1000 * 1000;
+    cycleDivisor = ConfigureParams.System.nCpuFreq;
     
+    perfCounterFreqInt = (perfFrequency % 1000000ULL) == 0;
+    perfDivisor        = perfFrequency / 1000000ULL;
+    perfMultiplicator  = 1000000.0 / perfFrequency;
+    
+    host_report_limits();
+    host_check_unix_time();
+
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 }
 
@@ -106,11 +193,18 @@ void host_hardclock(int expected, int actual) {
     }
 }
 
-extern Sint64           nCyclesMainCounter;
-extern struct regstruct regs;
+// this can be used by other threads to read hostTime
+Uint64 host_get_save_time() {
+    Uint64 hostTime;
+    host_lock(&timeLock);
+    hostTime = saveTime;
+    host_unlock(&timeLock);
+    return hostTime / 1000000ULL;
+}
 
-double host_time_sec() {
-    double hostTime;
+// Return current time as microseconds
+Uint64 host_time_us() {
+    Uint64 hostTime;
     
     host_lock(&timeLock);
     
@@ -119,27 +213,28 @@ double host_time_sec() {
     } else {
         hostTime  = nCyclesMainCounter - cycleCounterStart;
         hostTime /= cycleDivisor;
-        hostTime += cycleSecsStart;
     }
+    
+    // save hostTime to be read by other threads
+    saveTime = hostTime;
     
     // switch to realtime if...
     // 1) ...realtime mode is enabled and...
     // 2) ...either we are running darkmatter or the m68k CPU is in user mode
     bool state = (osDarkmatter || !(regs.s)) && enableRealtime;
     if(currentIsRealtime != state) {
-        double realTime  = real_time();
+        Uint64 realTime  = real_time();
         
         if(currentIsRealtime) {
             // switching from real-time to cycle-time
-            cycleSecsStart    = realTime;
-            cycleCounterStart = nCyclesMainCounter;
+            cycleCounterStart = nCyclesMainCounter - realTime * cycleDivisor;
         } else {
             // switching from cycle-time to real-time
-            double realTimeOffset = hostTime - realTime;
+            Sint64 realTimeOffset = (Sint64)hostTime - realTime;
             if(realTimeOffset > 0) {
                 // if hostTime is in the future, wait until realTime is there as well
-                if(realTimeOffset > 0.01)
-                    host_sleep_sec(realTimeOffset);
+                if(realTimeOffset > 10000LL)
+                    host_sleep_us(realTimeOffset);
                 else
                     while(real_time() < hostTime) {}
             }
@@ -152,34 +247,43 @@ double host_time_sec() {
     return hostTime;
 }
 
-void host_time(double* realTime, double* hostTime) {
-    *hostTime = host_time_sec();
+void host_time(Uint64* realTime, Uint64* hostTime) {
+    *hostTime = host_time_us();
     *realTime = real_time();
 }
 
-// Return current time as micro seconds
-Uint64 host_time_us() {
-    return host_time_sec() * 1000.0 * 1000.0;
+// Return current time as seconds
+Uint64 host_time_sec() {
+    return host_time_us() / 1000000ULL;
 }
 
 // Return current time as milliseconds
-Uint32 host_time_ms() {
-    return  host_time_us() / 1000LL;
+Uint64 host_time_ms() {
+    return host_time_us() / 1000ULL;
 }
 
 time_t host_unix_time() {
-    return unixTimeStart + unixTimeOffset + host_time_sec();
+    return unixTimeStart + host_time_sec();
 }
 
 void host_set_unix_time(time_t now) {
-    unixTimeOffset += difftime(now, host_unix_time());
+    unixTimeStart = now - host_time_sec();
 }
 
-double host_real_time_offset() {
-    double rt;
-    double vt;
+struct tm* host_unix_tm() {
+    time_t tmp = host_unix_time();
+    return gmtime(&tmp);
+}
+
+void host_set_unix_tm(struct tm* now) {
+    time_t tmp = timegm(now);
+    host_set_unix_time(tmp);
+}
+
+Sint64 host_real_time_offset() {
+    Uint64 rt, vt;
     host_time(&rt, &vt);
-    return vt-rt;
+    return (Sint64)vt-rt;
 }
 
 void host_pause_time(bool pausing) {
@@ -198,29 +302,23 @@ void host_sleep_us(Uint64 us) {
 #if HAVE_NANOSLEEP
     struct timespec	ts;
     int		ret;
-    ts.tv_sec = us / 1000000LL;
-    ts.tv_nsec = (us % 1000000LL) * 1000;	/* micro sec -> nano sec */
+    ts.tv_sec = us / 1000000ULL;
+    ts.tv_nsec = (us % 1000000ULL) * 1000;	/* micro sec -> nano sec */
     /* wait until all the delay is elapsed, including possible interruptions by signals */
     do {
         errno = 0;
         ret = nanosleep(&ts, &ts);
     } while ( ret && ( errno == EINTR ) );		/* keep on sleeping if we were interrupted */
 #else
-    double timeout = us;
-    timeout /= 1000000.0;
+    Uint64 timeout = us;
     timeout += real_time();
-    host_sleep_ms(( (Uint32)(us / 1000LL)) );
+    host_sleep_ms( (Uint32)(us / 1000ULL) );
     while(real_time() < timeout) {}
 #endif
 }
 
 void host_sleep_ms(Uint32 ms) {
     SDL_Delay(ms);
-}
-
-void host_sleep_sec(double sec) {
-    sec *= 1000 * 1000;
-    host_sleep_us((Uint64)sec);
 }
 
 void host_lock(lock_t* lock) {
@@ -277,17 +375,18 @@ int host_num_cpus() {
   return  SDL_GetCPUCount();
 }
 
-static double lastVT;
+static Uint64 lastVT;
 static char   report[512];
 
-const char* host_report(double realTime, double hostTime) {
+const char* host_report(Uint64 realTime, Uint64 hostTime) {
     double dVT = hostTime - lastVT;
+    dVT       /= 1000000.0;
 
     double hardClock = hardClockExpected;
     hardClock /= hardClockActual == 0 ? 1 : hardClockActual;
     
     char* r = report;
-    r += sprintf(r, "[%s] hostTime:%.1f hardClock:%.3fMHz", enableRealtime ? "Variable" : "CycleTime", hostTime, hardClock);
+    r += sprintf(r, "[%s] hostTime:%llu hardClock:%.3fMHz", enableRealtime ? "Variable" : "CycleTime", hostTime, hardClock);
 
     for(int i = NUM_BLANKS; --i >= 0;) {
         r += sprintf(r, " %s:%.1fHz", BLANKS[i], (double)vblCounter[i]/dVT);

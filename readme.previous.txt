@@ -252,8 +252,20 @@ Previous v2.3:
   > Fixes bug that prevented Previous from starting with SDL > 2.0.12.
 
 Previous v2.4 (unreleased):
+  > Adds support for switching between single and multiple screen mode.
   > Improves performance and accuracy of FSINCOS.
+  > Improves mouse movement handling.
+  > Improves DMA emulation accuracy.
+  > Improves accuracy of system control and status registers.
+  > Improves reliability of dual magneto-optical disk drive setups.
   > Fixes bug that caused slow disk access when running Mac OS.
+  > Fixes bug that caused sound recording to be unreliable.
+  > Fixes bug that prevented volume adjustment in certain conditions.
+  > Fixes bug that caused network interface detection to be unreliable.
+  > Fixes bug that caused keyboard initiated reset and NMI to fail.
+  > Fixes bug in Real Time Clock. Time is now saved correctly.
+  > Fixes bug that caused error messages during printer startup.
+  > Fixes bug that caused black screen instead of options dialog on start.
 
 
  7) Running Previous

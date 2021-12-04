@@ -29,7 +29,7 @@ static Uint32        recBufferRd         = 0;
 static lock_t        recBufferLock;
 
 void Audio_Output_Queue(Uint8* data, int len) {
-    int chunkSize = AUDIO_BUFFER_SAMPLES;
+    int chunkSize = SOUND_BUFFER_SAMPLES;
     if (bSoundOutputWorking) {
         while (len > 0) {
             if (len < chunkSize) chunkSize = len;
@@ -40,11 +40,17 @@ void Audio_Output_Queue(Uint8* data, int len) {
     }
 }
 
-Uint32 Audio_Output_Queue_Size() {
+Uint32 Audio_Output_Queue_Size(void) {
     if (bSoundOutputWorking) {
         return SDL_GetQueuedAudioSize(Audio_Output_Device) / 4;
     } else {
         return 0;
+    }
+}
+
+void Audio_Output_Queue_Clear(void) {
+    if (bSoundOutputWorking) {
+        SDL_ClearQueuedAudio(Audio_Output_Device);
     }
 }
 
@@ -74,30 +80,41 @@ void Audio_Input_Lock() {
  * Initialize recording buffer with silence to compensate for time gap
  * between Audio_Input_Enable and first call of Audio_Input_CallBack.
  */
-#define AUDIO_RECBUF_INIT	0 /* 16000 byte = 1 second */
+#define AUDIO_RECBUF_INIT	32 /* 16000 byte = 1 second */
 
 static void Audio_Input_InitBuf(void) {
-	recBufferRd = 0;
-	for (recBufferWr = 0; recBufferWr < AUDIO_RECBUF_INIT; recBufferWr++) {
-		recBuffer[recBufferWr] = 0;
-	}
+    recBufferRd = 0;
+    Log_Printf(LOG_WARN, "[Audio] Initializing input buffer with %d ms of silence.", AUDIO_RECBUF_INIT>>4);
+    for (recBufferWr = 0; recBufferWr < AUDIO_RECBUF_INIT; recBufferWr++) {
+        recBuffer[recBufferWr] = 0;
+    }
 }
 
-int Audio_Input_Read(void) {
-	Sint16 sample = 0;
-	
+int Audio_Input_BufSize(void) {
+    if (bSoundInputWorking) {
+        if (recBufferRd <= recBufferWr) {
+            return recBufferWr - recBufferRd;
+        } else {
+            return (1<<REC_BUFFER_SZ) - (recBufferRd - recBufferWr);
+        }
+    } else {
+        return 0;
+    }
+}
+
+int Audio_Input_Read(Sint16* sample) {
     if (bSoundInputWorking) {
 		if ((recBufferRd&REC_BUFFER_MASK)==(recBufferWr&REC_BUFFER_MASK)) {
 			return -1;
 		} else {
-			sample = ((recBuffer[recBufferRd&REC_BUFFER_MASK]<<8)|recBuffer[(recBufferRd&REC_BUFFER_MASK)+1]);
+			*sample = ((recBuffer[recBufferRd&REC_BUFFER_MASK]<<8)|recBuffer[(recBufferRd&REC_BUFFER_MASK)+1]);
 			recBufferRd += 2;
 			recBufferRd &= REC_BUFFER_MASK;
-			return snd_make_ulaw(sample);
 		}
 	} else {
-        return snd_make_ulaw(0); // silence
+        *sample = 0; // silence
 	}
+    return 0;
 }
 
 void Audio_Input_Unlock() {
@@ -130,12 +147,12 @@ void Audio_Output_Init(void)
     }
     
     /* Set up SDL audio: */
-    request.freq     = AUDIO_OUT_FREQUENCY; /* 44,1 kHz */
+    request.freq     = SOUND_OUT_FREQUENCY; /* 44,1 kHz */
     request.format   = AUDIO_S16MSB;        /* 16-Bit signed, big endian */
     request.channels = 2;                   /* stereo */
     request.callback = NULL;
     request.userdata = NULL;
-    request.samples  = AUDIO_BUFFER_SAMPLES; /* buffer size in samples */
+    request.samples  = SOUND_BUFFER_SAMPLES; /* buffer size in samples */
 
     Audio_Output_Device = SDL_OpenAudioDevice(NULL, 0, &request, &granted, 0);
     if (Audio_Output_Device==0)	/* Open audio device */ {
@@ -173,12 +190,12 @@ void Audio_Input_Init(void) {
     }
     
     /* Set up SDL audio: */
-    request.freq     = AUDIO_IN_FREQUENCY; /* 8kHz */
+    request.freq     = SOUND_IN_FREQUENCY; /* 8kHz */
     request.format   = AUDIO_S16MSB;	   /* 16-Bit signed, big endian */
     request.channels = 1;			       /* mono */
     request.callback = Audio_Input_CallBack;
     request.userdata = NULL;
-    request.samples  = AUDIO_BUFFER_SAMPLES; /* buffer size in samples */
+    request.samples  = SOUND_BUFFER_SAMPLES; /* buffer size in samples */
     
     Audio_Input_Device = SDL_OpenAudioDevice(NULL, 1, &request, &granted, 0); /* Open audio device */
     
@@ -250,7 +267,7 @@ void Audio_Output_Enable(bool bEnable) {
 void Audio_Input_Enable(bool bEnable) {
     if (bEnable && !bRecordingBuffer) {
         /* Start recording */
-		Audio_Input_InitBuf();
+        Audio_Input_InitBuf();
         SDL_PauseAudioDevice(Audio_Input_Device, false);
         bRecordingBuffer = true;
     }

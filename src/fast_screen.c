@@ -34,6 +34,8 @@ volatile bool bInFullScreen = false; /* true if in full screen */
 
 static const int NeXT_SCRN_WIDTH  = 1120;
 static const int NeXT_SCRN_HEIGHT = 832;
+int width;   /* guest framebuffer */
+int height;  /* guest framebuffer */
 
 static SDL_Thread*   repaintThread;
 static SDL_Renderer* sdlRenderer;
@@ -42,6 +44,7 @@ static SDL_atomic_t  blitFB;
 static SDL_atomic_t  blitUI;           /* When value == 1, the repaint thread will blit the sldscrn surface to the screen on the next redraw */
 static bool          doUIblit;
 static SDL_Rect      saveWindowBounds; /* Window bounds before going fullscreen. Used to restore window size & position. */
+static MONITORTYPE   saveMonitorType;  /* Save monitor type to restore on return from fullscreen */
 static void*         uiBuffer;         /* uiBuffer used for ui texture */
 static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
@@ -176,19 +179,24 @@ void blitDimension(Uint32* vram, SDL_Texture* tex) {
 /*
  Blit NeXT framebuffer to texture.
  */
-static void blitScreen(SDL_Texture* tex) {
+static bool blitScreen(SDL_Texture* tex) {
     if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DIMENSION) {
         Uint32* vram = nd_vram_for_slot(ND_SLOT(ConfigureParams.Screen.nMonitorNum));
-        if(vram) blitDimension(vram, tex);
-        return;
-    }
-    if(NEXTVideo) {
-        if(ConfigureParams.System.bColor) {
-            blitColor(tex);
-        } else {
-            blitBW(tex);
+        if (vram) {
+            blitDimension(vram, tex);
+            return true;
+        }
+    } else {
+        if (NEXTVideo) {
+            if (ConfigureParams.System.bColor) {
+                blitColor(tex);
+            } else {
+                blitBW(tex);
+            }
+            return true;
         }
     }
+    return false;
 }
 
 /*
@@ -197,16 +205,7 @@ static void blitScreen(SDL_Texture* tex) {
  shows it.
  */
 static int repainter(void* unused) {
-    int width;
-    int height;
-
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
-    SDL_GetWindowSize(sdlWindow, &width, &height);
-    
-    statusBar.x = 0;
-    statusBar.y = NeXT_SCRN_HEIGHT;
-    statusBar.w = width;
-    statusBar.h = height - NeXT_SCRN_HEIGHT;
     
     SDL_Texture*  uiTexture;
     SDL_Texture*  fbTexture;
@@ -241,13 +240,10 @@ static int repainter(void* unused) {
     
     Statusbar_Init(sdlscrn);
     
-	if (bGrabMouse) {
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-        SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
-    }
+    Main_SetMouseGrab(bGrabMouse);
 
-	/* Configure some SDL stuff: */
-	SDL_ShowCursor(SDL_DISABLE);
+    /* Configure some SDL stuff: */
+    SDL_ShowCursor(SDL_DISABLE);
     
     /* Setup lookup tables */
     SDL_PixelFormat* pformat = SDL_AllocFormat(format);
@@ -274,9 +270,8 @@ static int repainter(void* unused) {
         bool updateUI = false;
         
         if (SDL_AtomicGet(&blitFB)) {
-            // Blit the NeXT framebuffer to textrue
-            blitScreen(fbTexture);
-            updateFB = true;
+            // Blit the NeXT framebuffer to texture
+            updateFB = blitScreen(fbTexture);
         }
         
         // Copy UI surface to texture
@@ -325,15 +320,20 @@ void Screen_Pause(bool pause) {
  */
 void Screen_Init(void) {
     /* Set initial window resolution */
+    width  = NeXT_SCRN_WIDTH;
+    height = NeXT_SCRN_HEIGHT;    
     bInFullScreen = ConfigureParams.Screen.bFullScreen;
     nScreenZoomX  = 1;
     nScreenZoomY  = 1;
 
-    int width  = NeXT_SCRN_WIDTH;
-    int height = NeXT_SCRN_HEIGHT;
-    
-    /* Statusbar height */
-    height += Statusbar_SetHeight(width, height);
+    /* Statusbar */
+    Statusbar_SetHeight(width, height);
+    statusBar.x = 0;
+    statusBar.y = height;
+    statusBar.w = width;
+    statusBar.h = Statusbar_GetHeight();
+    /* Grow to fit statusbar */
+    height += Statusbar_GetHeight();
     
     /* Set new video mode */
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -387,25 +387,36 @@ void Screen_UnInit(void) {
  * Enter Full screen mode
  */
 void Screen_EnterFullScreen(void) {
-	bool bWasRunning;
+    bool bWasRunning;
 
-	if (!bInFullScreen) {
-		/* Hold things... */
-		bWasRunning = Main_PauseEmulation(false);
-		bInFullScreen = true;
+    if (!bInFullScreen) {
+        /* Hold things... */
+        bWasRunning = Main_PauseEmulation(false);
+        bInFullScreen = true;
 
         SDL_GetWindowPosition(sdlWindow, &saveWindowBounds.x, &saveWindowBounds.y);
         SDL_GetWindowSize(sdlWindow, &saveWindowBounds.w, &saveWindowBounds.h);
         SDL_SetWindowFullscreen(sdlWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
-		SDL_Delay(20);                  /* To give monitor time to change to new resolution */
-		
-		if (bWasRunning) {
-			/* And off we go... */
-			Main_UnPauseEmulation();
-		}
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-        SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
-	}
+        SDL_Delay(100);                  /* To give monitor time to change to new resolution */
+        
+        /* If using multiple screen windows, save and go to single window mode */
+        saveMonitorType = ConfigureParams.Screen.nMonitorType;
+        if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
+            ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_CPU;
+            Screen_ModeChanged();
+        }
+        
+        if (bWasRunning) {
+            /* And off we go... */
+            Main_UnPauseEmulation();
+        }
+        
+        /* Always grab mouse pointer in full screen mode */
+        Main_SetMouseGrab(true);
+        
+        /* Make sure screen is painted in case emulation is paused */
+        SDL_AtomicSet(&blitUI, 1);
+    }
 }
 
 /*-----------------------------------------------------------------------*/
@@ -413,29 +424,35 @@ void Screen_EnterFullScreen(void) {
  * Return from Full screen mode back to a window
  */
 void Screen_ReturnFromFullScreen(void) {
-	bool bWasRunning;
+    bool bWasRunning;
 
-	if (bInFullScreen) {
-		/* Hold things... */
-		bWasRunning = Main_PauseEmulation(false);
-		bInFullScreen = false;
+    if (bInFullScreen) {
+        /* Hold things... */
+        bWasRunning = Main_PauseEmulation(false);
+        bInFullScreen = false;
 
         SDL_SetWindowFullscreen(sdlWindow, 0);
-		SDL_Delay(20);                /* To give monitor time to switch resolution */
+        SDL_Delay(100);                /* To give monitor time to switch resolution */
         SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
         SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
         
-		if (bWasRunning) {
-			/* And off we go... */
-			Main_UnPauseEmulation();
-		}
+        /* Return to windowed monitor mode */
+        if (saveMonitorType == MONITOR_TYPE_DUAL) {
+            ConfigureParams.Screen.nMonitorType = saveMonitorType;
+            Screen_ModeChanged();
+        }
+        
+        if (bWasRunning) {
+            /* And off we go... */
+            Main_UnPauseEmulation();
+        }
 
-		if (!bGrabMouse) {
-			/* Un-grab mouse pointer in windowed mode */
-			SDL_SetRelativeMouseMode(SDL_FALSE);
-            SDL_SetWindowGrab(sdlWindow, SDL_FALSE);
-		}
-	}
+        /* Go back to windowed mode mouse grab settings */
+        Main_SetMouseGrab(bGrabMouse);
+        
+        /* Make sure screen is painted in case emulation is paused */
+        SDL_AtomicSet(&blitUI, 1);
+    }
 }
 
 /*-----------------------------------------------------------------------*/
@@ -443,16 +460,20 @@ void Screen_ReturnFromFullScreen(void) {
  * Force things associated with changing between fullscreen/windowed
  */
 void Screen_ModeChanged(void) {
-	if (!sdlscrn) {
-		/* screen not yet initialized */
-		return;
-	}
-	if (bInFullScreen || bGrabMouse) {
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-        SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
-	} else {
-		SDL_SetRelativeMouseMode(SDL_FALSE);
-        SDL_SetWindowGrab(sdlWindow, SDL_FALSE);
+    if (!sdlscrn) {
+        /* screen not yet initialized */
+        return;
+    }
+    
+    /* Do not use multiple windows in full screen mode */
+    if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL && bInFullScreen) {
+        saveMonitorType = ConfigureParams.Screen.nMonitorType;
+        ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_CPU;
+    }
+    if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL && !bInFullScreen) {
+        nd_sdl_show();
+    } else {
+        nd_sdl_hide();
     }
 }
 
