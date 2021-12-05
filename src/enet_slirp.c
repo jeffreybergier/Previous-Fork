@@ -82,12 +82,46 @@ static void slirp_tick(void)
     }
 }
 
+//This function is to be called every 30 seconds
+//to broadcast a simple routing table.
+static void slirp_rip_tick(void)
+{
+    if (slirp_started)
+    {
+        Log_Printf(LOG_EN_SLIRP_LEVEL, "[SLIRP] Routing table broadcast");
+        SDL_LockMutex(slirp_mutex);
+        slirp_rip_broadcast();
+        SDL_UnlockMutex(slirp_mutex);
+    }
+}
+
+
+#define SLIRP_TICK_MS   10
+#define SLIRP_RIP_SEC   30
+
 static int tick_func(void *arg)
 {
+    Uint32 time = host_get_save_time();
+    Uint32 last_time = time;
+    Uint64 next_time = time + SLIRP_RIP_SEC;
+
     while(slirp_started)
     {
-        host_sleep_ms(10);
+        host_sleep_ms(SLIRP_TICK_MS);
         slirp_tick();
+        
+        // for routing information protocol
+        last_time = time;
+        time = host_get_save_time();
+        if (time < last_time) // if time counter wrapped
+        {
+            next_time = time; // reset next_time
+        }
+        if (time >= next_time)
+        {
+            slirp_rip_tick();
+            next_time += SLIRP_RIP_SEC;
+        }
     }
     return 0;
 }

@@ -132,6 +132,10 @@ int slirp_init(struct in_addr *guest_addr)
 {
     // debug_init("/tmp/slirp.log", DEBUG_DEFAULT);
     
+#ifdef DEBUG
+    dfd = stdout;
+#endif
+    
 #ifdef _WIN32
     {
         WSADATA Data;
@@ -581,7 +585,7 @@ static void arp_input(const uint8_t *pkt, int pkt_len)
             return;
         arp_ok:
             /* XXX: make an ARP request to have the client address */
-            memcpy(client_ethaddr, eh->h_source, ETH_ALEN);
+            /* memcpy(client_ethaddr, eh->h_source, ETH_ALEN); */
 
             /* ARP request for alias/dns mac address */
             memcpy(reh->h_dest, pkt + ETH_ALEN, ETH_ALEN);
@@ -679,4 +683,9 @@ int slirp_add_exec(int do_pty, const char *args, int addr_low_byte,
 {
     return add_exec(&exec_list, do_pty, args, 
                     addr_low_byte, htons(guest_port));
+}
+
+void slirp_rip_broadcast(void)
+{
+    rip_broadcast();
 }

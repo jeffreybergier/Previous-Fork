@@ -111,7 +111,11 @@ icmp_input(m, hlen)
   case ICMP_ECHO:
     icp->icmp_type = ICMP_ECHOREPLY;
     ip->ip_len += hlen;	             /* since ip_input subtracts this */
-    if (ip->ip_dst.s_addr == alias_addr.s_addr) {
+    if (ip->ip_dst.s_addr == alias_addr.s_addr ||
+        ip->ip_dst.s_addr == ntohl(CTL_NET | CTL_ALIAS) ||
+        ip->ip_dst.s_addr == ntohl(CTL_NET | CTL_DNS) ||
+        ip->ip_dst.s_addr == ntohl(CTL_NET | CTL_NFSD)
+        ) {
       icmp_reflect(m);
     } else {
       struct socket *so;
@@ -159,13 +163,15 @@ icmp_input(m, hlen)
       }
     } /* if ip->ip_dst.s_addr == alias_addr.s_addr */
     break;
+  case ICMP_MASKREQ:
+    icmp_maskreply(m);
+    break;
   case ICMP_UNREACH:
     /* XXX? report error? close socket? */
   case ICMP_TIMXCEED:
   case ICMP_PARAMPROB:
   case ICMP_SOURCEQUENCH:
   case ICMP_TSTAMP:
-  case ICMP_MASKREQ:
   case ICMP_REDIRECT:
     icmpstat.icps_notsupp++;
     m_freem(m);
@@ -223,7 +229,7 @@ icmp_error(
   /* check msrc */
   if(!msrc) goto end_error;
   ip = mtod(msrc, struct ip *);
-#if DEBUG  
+#ifdef DEBUG
   { char bufa[INET_ADDRSTRLEN], bufb[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &ip->ip_src, bufa, sizeof(bufa));
 	inet_ntop(AF_INET, &ip->ip_dst, bufb, sizeof(bufb));
@@ -280,7 +286,7 @@ icmp_error(
   HTONS(icp->icmp_ip.ip_id);
   HTONS(icp->icmp_ip.ip_off);
 
-#if DEBUG
+#ifdef DEBUG
   if(message) {           /* DEBUG : append message to ICMP packet */
     int message_len;
     char *cpnt;
@@ -369,4 +375,58 @@ icmp_reflect(m)
   (void ) ip_output((struct socket *)NULL, m);
 
   icmpstat.icps_reflect++;
+}
+
+/*
+ * Reply to a mask request with the netmask
+ */
+void
+icmp_maskreply(m)
+struct mbuf *m;
+{
+    register struct ip *ip = mtod(m, struct ip *);
+    int hlen = ip->ip_hl << 2;
+    int optlen = hlen - sizeof(struct ip );
+    register struct icmp *icp;
+    
+    ip->ip_len += hlen;	 /* since ip_input subtracts this */
+    
+    /*
+     * Send an icmp packet back to the ip level,
+     * after supplying a checksum.
+     */
+    m->m_data += hlen;
+    m->m_len -= hlen;
+    icp = mtod(m, struct icmp *);
+    
+    icp->icmp_type  = ICMP_MASKREPLY;
+    icp->icmp_code  = 0;
+    icp->icmp_mask  = htonl(CTL_NET_MASK);
+    icp->icmp_cksum = 0;
+    icp->icmp_cksum = cksum(m, ip->ip_len - hlen);
+    
+    m->m_data -= hlen;
+    m->m_len += hlen;
+    
+    /* fill in ip */
+    if (optlen > 0) {
+        /*
+         * Strip out original options by copying rest of first
+         * mbuf's data back, and adjust the IP length.
+         */
+        memmove((caddr_t)(ip + 1), (caddr_t)ip + hlen,
+                (unsigned )(m->m_len - hlen));
+        hlen -= optlen;
+        ip->ip_hl = hlen >> 2;
+        ip->ip_len -= optlen;
+        m->m_len -= optlen;
+    }
+    
+    ip->ip_ttl = MAXTTL;
+    ip->ip_dst = ip->ip_src;
+    ip->ip_src = alias_addr;
+    
+    (void ) ip_output((struct socket *)NULL, m);
+    
+    icmpstat.icps_reflect++;
 }
