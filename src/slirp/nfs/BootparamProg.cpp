@@ -55,17 +55,10 @@ int CBootparamProg::ProcedureWHOAMI(void) {
     }
     char hostname[_SC_HOST_NAME_MAX];
     strcpy(hostname, NAME_HOST);
-    char* client = hostname;
-    char* domain = hostname;
-    while(*++domain) {
-        if(*domain == '.') {
-            *domain = '\0';
-            domain++;
-            break;
-        }
-    }
-    m_out->Write(_SC_HOST_NAME_MAX, client);
-    m_out->Write(_SC_HOST_NAME_MAX, domain);
+    char domain[_SC_HOST_NAME_MAX];
+    strcpy(domain, NAME_DOMAIN);
+    m_out->Write(_SC_HOST_NAME_MAX,  hostname);
+    m_out->Write(_SC_HOST_NAME_MAX,  &domain[domain[0] == '.' ? 1 : 0]);
     WriteInAddr(m_out, ntohl(special_addr.s_addr) | CTL_GATEWAY);
     return PRC_OK;
 }
@@ -76,15 +69,12 @@ int CBootparamProg::ProcedureGETFILE(void) {
     m_in->Read(client);
     m_in->Read(key);
     string path = nfsd_fts[0]->GetBasePathAlias();
-    /*if(strcmp("private", key.Get()) == 0) {
+    if(strcmp("root", key.Get())) {
         if(path != "/") path += "/";
-        path += "clients/previous";
-    } else */if(strcmp("root", key.Get())) {
-        if(path != "/") path += "/";
-            path += key.Get();
+        path += key.Get();
     }
 
-    if(path.size()) {
+    if(path.length()) {
         m_out->Write(_SC_HOST_NAME_MAX, NAME_NFSD);
         WriteInAddr(m_out, ntohl(special_addr.s_addr) | CTL_NFSD);
         m_out->Write(PATH_MAX, path.c_str());
