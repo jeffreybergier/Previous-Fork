@@ -63,16 +63,16 @@ rdev      (FATTR_INVALID)
 {Update(attrs);}
 
 void FileAttrs::Update(const FileAttrs& attrs) {
-#define UPDATE_ATTR(a) a = Valid(attrs. a) ? attrs. a : a
-    UPDATE_ATTR(mode);
-    UPDATE_ATTR(uid);
-    UPDATE_ATTR(gid);
-    UPDATE_ATTR(size);
-    UPDATE_ATTR(atime_sec);
-    UPDATE_ATTR(atime_usec);
-    UPDATE_ATTR(mtime_sec);
-    UPDATE_ATTR(mtime_usec);
-    UPDATE_ATTR(rdev);
+#define UPDATE_ATTR(s,a) a = valid##s(attrs. a) ? attrs. a : a
+    UPDATE_ATTR(16,mode);
+    UPDATE_ATTR(16,uid);
+    UPDATE_ATTR(16,gid);
+    UPDATE_ATTR(32,size);
+    UPDATE_ATTR(32,atime_sec);
+    UPDATE_ATTR(32,atime_usec);
+    UPDATE_ATTR(32,mtime_sec);
+    UPDATE_ATTR(32,mtime_usec);
+    UPDATE_ATTR(16,rdev);
 }
 
 FileAttrs::FileAttrs(File& fin, string& name) {
@@ -87,7 +87,8 @@ void FileAttrs::Write(File& fout, const string& name) {
     fprintf(fout.file, "0%o:%d:%d:%d:%s\n", mode, uid, gid, rdev, name.c_str());
 }
 
-bool FileAttrs::Valid(uint32_t statval) {return statval != 0xFFFFFFFF;}
+bool FileAttrs::valid32(uint32_t statval) {return statval != 0xFFFFFFFF;}
+bool FileAttrs::valid16(uint32_t statval) {return (statval & 0x0000FFFF) != 0x0000FFFF;}
 
 //----- file table
 
@@ -238,7 +239,7 @@ int FileTable::Stat(const string& _path, struct stat& fstat) {
     FileAttrs* attrs  = GetFileAttrs(path);
     
     if(attrs) {
-        if(FileAttrs::Valid(attrs->mode)) {
+        if(FileAttrs::valid16(attrs->mode)) {
             uint32_t mode = fstat.st_mode; // copy format & permissions from actual file in the file system
             mode &= ~(S_IWUSR  | S_IRUSR);
             mode |= attrs->mode & (S_IWUSR | S_IRUSR); // copy user R/W permissions from attributes
@@ -249,9 +250,9 @@ int FileTable::Stat(const string& _path, struct stat& fstat) {
             }
             fstat.st_mode = mode;
         }
-        fstat.st_uid  = FileAttrs::Valid(attrs->uid)  ? attrs->uid  : fstat.st_uid;
-        fstat.st_gid  = FileAttrs::Valid(attrs->gid)  ? attrs->gid  : fstat.st_gid;
-        fstat.st_rdev = FileAttrs::Valid(attrs->rdev) ? attrs->rdev : fstat.st_rdev;
+        fstat.st_uid  = FileAttrs::valid16(attrs->uid)  ? attrs->uid  : fstat.st_uid;
+        fstat.st_gid  = FileAttrs::valid16(attrs->gid)  ? attrs->gid  : fstat.st_gid;
+        fstat.st_rdev = FileAttrs::valid16(attrs->rdev) ? attrs->rdev : fstat.st_rdev;
     }
     
     return result;

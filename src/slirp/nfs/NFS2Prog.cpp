@@ -86,17 +86,17 @@ int CNFS2Prog::ProcedureGETATTR(void) {
 }
 
 static void set_attrs(const string& path, const FileAttrs& fstat) {
-    if(FileAttrs::Valid(fstat.mode))
+    if(FileAttrs::valid16(fstat.mode))
         nfsd_fts[0]->chmod(path, fstat.mode);
     
     timeval times[2];
     timeval now;
     gettimeofday(&now, NULL);
-    times[0].tv_sec  = FileAttrs::Valid(fstat.atime_sec)  ? fstat.atime_sec  : now.tv_sec;
-    times[0].tv_usec = FileAttrs::Valid(fstat.atime_usec) ? fstat.atime_usec : now.tv_usec;
-    times[1].tv_sec  = FileAttrs::Valid(fstat.mtime_sec)  ? fstat.mtime_sec  : now.tv_sec;
-    times[1].tv_usec = FileAttrs::Valid(fstat.mtime_usec) ? fstat.mtime_usec : now.tv_usec;
-    if(FileAttrs::Valid(fstat.atime_sec) || FileAttrs::Valid(fstat.mtime_sec))
+    times[0].tv_sec  = FileAttrs::valid32(fstat.atime_sec)  ? fstat.atime_sec  : now.tv_sec;
+    times[0].tv_usec = FileAttrs::valid32(fstat.atime_usec) ? fstat.atime_usec : now.tv_usec;
+    times[1].tv_sec  = FileAttrs::valid32(fstat.mtime_sec)  ? fstat.mtime_sec  : now.tv_sec;
+    times[1].tv_usec = FileAttrs::valid32(fstat.mtime_usec) ? fstat.mtime_usec : now.tv_usec;
+    if(FileAttrs::valid32(fstat.atime_sec) || FileAttrs::valid32(fstat.mtime_sec))
         nfsd_fts[0]->utimes(path, times);
     nfsd_fts[0]->SetFileAttrs(path, fstat);
 }
@@ -288,8 +288,8 @@ int CNFS2Prog::ProcedureCREATE(void) {
     Log("CREATE %s", path.c_str());
 
     FileAttrs fstat(read_stat(m_in));
-    if(!(FileAttrs::Valid(fstat.uid))) fstat.uid = m_defUID;
-    if(!(FileAttrs::Valid(fstat.gid))) fstat.gid = m_defGID;
+    if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = m_defUID;
+    if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = m_defGID;
      // touch
     File file(nfsd_fts[0], path, "wb");
     if(file.IsOpen()) {

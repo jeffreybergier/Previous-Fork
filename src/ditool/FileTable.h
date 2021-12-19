@@ -35,7 +35,8 @@ public:
     void Update(const FileAttrs& attrs);
     void Write(File& fout, const std::string& name);
     
-    static bool Valid(uint32_t statval);
+    static bool valid32(uint32_t statval);
+    static bool valid16(uint32_t statval);
 };
 
 class FileTable;
