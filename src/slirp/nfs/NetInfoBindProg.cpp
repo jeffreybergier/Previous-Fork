@@ -98,6 +98,8 @@ CNetInfoBindProg::CNetInfoBindProg()
     groups->add(NIProps("name","other")   ("gid","20")("passwd","*"));
                   
     NetInfoNode* mounts     = m_Network.mRoot.add(NIProps("name","mounts"));
+    mounts->add(NIProps("name",NAME_NFSD":/")("dir","/Net")("opts","rw"));
+    
     NetInfoNode* users     = m_Network.mRoot.add(NIProps("name","users"));
     NetInfoNode* user_root =users->add(NIProps("name","root")("_writers_passwd","root")("gid","1")("home","/")("passwd","")("realname","Operator")("shell","/bin/csh")("uid","0"));
     user_root->add(NIProps("name","info")("_writers","root"));

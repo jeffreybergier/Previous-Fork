@@ -572,6 +572,7 @@ int NetInfoNode::checksum() {
         result += ::checksum(it->first);
         result += ::checksum(it->second);
     }
+    return result;
 }
 
 static void split_value(const string& value, vector<string>& result) {

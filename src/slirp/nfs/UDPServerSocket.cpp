@@ -1,4 +1,5 @@
 #include <sys/socket.h>
+#include <assert.h>
 
 #include "UDPServerSocket.h"
 #include "nfsd.h"
