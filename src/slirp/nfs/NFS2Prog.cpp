@@ -570,10 +570,10 @@ bool CNFS2Prog::WriteFileAttributes(const string& path) {
 	m_out->write(static_cast<uint32_t>(fstat.st_mtimespec.tv_sec));  //ctime -- ignored, we use mtime instead
 	m_out->write(static_cast<uint32_t>(fstat.st_mtimespec.tv_nsec / 1000));  //ctime
 #else
-	m_out->Write(static_cast<uint32_t>(fstat.st_mtim.tv_sec));  //mtime
-	m_out->Write(static_cast<uint32_t>(fstat.st_mtim.tv_nsec / 1000));  //mtime
-	m_out->Write(static_cast<uint32_t>(fstat.st_mtim.tv_sec));  //ctime -- ignored, we use mtime instead
-	m_out->Write(static_cast<uint32_t>(fstat.st_mtim.tv_nsec / 1000));  //ctime
+	m_out->write(static_cast<uint32_t>(fstat.st_mtim.tv_sec));  //mtime
+	m_out->write(static_cast<uint32_t>(fstat.st_mtim.tv_nsec / 1000));  //mtime
+	m_out->write(static_cast<uint32_t>(fstat.st_mtim.tv_sec));  //ctime -- ignored, we use mtime instead
+	m_out->write(static_cast<uint32_t>(fstat.st_mtim.tv_nsec / 1000));  //ctime
 #endif
 	return true;
 }

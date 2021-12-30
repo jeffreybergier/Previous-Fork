@@ -34,7 +34,9 @@ class CNetInfoBindProg : public CRPCProg
     int procedureDESTROYDOMAIN(void);
     int procedureBIND(void);
     void doRegister(const std::string& tag, uint32_t udpPort, uint32_t tcpPort);
-    
+    int  tryRead(const std::string& path, void* dst, size_t dstSize);
+    void addHost(CNetInfoProg& host, const std::string& name, const std::string& systemType);
+
     std::map<std::string, nibind_addrinfo> m_Register;
 public:
     CNetInfoBindProg();

@@ -531,6 +531,20 @@ NetInfoNode* NetInfoNode::add(const map<string, string>& props) {
     return result;
 }
 
+NetInfoNode* NetInfoNode::addEx(const map<string, string>& props) {
+    map<string, string>::const_iterator it = props.find("name");
+    vector<NetInfoNode*> nodes;
+    if(it != props.end())
+        nodes = find("name", it->second);
+    NetInfoNode* result = nullptr;
+    if(nodes.empty()) {
+        result = new NetInfoNode(mIdmap, this, props);
+        mChildren.push_back(result);
+    } else
+        result = nodes[0];
+    return result;
+}
+
 void NetInfoNode::add(const string& key, const string& value) {
     mProps[key] = value;
 }
@@ -620,3 +634,9 @@ vector<string> NetInfoNode::getPropNames() {
         result.push_back(it->first);
     return result;
 }
+
+string NetInfoNode::getPropValue(const string& key) const {
+    map<string,string>::const_iterator it = mProps.find(key);
+    if(it == mProps.end()) return "";
+    return it->second;
+ }
