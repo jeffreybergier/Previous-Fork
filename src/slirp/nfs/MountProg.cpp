@@ -39,7 +39,7 @@ int CMountProg::ProcedureMNT(void) {
     m_in->Read(path);
     Log("MNT from %s for '%s'\n", m_param->remoteAddr, path.Get());
     
-    uint64_t handle = nfsd_fts[0]->GetFileHandle(path.Get());
+    uint64_t handle = nfsd_fts[0]->getFileHandle(path.Get());
     if(handle) {
         m_out->Write(MNT_OK); //OK
         
@@ -92,7 +92,7 @@ int CMountProg::ProcedureUMNT(void) {
 int CMountProg::ProcedureEXPORT(void) {
     Log("EXPORT");
     
-    string path = nfsd_fts[0]->GetBasePathAlias();
+    VFSPath path = nfsd_fts[0]->getBasePathAlias();
     // dirpath
     m_out->Write(1);
     m_out->Write(MAXPATHLEN, path.c_str());

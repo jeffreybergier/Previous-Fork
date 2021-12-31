@@ -57,9 +57,9 @@ static void printAbout(void) {
 
 extern "C" int nfsd_read(const char* path, size_t fileOffset, void* dst, size_t count) {
     if(nfsd_fts[0]) {
-        File file(nfsd_fts[0], path, "rb");
-        if(file.IsOpen())
-            return file.Read(fileOffset, dst, count);
+        VFSFile file(*nfsd_fts[0], path, "rb");
+        if(file.isOpen())
+            return file.read(fileOffset, dst, count);
     }
     return -1;
 }
@@ -95,8 +95,8 @@ extern "C" void nfsd_start(void) {
     }
     
     if(nfsd_fts[0]) {
-        if(nfsd_fts[0]->GetBasePath() != ConfigureParams.Ethernet.szNFSroot) {
-            std::string basePath = nfsd_fts[0]->GetBasePathAlias();
+        if(nfsd_fts[0]->getBasePath() != HostPath(ConfigureParams.Ethernet.szNFSroot)) {
+            VFSPath basePath = nfsd_fts[0]->getBasePathAlias();
             delete nfsd_fts[0];
             nfsd_fts[0] = new FileTableNFSD(ConfigureParams.Ethernet.szNFSroot, basePath);
         }

@@ -68,10 +68,9 @@ int CBootparamProg::ProcedureGETFILE(void) {
     XDRString key;
     m_in->Read(client);
     m_in->Read(key);
-    string path = nfsd_fts[0]->GetBasePathAlias();
+    VFSPath path = nfsd_fts[0]->getBasePathAlias();
     if(strcmp("root", key.Get())) {
-        if(path != "/") path += "/";
-        path += key.Get();
+        path /= VFSPath(key.Get());
     }
 
     if(path.length()) {
