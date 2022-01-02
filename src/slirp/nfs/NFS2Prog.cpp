@@ -85,10 +85,9 @@ static void set_attrs(const string& path, const FileAttrs& fstat) {
         newAttrs.mode &= S_IFMT;
         newAttrs.mode |= fstat.mode & (S_IRWXU | S_IRWXG | S_IRWXO);
         nfsd_fts[0]->vfsChmod(path, newAttrs.mode);
-        if(fstat.mode & S_IFMT) {
+        if(fstat.mode & S_IFMT)
             newAttrs.mode &= ~S_IFMT;
-            newAttrs.mode |= fstat.mode;
-        }
+        newAttrs.mode |= fstat.mode;
     }
     if(FileAttrs::valid16(fstat.uid))
         newAttrs.uid = fstat.uid;
