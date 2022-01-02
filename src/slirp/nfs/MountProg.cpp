@@ -19,9 +19,7 @@ enum
     MNTERR_INVAL = 22
 };
 
-CMountProg::CMountProg() : CRPCProg(PROG_MOUNT, 3, "mountd"), m_nMountNum(0) {
-	m_exportPath[0] = '\0';
-	memset(m_clientAddr, 0, sizeof(m_clientAddr));
+CMountProg::CMountProg() : CRPCProg(PROG_MOUNT, 3, "mountd") {
     #define RPC_PROG_CLASS CMountProg
     SET_PROC(1, MNT);
     SET_PROC(3, UMNT);
@@ -29,12 +27,10 @@ CMountProg::CMountProg() : CRPCProg(PROG_MOUNT, 3, "mountd"), m_nMountNum(0) {
 }
 
 CMountProg::~CMountProg() {
-	for (int i = 0; i < MOUNT_NUM_MAX; i++) delete[] m_clientAddr[i];
 }
 
 int CMountProg::procedureMNT(void) {
     XDRString path;
-    int i, addr_len;
 
     m_in->read(path);
     log("MNT from %s for '%s'\n", m_param->remoteAddr, path.c_str());
@@ -53,16 +49,7 @@ int CMountProg::procedureMNT(void) {
             m_out->write(0);  //flavor
         }
         
-        ++m_nMountNum;
-        addr_len = strlen(m_param->remoteAddr);
-        
-        for (i = 0; i < MOUNT_NUM_MAX; i++) {
-            if (m_clientAddr[i] == NULL) { //search an empty space
-                m_clientAddr[i] = new char[addr_len + 1];
-                strncpy(m_clientAddr[i], m_param->remoteAddr, addr_len + 1);  //remember the client address
-                break;
-            }
-        }
+        m_mounts[m_param->remoteAddr].push_back(path);
     } else {
         m_out->write(MNTERR_ACCESS);  //permission denied
     }
@@ -74,17 +61,18 @@ int CMountProg::procedureUMNT(void) {
     XDRString path;
     m_in->read(path);
     log("UNMT from %s for '%s'", m_param->remoteAddr, path.c_str());
-    
-    for (int i = 0; i < MOUNT_NUM_MAX; i++) {
-        if (m_clientAddr[i] != NULL) {
-            if (strcmp(m_param->remoteAddr, m_clientAddr[i]) == 0) { //address match
-                delete[] m_clientAddr[i];  //remove this address
-                m_clientAddr[i] = NULL;
-                --m_nMountNum;
-                break;
-            }
+
+    bool found = false;
+    string          umtPath(path);
+    vector<string>& paths = m_mounts[m_param->remoteAddr];
+    for(size_t i = 0; i < paths.size(); i++) {
+        if(paths[i] == umtPath) {
+            found = true;
+            paths.erase(paths.begin() + i);
+            break;
         }
     }
+    m_out->write(found ? MNT_OK : MNTERR_NOTDIR);
     
     return PRC_OK;
 }

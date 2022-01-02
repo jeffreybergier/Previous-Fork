@@ -30,18 +30,21 @@ bool FileTableNFSD::getCanonicalPath(uint64_t fhandle, std::string& result) {
 }
 
 int FileTableNFSD::stat(const VFSPath& absoluteVFSpath, struct stat& fstat) {
-    NFSDLock lock(mutex);    
+    NFSDLock lock(mutex);
     return VirtualFS::stat(absoluteVFSpath, fstat);
 }
 
 void FileTableNFSD::move(const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo) {
     NFSDLock lock(mutex);
-    return VirtualFS::move(absoluteVFSpathFrom, absoluteVFSpathTo);
+    handle2path.erase(VirtualFS::getFileHandle(absoluteVFSpathFrom));
+    VirtualFS::move(absoluteVFSpathFrom, absoluteVFSpathTo);
+    handle2path[VirtualFS::getFileHandle(absoluteVFSpathTo)] = absoluteVFSpathTo.canonicalize().string();
 }
 
-void  FileTableNFSD::remove(const VFSPath& absoluteVFSpath) {
+void FileTableNFSD::remove(const VFSPath& absoluteVFSpath) {
     NFSDLock lock(mutex);
-    return VirtualFS::remove(absoluteVFSpath);
+    handle2path.erase(VirtualFS::getFileHandle(absoluteVFSpath));
+    VirtualFS::remove(absoluteVFSpath);
 }
 
 uint64_t FileTableNFSD::getFileHandle(const VFSPath& absoluteVFSpath) {
@@ -53,7 +56,7 @@ uint64_t FileTableNFSD::getFileHandle(const VFSPath& absoluteVFSpath) {
 
 void FileTableNFSD::setFileAttrs(const VFSPath& absoluteVFSpath, const FileAttrs& fstat) {
     NFSDLock lock(mutex);
-    return VirtualFS::setFileAttrs(absoluteVFSpath, fstat);
+    VirtualFS::setFileAttrs(absoluteVFSpath, fstat);
 }
 
 FileAttrs FileTableNFSD::getFileAttrs(const VFSPath& absoluteVFSpath) {

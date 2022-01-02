@@ -233,12 +233,14 @@ CNetInfoBindProg::CNetInfoBindProg()
     machines->add(NIProps("name",NAME_HOST)("ip_address",ip_addr_str(CTL_NET|CTL_HOST,  4))("serves",NAME_HOST"/local")("netgroups","")("system_type",systemType));
     machines->add(NIProps("name",NAME_DNS) ("ip_address",ip_addr_str(CTL_NET|CTL_DNS, 4)));
     machines->add(NIProps("name",NAME_NFSD)("ip_address",ip_addr_str(CTL_NET|CTL_NFSD,  4))("serves","./network,../network"));
-                  
+
+    NetInfoNode* mounts     = m_Network.mRoot.add(NIProps("name","mounts"));
+    mounts->add(NIProps("name",NAME_NFSD":/")("dir","/Net")("opts","rw,net"));
+
+    /*
     NetInfoNode* printers   = m_Network.mRoot.add(NIProps("name","printers"));
     NetInfoNode* fax_modems = m_Network.mRoot.add(NIProps("name","fax_modems"));
     NetInfoNode* aliases    = m_Network.mRoot.add(NIProps("name","aliases"));
-    NetInfoNode* mounts     = m_Network.mRoot.add(NIProps("name","mounts"));
-    mounts->add(NIProps("name",NAME_NFSD":/")("dir","/Net")("opts","rw"));
     
     const size_t buffer_size = 1024*1024;
     char* buffer = new char[buffer_size];
@@ -289,6 +291,7 @@ CNetInfoBindProg::CNetInfoBindProg()
     user_root->addEx(NIProps("name","info")("_writers","root"));
     
     delete[] buffer;
+     */
 }
                                        
 CNetInfoBindProg::~CNetInfoBindProg() {}

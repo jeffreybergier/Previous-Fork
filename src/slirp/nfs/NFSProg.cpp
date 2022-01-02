@@ -7,7 +7,7 @@ CNFSProg::CNFSProg() : CRPCProg(PROG_NFS, 0, "nfsd") {
 CNFSProg::~CNFSProg() {}
 
 void CNFSProg::setUserID(unsigned int nUID, unsigned int nGID) {
-    m_NFS2Prog.SetUserID(nUID, nGID);
+    m_NFS2Prog.setUserID(nUID, nGID);
 }
 
 int CNFSProg::process(void) {

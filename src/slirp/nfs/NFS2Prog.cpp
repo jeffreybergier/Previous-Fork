@@ -60,21 +60,21 @@ CNFS2Prog::CNFS2Prog() : CRPCProg(PROG_NFS, 2, "nfsd") {
 
 CNFS2Prog::~CNFS2Prog() { }
 
-void CNFS2Prog::SetUserID(uint32_t uid, uint32_t gid) {
+void CNFS2Prog::setUserID(uint32_t uid, uint32_t gid) {
     nfsd_fts[0]->setDefaultUID_GID(uid, gid);
 }
 
 int CNFS2Prog::procedureGETATTR(void) {
     string   path;
     
-	GetPath(path);
+	getPath(path);
         
     log("GETATTR %s", path.c_str());
-	if (!(CheckFile(path)))
+	if (!(checkFile(path)))
 		return PRC_OK;
 
 	m_out->write(NFS_OK);
-	WriteFileAttributes(path);
+	writeFileAttributes(path);
     return PRC_OK;
 }
 
@@ -85,7 +85,10 @@ static void set_attrs(const string& path, const FileAttrs& fstat) {
         newAttrs.mode &= S_IFMT;
         newAttrs.mode |= fstat.mode & (S_IRWXU | S_IRWXG | S_IRWXO);
         nfsd_fts[0]->vfsChmod(path, newAttrs.mode);
-        newAttrs.mode |= fstat.mode;
+        if(fstat.mode & S_IFMT) {
+            newAttrs.mode &= ~S_IFMT;
+            newAttrs.mode |= fstat.mode;
+        }
     }
     if(FileAttrs::valid16(fstat.uid))
         newAttrs.uid = fstat.uid;
@@ -150,14 +153,14 @@ int CNFS2Prog::procedureSETATTR(void) {
     string   path;
     
 	log("SETATTR");
-	GetPath(path);
-	if (!(CheckFile(path)))
+	getPath(path);
+	if (!(checkFile(path)))
 		return PRC_OK;
 
     set_attrs(path, FileAttrs(read_stat(m_in)));
     
     m_out->write(NFS_OK);
-	WriteFileAttributes(path);
+	writeFileAttributes(path);
     return PRC_OK;
 }
 
@@ -169,8 +172,8 @@ static void write_handle(XDROutput* xout, uint64_t handle) {
 int CNFS2Prog::procedureLOOKUP(void) {
     string path;
 
-	GetFullPath(path);
-	if (!(CheckFile(path)))
+	getFullPath(path);
+	if (!(checkFile(path)))
 		return PRC_OK;
 
     uint64_t handle = nfsd_fts[0]->getFileHandle(path);
@@ -178,7 +181,7 @@ int CNFS2Prog::procedureLOOKUP(void) {
         m_out->write(NFS_OK);
         log("LOOKUP %s=%" PRIu64, path.c_str(), handle);
         write_handle(m_out, handle);
-        WriteFileAttributes(path);
+        writeFileAttributes(path);
     } else {
         m_out->write(NFSERR_NOENT);
     }
@@ -199,9 +202,9 @@ int nfs_err(int error) {
 int CNFS2Prog::procedureREADLINK(void) {
     string   path;
     
-    GetPath(path);
+    getPath(path);
     log("READLINK %s", path.c_str());
-    if (!(CheckFile(path)))
+    if (!(checkFile(path)))
         return PRC_OK;
     
     VFSPath result;
@@ -222,9 +225,9 @@ int CNFS2Prog::procedureREAD(void) {
     uint32_t nCount;
     uint32_t nTotalCount;
 
-	GetPath(path);
+	getPath(path);
     log("READ %s", path.c_str());
-	if (!(CheckFile(path)))
+	if (!(checkFile(path)))
 		return PRC_OK;
 
 	m_in->read(&nOffset);
@@ -241,7 +244,7 @@ int CNFS2Prog::procedureREAD(void) {
         buffer.resize(0);
         m_out->write(nfs_err(errno));
     }
-	WriteFileAttributes(path);
+	writeFileAttributes(path);
     m_out->write(buffer);
 
     return PRC_OK;
@@ -258,9 +261,9 @@ int CNFS2Prog::procedureWRITE(void) {
     uint32_t nOffset;
     uint32_t nTotalCount;
 
-	GetPath(path);
+	getPath(path);
     log("WRITE %s", path.c_str());
-	if (!(CheckFile(path)))
+	if (!(checkFile(path)))
 		return PRC_OK;
 
 	m_in->read(&nBeginOffset);
@@ -283,7 +286,7 @@ int CNFS2Prog::procedureWRITE(void) {
         m_out->write(NFSERR_ISDIR);
     }
 
-	WriteFileAttributes(path);
+	writeFileAttributes(path);
 
     return PRC_OK;
 }
@@ -291,22 +294,31 @@ int CNFS2Prog::procedureWRITE(void) {
 int CNFS2Prog::procedureCREATE(void) {
     string path;
     
-	if(!(GetFullPath(path)))
+	if(!(getFullPath(path)))
 		return PRC_OK;
     log("CREATE %s", path.c_str());
     
     FileAttrs fstat(read_stat(m_in));
-    if(nfsd_fts[0]->vfsAccess(path, F_OK)) {
+    if(nfsd_fts[0]->vfsAccess(path, F_OK) == 0) {
         if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = nfsd_fts[0]->vfsGetUID(path, false);
         if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = nfsd_fts[0]->vfsGetGID(path, true);
+        
+        if(!(FileAttrs::valid32(fstat.size)) || fstat.size) {
+            set_attrs(path, fstat);
+            m_out->write(NFS_OK);
+            write_handle(m_out, nfsd_fts[0]->getFileHandle(path));
+            writeFileAttributes(path);
+            
+            return PRC_OK;
+        }
     }
-     // touch
+    // file does not exist or must be truncated (fstat.size == 0),
     VFSFile file(*nfsd_fts[0], path, "wb");
     if(file.isOpen()) {
         set_attrs(path, fstat);
         m_out->write(NFS_OK);
         write_handle(m_out, nfsd_fts[0]->getFileHandle(path));
-        WriteFileAttributes(path);
+        writeFileAttributes(path);
     } else {
         nfs_err(errno);
     }
@@ -316,9 +328,9 @@ int CNFS2Prog::procedureCREATE(void) {
 int CNFS2Prog::procedureREMOVE(void) {
     string path;
 
-	GetFullPath(path);
+	getFullPath(path);
     log("REMOVE %s", path.c_str());
-	if (!(CheckFile(path)))
+	if (!(checkFile(path)))
 		return PRC_OK;
 
     int err = nfs_err(nfsd_fts[0]->vfsRemove(path));
@@ -332,10 +344,10 @@ int CNFS2Prog::procedureRENAME(void) {
     string pathFrom;
     string pathTo;
 
-	GetFullPath(pathFrom);
-	if (!(CheckFile(pathFrom)))
+	getFullPath(pathFrom);
+	if (!(checkFile(pathFrom)))
 		return PRC_OK;
-	GetFullPath(pathTo);
+	getFullPath(pathTo);
     log("RENAME %s->%s", pathFrom.c_str(), pathTo.c_str());
 
     int err = nfs_err(nfsd_fts[0]->vfsRename(pathFrom, pathTo));
@@ -349,8 +361,8 @@ int CNFS2Prog::procedureLINK(void) {
     string   to;
     string   from;
 
-    GetPath(from);
-    GetFullPath(to);
+    getPath(from);
+    getFullPath(to);
     log("LINK %s->%s", from.c_str(), to.c_str());
     
     m_out->write(nfs_err(nfsd_fts[0]->vfsLink(from, to, false)));
@@ -361,7 +373,7 @@ int CNFS2Prog::procedureLINK(void) {
 int CNFS2Prog::procedureSYMLINK(void) {
     string to;
     
-    GetFullPath(to);
+    getFullPath(to);
     XDRString from;
     m_in->read(from);
     log("SYMLINK %s->%s", from.c_str(), to.c_str());
@@ -378,7 +390,7 @@ int CNFS2Prog::procedureMKDIR(void) {
     string path;
 
 	log("MKDIR");
-	if(!(GetFullPath(path)))
+	if(!(getFullPath(path)))
 		return PRC_OK;
 
     FileAttrs fstat(read_stat(m_in));
@@ -388,7 +400,7 @@ int CNFS2Prog::procedureMKDIR(void) {
         set_attrs(path, fstat);
         m_out->write(NFS_OK);
         write_handle(m_out, nfsd_fts[0]->getFileHandle(path));
-        WriteFileAttributes(path);
+        writeFileAttributes(path);
     }
     
     return PRC_OK;
@@ -398,8 +410,8 @@ int CNFS2Prog::procedureRMDIR(void) {
     string path;
 
 	log("RMDIR");
-	GetFullPath(path);
-	if (!(CheckFile(path)))
+	getFullPath(path);
+	if (!(checkFile(path)))
 		return PRC_OK;
     
     int err = nfs_err(nfsd_fts[0]->vfsNftw(path, VirtualFS::remove, 3, FTW_DEPTH | FTW_PHYS));
@@ -416,8 +428,8 @@ int CNFS2Prog::procedureREADDIR(void) {
     uint32_t count;
     uint64_t fhandle;
     
-	GetPath(path, &fhandle);
-	if (!(CheckFile(path)))
+	getPath(path, &fhandle);
+	if (!(checkFile(path)))
 		return PRC_OK;
     m_in->read(&cookie);
     m_in->read(&count);
@@ -476,8 +488,8 @@ int CNFS2Prog::procedureSTATFS(void) {
 	struct statvfs fsstat;
 
 	log("STATFS");
-	GetPath(path);
-	if(!(CheckFile(path)))
+	getPath(path);
+	if(!(checkFile(path)))
 		return PRC_OK;
 
     if(int err = nfsd_fts[0]->vfsStatvfs(path, fsstat)) {
@@ -494,15 +506,15 @@ int CNFS2Prog::procedureSTATFS(void) {
     return PRC_OK;
 }
 
-bool CNFS2Prog::GetPath(string& result, uint64_t* handle) {
+bool CNFS2Prog::getPath(string& result, uint64_t* handle) {
     uint64_t data[4];
     m_in->read((void*)data, FHSIZE);
     if(handle) *handle = data[0];
     return nfsd_fts[0]->getCanonicalPath(data[0], result);
 }
 
-bool CNFS2Prog::GetFullPath(string& result) {
-    if(!(GetPath(result)))
+bool CNFS2Prog::getFullPath(string& result) {
+    if(!(getPath(result)))
         return false;
     
     XDRString path;
@@ -512,7 +524,7 @@ bool CNFS2Prog::GetFullPath(string& result) {
     return true;
 }
 
-bool CNFS2Prog::CheckFile(const string& path) {
+bool CNFS2Prog::checkFile(const string& path) {
 	if (path.length() == 0) {
 		m_out->write(NFSERR_STALE);
 		return false;
@@ -531,7 +543,7 @@ bool CNFS2Prog::CheckFile(const string& path) {
     return true;
 }
 
-bool CNFS2Prog::WriteFileAttributes(const string& path) {
+bool CNFS2Prog::writeFileAttributes(const string& path) {
 	struct stat fstat;
 
 	if (nfsd_fts[0]->stat(path, fstat) != 0)

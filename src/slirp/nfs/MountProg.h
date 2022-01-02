@@ -6,8 +6,6 @@
 
 #include "RPCProg.h"
 
-#define MOUNT_NUM_MAX 100
-
 enum pathFormats {
     FORMAT_PATH = 1,
     FORMAT_PATHALIAS = 2
@@ -19,10 +17,8 @@ public:
 	CMountProg();
 	~CMountProg();
 protected:
-	int m_nMountNum;
-    
-    char  m_exportPath[MAXPATHLEN];
-	char* m_clientAddr[MOUNT_NUM_MAX];
+    std::string                                      m_exportPath;
+	std::map<std::string, std::vector<std::string> > m_mounts;
 
 	int   procedureMNT(void);
 	int   procedureUMNT(void);

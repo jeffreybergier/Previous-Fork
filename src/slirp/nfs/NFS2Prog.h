@@ -10,7 +10,7 @@ class CNFS2Prog : public CRPCProg
 public:
 	CNFS2Prog();
 	~CNFS2Prog();
-	void SetUserID(unsigned int nUID, unsigned int nGID);
+	void setUserID(unsigned int nUID, unsigned int nGID);
 
 protected:
 	int procedureGETATTR(void);
@@ -31,10 +31,10 @@ protected:
 	int procedureSTATFS(void);
 
 private:
-    bool GetPath(std::string& result, uint64_t* handle = NULL);
-    bool GetFullPath(std::string& result);
-	bool CheckFile(const std::string& path);
-    bool WriteFileAttributes(const std::string& path);    
+    bool getPath(std::string& result, uint64_t* handle = NULL);
+    bool getFullPath(std::string& result);
+	bool checkFile(const std::string& path);
+    bool writeFileAttributes(const std::string& path);    
 };
 
 #endif
