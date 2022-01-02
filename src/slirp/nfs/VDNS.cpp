@@ -84,9 +84,11 @@ VDNS::VDNS(CNetInfoBindProg* netInfoBind)
     mUDP->open(PROG_VDNS, PORT_DNS);
     
     vector<NetInfoNode*> machines = netInfoBind->m_Network.mRoot.find("name", "machines")[0]->mChildren;
+    string domain(NAME_DOMAIN);
     for(size_t i = 0; i < machines.size(); i++) {
-        string name = machines[i]->getPropValues(machines[i]->mProps, "name")[0];
-        name += NAME_DOMAIN;
+        string name = machines[i]->getPropValue("name");
+        if(name.size() <= domain.size() || name.compare(name.size() - domain.size(), domain.size(), domain))
+            name += domain;
         string ip   = machines[i]->getPropValues(machines[i]->mProps, "ip_address")[0];
         in_addr addr;
         inet_aton(ip.c_str(), &addr);

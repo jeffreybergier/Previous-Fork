@@ -132,11 +132,11 @@ extern "C" void nfsd_tcp_map_to_local_port(uint16_t port, uint32_t* saddrNBO, ui
         *sin_portNBO = htons(localPort);
 }
 
-extern "C" void nfsd_udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO) {
+extern "C" void udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO) {
     uint16_t localPort = UDPServerSocket::fromLocalPort(port);
     if(localPort) {
         *sin_portNBO = htons(localPort);
-        switch(port) {
+        switch(localPort) {
             case PORT_DNS:
                 *saddrNBO = special_addr.s_addr | htonl(CTL_DNS);
                 break;

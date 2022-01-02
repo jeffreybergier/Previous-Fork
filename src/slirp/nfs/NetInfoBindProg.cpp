@@ -231,7 +231,7 @@ CNetInfoBindProg::CNetInfoBindProg()
         
     machines->add(NIProps("name",hostname) ("ip_address",ip_addr_str(CTL_NET|CTL_ALIAS, 4)));
     machines->add(NIProps("name",NAME_HOST)("ip_address",ip_addr_str(CTL_NET|CTL_HOST,  4))("serves",NAME_HOST"/local")("netgroups","")("system_type",systemType));
-    machines->add(NIProps("name",NAME_DNS) ("ip_address",ip_addr_str(CTL_NET|CTL_DNS, 4)));
+    machines->add(NIProps("name",NAME_DNS) ("ip_address",ip_addr_str(CTL_NET|CTL_DNS,   4)));
     machines->add(NIProps("name",NAME_NFSD)("ip_address",ip_addr_str(CTL_NET|CTL_NFSD,  4))("serves","./network,../network"));
 
     NetInfoNode* mounts     = m_Network.mRoot.add(NIProps("name","mounts"));

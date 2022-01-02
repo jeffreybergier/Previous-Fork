@@ -40,7 +40,7 @@ extern "C" {
 #else
     int  nfsd_read(const char* path, size_t fileOffset, void* dst, size_t count);
     void nfsd_udp_map_to_local_port(uint32_t* ip, uint16_t* dport);
-    void nfsd_udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO);
+    void udp_map_from_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO);
     void nfsd_tcp_map_to_local_port(uint16_t port, uint32_t* saddrNBO, uint16_t* sin_portNBO);
 #endif
 
