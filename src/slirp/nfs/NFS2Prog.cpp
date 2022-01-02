@@ -151,8 +151,10 @@ static struct stat read_stat(XDRInput* xin) {
 int CNFS2Prog::procedureSETATTR(void) {
     string   path;
     
-	log("SETATTR");
 	getPath(path);
+    
+    log("SETATTR %s", path.c_str());
+    
 	if (!(checkFile(path)))
 		return PRC_OK;
 
@@ -298,10 +300,11 @@ int CNFS2Prog::procedureCREATE(void) {
     log("CREATE %s", path.c_str());
     
     FileAttrs fstat(read_stat(m_in));
+    
+    if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = nfsd_fts[0]->vfsGetUID(path, false);
+    if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = nfsd_fts[0]->vfsGetGID(path, true);
+    
     if(nfsd_fts[0]->vfsAccess(path, F_OK) == 0) {
-        if(!(FileAttrs::valid16(fstat.uid))) fstat.uid = nfsd_fts[0]->vfsGetUID(path, false);
-        if(!(FileAttrs::valid16(fstat.gid))) fstat.gid = nfsd_fts[0]->vfsGetGID(path, true);
-        
         if(!(FileAttrs::valid32(fstat.size)) || fstat.size) {
             set_attrs(path, fstat);
             m_out->write(NFS_OK);
@@ -558,7 +561,7 @@ bool CNFS2Prog::writeFileAttributes(const string& path) {
     else if(S_ISFIFO(fstat.st_mode)) type = NFFIFO;
 
 	m_out->write(type);  //type
-	m_out->write(fstat.st_mode);  //mode
+	m_out->write(fstat.st_mode & (0xFFFF | NFSMODE_STICKY));  //mode
 	m_out->write(fstat.st_nlink);  //nlink
 	m_out->write(fstat.st_uid);  //uid
 	m_out->write(fstat.st_gid);  //gid

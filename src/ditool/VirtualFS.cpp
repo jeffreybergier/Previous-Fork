@@ -8,13 +8,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/xattr.h>
 
 #include "VirtualFS.h"
 #include "compat.h"
 #include "config.h"
 
-#include "host.h"
+#if HAVE_SYS_XATTR_H
+#include <sys/xattr.h>
+#endif
 
 using namespace std;
 
@@ -408,7 +409,6 @@ FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
         struct stat fstat;
         ::lstat(hostPath.c_str(), &fstat);
         fstat.st_uid = vfsGetUID(absoluteVFSpath.parent_path(), true);
-
         fstat.st_gid = vfsGetGID(absoluteVFSpath.parent_path(), true);
         return FileAttrs(fstat);
     }
