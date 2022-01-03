@@ -34,17 +34,15 @@ int FileTableNFSD::stat(const VFSPath& absoluteVFSpath, struct stat& fstat) {
     return VirtualFS::stat(absoluteVFSpath, fstat);
 }
 
-void FileTableNFSD::move(const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo) {
+void FileTableNFSD::move(uint64_t fileHandleFrom, const VFSPath& absoluteVFSpathTo) {
     NFSDLock lock(mutex);
-    handle2path.erase(VirtualFS::getFileHandle(absoluteVFSpathFrom));
-    VirtualFS::move(absoluteVFSpathFrom, absoluteVFSpathTo);
+    handle2path.erase(fileHandleFrom);
     handle2path[VirtualFS::getFileHandle(absoluteVFSpathTo)] = absoluteVFSpathTo.canonicalize().string();
 }
 
-void FileTableNFSD::remove(const VFSPath& absoluteVFSpath) {
+void FileTableNFSD::remove(uint64_t fileHandle) {
     NFSDLock lock(mutex);
-    handle2path.erase(VirtualFS::getFileHandle(absoluteVFSpath));
-    VirtualFS::remove(absoluteVFSpath);
+    handle2path.erase(fileHandle);
 }
 
 uint64_t FileTableNFSD::getFileHandle(const VFSPath& absoluteVFSpath) {

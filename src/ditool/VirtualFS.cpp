@@ -366,13 +366,6 @@ uint64_t VirtualFS::getFileHandle(const VFSPath& absoluteVFSPath) {
     return result;
 }
 
-void VirtualFS::move(const VFSPath& pathFrom, const VFSPath&) {
-    remove(pathFrom);
-}
-
-void VirtualFS::remove(const VFSPath& /*absoluteVFSPath*/) {
-}
-
 const string NFSD_ATTRS(".nfsd_fattrs");
     
 void VirtualFS::setFileAttrs(const VFSPath& absoluteVFSpath, const FileAttrs& fstat) {

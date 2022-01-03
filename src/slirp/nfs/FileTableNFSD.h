@@ -20,8 +20,8 @@ public:
     virtual ~FileTableNFSD(void);
     
     virtual int         stat            (const VFSPath& absoluteVFSpath, struct stat& stat);
-    virtual void        move            (const VFSPath& absoluteVFSpathFrom, const VFSPath& absoluteVFSpathTo);
-    virtual void        remove          (const VFSPath& absoluteVFSpath);
+    virtual void        move            (uint64_t fileHandleFrom, const VFSPath& absoluteVFSpathTo);
+    virtual void        remove          (uint64_t fileHandle);
     virtual uint64_t    getFileHandle   (const VFSPath& absoluteVFSpath);
     virtual void        setFileAttrs    (const VFSPath& absoluteVFSpath, const FileAttrs& fstat);
     virtual FileAttrs   getFileAttrs    (const VFSPath& absoluteVFSpath);

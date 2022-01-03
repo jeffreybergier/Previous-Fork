@@ -335,9 +335,10 @@ int CNFS2Prog::procedureREMOVE(void) {
 	if (!(checkFile(path)))
 		return PRC_OK;
 
+    uint64_t fileHandle(nfsd_fts[0]->getFileHandle(path));
     int err = nfs_err(nfsd_fts[0]->vfsRemove(path));
     m_out->write(err);
-    if(!(err)) nfsd_fts[0]->remove(path);
+    if(!(err)) nfsd_fts[0]->remove(fileHandle);
 
     return PRC_OK;
 }
@@ -352,9 +353,10 @@ int CNFS2Prog::procedureRENAME(void) {
 	getFullPath(pathTo);
     log("RENAME %s->%s", pathFrom.c_str(), pathTo.c_str());
 
+    uint64_t fileHandleFrom(nfsd_fts[0]->getFileHandle(pathFrom));
     int err = nfs_err(nfsd_fts[0]->vfsRename(pathFrom, pathTo));
     m_out->write(err);
-    if(!(err)) nfsd_fts[0]->move(pathFrom, pathTo);
+    if(!(err)) nfsd_fts[0]->move(fileHandleFrom, pathTo);
     
     return PRC_OK;
 }
@@ -416,9 +418,10 @@ int CNFS2Prog::procedureRMDIR(void) {
 	if (!(checkFile(path)))
 		return PRC_OK;
     
+    uint64_t fileHandle(nfsd_fts[0]->getFileHandle(path));
     int err = nfs_err(nfsd_fts[0]->vfsNftw(path, VirtualFS::remove, 3, FTW_DEPTH | FTW_PHYS));
     m_out->write(err);
-    if(!(err)) nfsd_fts[0]->remove(path);
+    if(!(err)) nfsd_fts[0]->remove(fileHandle);
     
     return PRC_OK;
 }

@@ -333,12 +333,19 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
     }
 }
 
+class DiToolFS : public VirtualFS {
+public:
+    DiToolFS(const HostPath& basePath, const VFSPath& basePathAlias) : VirtualFS(basePath, basePathAlias) {}
+    virtual void move  (uint64_t fileHandleFrom, const VFSPath& absoluteVFSpathTo) {}
+    virtual void remove(uint64_t fileHandle) {}
+};
+
 static void dump_part(DiskImage& im, int part, const HostPath& outPath, ostream& os, const char* listType) {
     VirtualFS* ft = NULL;
     UFS ufs(im.parts[part]);
 
     if(!(outPath.empty()))
-        ft = new VirtualFS(outPath, ufs.mountPoint());
+        ft = new DiToolFS(outPath, ufs.mountPoint());
     
     map<uint32_t, string> inode2path;
     set<string>           skip;
@@ -460,7 +467,7 @@ extern "C" int main(int argc, const char * argv[]) {
         return 1;
     }
     
-    VirtualFS vfs(outPath, "/");
+    DiToolFS vfs(outPath, "/");
     
     NetbootTask* tasks[] = {
         new NBTLink("../../sdmach", "/private/tftpboot/mach"),
