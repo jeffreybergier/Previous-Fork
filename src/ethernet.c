@@ -781,29 +781,29 @@ void Ethernet_Reset(bool hard) {
 
 #define LOG_EN_DATA    0
 #define LOG_EN_ANALYZE 0
-#define WIRESHARK_LOG  "/tmp/previous_wireshark.hex"
-// #define WIRESHARK_LOG  ""
+#define LOG_EN_FILE    ""
 
 void print_packet(Uint8 *buf, int size, int out) {
 #if LOG_EN_DATA
     int i, offset = 0;
-        
-    if(WIRESHARK_LOG[0]) {
-        static FILE* wiresharkLogFile = NULL;
-        if(!(wiresharkLogFile))
-            wiresharkLogFile = fopen(WIRESHARK_LOG, "w");
-        if(wiresharkLogFile) {
-            fprintf(wiresharkLogFile, "\n\n000000 ");
-            for(i = 0; i < size; i++)
-                fprintf(wiresharkLogFile, "%02x ", buf[i]);
-            fflush(wiresharkLogFile);
+    
+    if (LOG_EN_FILE[0]) {
+        static FILE* EnLogFile = NULL;
+        if (!(EnLogFile))
+            EnLogFile = fopen(LOG_EN_FILE, "w");
+        if (EnLogFile) {
+            fprintf(EnLogFile, "\n\n000000 ");
+            for (i = 0; i < size; i++)
+                fprintf(EnLogFile, "%02x ", buf[i]);
+            fflush(EnLogFile);
         }
+        return;
+    }
+    
+    if (out) {
+        printf("<<        Outgoing packet (%d byte)        >>\n", size);
     } else {
-        if (out) {
-            printf("<<        Outgoing packet (%d byte)        >>\n", size);
-        } else {
-            printf(">>        Incoming packet (%d byte)        <<\n", size);
-        }
+        printf(">>        Incoming packet (%d byte)        <<\n", size);
     }
 #if LOG_EN_ANALYZE
     Uint8 protocol, ihl, options = 0;
@@ -957,15 +957,13 @@ print_data:
         printf("Data:      no additional data");
     }
 #endif // LOG_EN_ANALYZE
-    if(!(WIRESHARK_LOG[0])) {
-        for (i=offset; i<size; i++) {
-            if (i > offset && (i - offset) % 16 == 0) {
-                printf("\n");
-            }
-            printf("%02X ",buf[i]);
+    for (i=offset; i<size; i++) {
+        if (i > offset && (i - offset) % 16 == 0) {
+            printf("\n");
         }
-        printf("\n");
+        printf("%02X ",buf[i]);
     }
+    printf("\n");
 #if LOG_EN_ANALYZE
     if (padding) {
         printf("Padding:   %d byte at end of packet\n", padding);
