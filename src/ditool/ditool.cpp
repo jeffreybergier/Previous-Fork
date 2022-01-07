@@ -4,16 +4,27 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <cstring>
+#include <algorithm>
 
 #include <stdio.h>
 #include <unistd.h>
 #include <ftw.h>
 
+#include "config.h"
 #include "ditool.h"
 #include "fsdir.h"
 #include "UFS.h"
 #include "VirtualFS.h"
 #include "ctl.h"
+
+#if !HAVE_STRUCT_STAT_ST_ATIMESPEC
+#define st_atimespec st_atim
+#endif
+
+#if !HAVE_STRUCT_STAT_ST_MTIMESPEC
+#define st_mtimespec st_mtim
+#endif
 
 using namespace std;
 
@@ -44,18 +55,6 @@ static void print_help(void) {
 
 static bool ignore_name(const char* name) {
     return strcmp(".", name) == 0 || strcmp("..", name) == 0;
-}
-
-static string readlink(UFS& ufs, icommon& inode) {
-    if(inode.ic_Mun.ic_Msymlink[0])
-        return inode.ic_Mun.ic_Msymlink;
-    else {
-        size_t size = fsv(inode.ic_size);
-        char   buffer[size+1];
-        ufs.readFile(inode, 0, static_cast<uint32_t>(size), reinterpret_cast<uint8_t*>(buffer));
-        buffer[size] = '\0';
-        return buffer;
-    }
 }
 
 static string join(const string& path, const string& name) {
@@ -258,7 +257,7 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
                 struct stat fstat;
                 ft->vfsStat(dirEntPath, fstat);
                 if((fsv(inode.ic_mode) & IFMT) == IFLNK) {
-                    string link = readlink(ufs, inode);
+                    string link = ufs.readlink(inode);
                     if(strcasecmp(link.c_str(), dirEnt.d_name) == 0) {
                         cout << "New file '" << dirEntPath << "' is link pointing to variant, skipping" << endl;
                         skip.insert(dirEntPath);
@@ -325,7 +324,7 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
                 }
                 break;
             case IFLNK: {       /* symbolic link */
-                string link = readlink(ufs, inode);
+                string link = ufs.readlink(inode);
                 if(do_print("SLINK", listType, doPrint, forcePrint)) os << "[SLINK] " << link << " <- ";
                 if(ft) ft->vfsLink(link, dirEntPath, true);
                 break;
@@ -345,12 +344,19 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
     }
 }
 
+class DiToolFS : public VirtualFS {
+public:
+    DiToolFS(const HostPath& basePath, const VFSPath& basePathAlias) : VirtualFS(basePath, basePathAlias) {}
+    virtual void move  (uint64_t fileHandleFrom, const VFSPath& absoluteVFSpathTo) {}
+    virtual void remove(uint64_t fileHandle) {}
+};
+
 static void dump_part(DiskImage& im, int part, const HostPath& outPath, ostream& os, const char* listType) {
     VirtualFS* ft = NULL;
     UFS ufs(im.parts[part]);
 
     if(!(outPath.empty()))
-        ft = new VirtualFS(outPath, ufs.mountPoint());
+        ft = new DiToolFS(outPath, ufs.mountPoint());
     
     map<uint32_t, string> inode2path;
     set<string>           skip;
@@ -414,8 +420,10 @@ static bool is_case_insensitive(const HostPath& path) {
 }
 
 extern "C" int main(int argc, const char * argv[]) {
-    if(has_option(argv, argv+argc, "-h") || has_option(argv, argv+argc, "--help"))
+    if(has_option(argv, argv+argc, "-h") || has_option(argv, argv+argc, "--help")) {
         print_help();
+        return 0;
+    }
     
     HostPath    imageFile = to_host_path(get_option(argv, argv + argc, "-im"));
     bool        listParts = has_option(argv, argv+argc,   "-lsp");
@@ -427,14 +435,12 @@ extern "C" int main(int argc, const char * argv[]) {
     bool        netboot   = has_option(argv, argv + argc, "-netboot");
 
     if (!(imageFile).empty()) {
-        ifstream imf(imageFile.string(), ios::binary | ios::in);
-        
-        if(!(imf)) {
-            cout << "Can't read '" << imageFile << "' (" << strerror(errno) <<")." << endl;
+        DiskImage  im(imageFile.string());
+        if(!(im.valid())) {
+            cout << "Can't read '" << imageFile << "' (" << im.error <<")." << endl;
             return 1;
         }
         
-        DiskImage  im(imageFile.string(), imf);
         NullBuffer nullBuffer;
         ostream    nullStream(&nullBuffer);
 
@@ -474,7 +480,7 @@ extern "C" int main(int argc, const char * argv[]) {
         return 1;
     }
     
-    VirtualFS vfs(outPath, "/");
+    DiToolFS vfs(outPath, "/");
     
     NetbootTask* tasks[] = {
         new NBTLink("../../sdmach", "/private/tftpboot/mach"),
