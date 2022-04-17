@@ -319,7 +319,13 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
                         size_t size = fsv(inode.ic_size);
                         unique_ptr<uint8_t[]> buffer(new uint8_t[size]);
                         ufs.readFile(inode, 0, static_cast<uint32_t>(size), buffer.get());
-                        file.write(0, buffer.get(), size);
+                        if(file.write(0, buffer.get(), size) != size) {
+                            string errmsg("Error while writing '");
+                            errmsg += dirEntPath;
+                            errmsg += "'";
+                            perror(errmsg.c_str());
+                            exit(1);
+                        }
                     }
                 }
                 break;
@@ -361,7 +367,7 @@ static void dump_part(DiskImage& im, int part, const HostPath& outPath, ostream&
     map<uint32_t, string> inode2path;
     set<string>           skip;
     if(ft) {
-        cout << "---- copying " << im.path << " to " << ft->getBasePath() << endl;
+        cout << "---- copying " << im.path << " partition " << part << " to " << ft->getBasePath() << endl;
         process_inodes_recr(ufs, inode2path, skip, ROOTINO, "", ft, os, listType);
         cout << "---- setting file attributes for NFSD" << endl;
         set_attrs_inode(ufs, ROOTINO, "", *ft);

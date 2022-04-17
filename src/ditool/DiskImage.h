@@ -81,12 +81,18 @@ struct disk_label {
 
 #pragma pack(pop)
 
-const double FACT_MB = 1 << 20;
 
 class Partition;
 
 class DiskImage {
+    const int64_t          BLOCKSZ    = 1024;
+    const int64_t          MO_BLOCKSZ = 1296;
+    const int64_t          MO_BLOCK0  = 53*16*MO_BLOCKSZ;
+    
     std::ifstream          imf;
+    int64_t                diskOffset;
+    int64_t                blockSize;
+    bool                   rsDecode;
 public:
     struct disk_label      dl;
     std::vector<Partition> parts;

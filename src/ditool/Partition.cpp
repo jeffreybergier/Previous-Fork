@@ -24,7 +24,7 @@ Partition::Partition(int partNo, size_t partIdx, DiskImage* im, const disk_label
 , dl(dl)
 , part(part)
 , fsOff(fsv(part.p_base)) {
-    if(partNo == 0) fsOff += fsv(im->dl.dl_dt.d_front);
+    fsOff += fsv(im->dl.dl_dt.d_front);
 }
 
 Partition::~Partition(void) {}
@@ -42,7 +42,7 @@ bool Partition::isUFS(void) const {
 }
 
 int Partition::readSectors(uint32_t sector, uint32_t count, uint8_t* dst) const {
-    uint64_t offset = sector;
+    int64_t offset = sector;
     offset += fsOff;
     offset *= im->sectorSize;
     streamsize size = count;
@@ -54,9 +54,9 @@ int Partition::readSectors(uint32_t sector, uint32_t count, uint8_t* dst) const 
 }
 
 ostream& operator<< (ostream& os, const Partition& part) {
-    double size = fsv(part.part.p_size);
+    int64_t size = fsv(part.part.p_size);
     size *= part.im->sectorSize;
-    size /= FACT_MB;
+    size >>= 20;
     os << "Partition #" << part.partIdx << ": " << &part.part.p_type[1] << " " << size << " MBytes";
     if(part.isUFS())
         os << UFS(part);
