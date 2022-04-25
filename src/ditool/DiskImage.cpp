@@ -399,8 +399,8 @@ static bool empty_block(uint8_t* block) {
 }
 
 static int rs_decode(uint8_t* block) {
-    if(empty_block(block))
-        return 0;
+   if(empty_block(block))
+       return 0;
     
     int i,e;
     int ecount = 0;
@@ -438,31 +438,30 @@ ios_base::iostate DiskImage::read(streampos offset, streamsize size, void* data)
         imf.seekg(block * blockSize + diskOffset, ios::beg);
         imf.read(buffer, blockSize);
         if(rsDecode) {
-            int i;
-            int counter = 16;
-            int64_t bad = block;
-            while(rs_decode((uint8_t*)buffer) < 0) {
-                counter--;
-                for(i = 0; i < bbt_size; i+=4) {
-                    int64_t reserve = bbt[i]<<24 | bbt[i+1]<<16 | bbt[i+2]<<8 | bbt[i+3];
+            uint32_t bad = block;
+            for(int i = 0; rs_decode((uint8_t*)buffer) < 0 && i < 16; i++) {
+                bool mappedBlock(false);
+                for(size_t bbtIndex = 0; bbtIndex < bbt_size / sizeof(uint32_t) ; bbtIndex++) {
+                    uint32_t reserve = fsv(bbt[bbtIndex]);
                     if(reserve == bad) {
-                        reserve = (i>>2) / fsv(dl.dl_dt.d_ag_alts);
+                        reserve = bbtIndex / fsv(dl.dl_dt.d_ag_alts);
                         if(reserve < fsv(dl.dl_dt.d_ngroups)) {
                             reserve *= fsv(dl.dl_dt.d_ag_size);
-                            reserve += fsv(dl.dl_dt.d_ag_off) + ((i>>2) % fsv(dl.dl_dt.d_ag_alts));
+                            reserve += fsv(dl.dl_dt.d_ag_off) + (bbtIndex % fsv(dl.dl_dt.d_ag_alts));
                         } else {
                             reserve = fsv(dl.dl_dt.d_ngroups) * fsv(dl.dl_dt.d_ag_size);
-                            reserve += (i>>2) - fsv(dl.dl_dt.d_ngroups) * fsv(dl.dl_dt.d_ag_alts);
+                            reserve += bbtIndex - fsv(dl.dl_dt.d_ngroups) * fsv(dl.dl_dt.d_ag_alts);
                         }
                         reserve += fsv(dl.dl_dt.d_front);
                         cout << "Mapping bad block " << bad << " to " << reserve << endl;
                         imf.seekg(reserve * blockSize + diskOffset, ios::beg);
                         imf.read(buffer, blockSize);
                         bad = reserve;
+                        mappedBlock = true;
                         break;
                     }
                 }
-                if((i == bbt_size) || (counter == 0)) {
+                if(!(mappedBlock)) {
                     cout << "Warning: Block " << bad << " not decodable" << endl;
                     memset(buffer, 0, blockSize);
                     break;
