@@ -84,17 +84,20 @@ struct disk_label {
 
 class Partition;
 
+#define BLOCKSZ    1024
+#define MO_BLOCKSZ 1296
+#define MO_BLOCK0  (53*16*MO_BLOCKSZ)
+
 class DiskImage {
-    const int64_t          BLOCKSZ    = 1024;
-    const int64_t          MO_BLOCKSZ = 1296;
-    const int64_t          MO_BLOCK0  = 53*16*MO_BLOCKSZ;
-    
     std::ifstream          imf;
     int64_t                diskOffset;
     int64_t                blockSize;
     bool                   rsDecode;
 public:
     struct disk_label      dl;
+    uint32_t               bbt[3*BLOCKSZ];
+    int64_t                bbt_off;
+    int64_t                bbt_size;
     std::vector<Partition> parts;
     uint64_t               sectorSize;
     const std::string      path;

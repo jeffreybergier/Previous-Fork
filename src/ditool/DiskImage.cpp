@@ -51,23 +51,32 @@ DiskImage::DiskImage(const string& path)
     
     read(0, sizeof(dl), &dl);
     if(
-        strncmp(dl.dl_version, "NeXT", 4) &&
-        strncmp(dl.dl_version, "dlV2", 4) &&
-        strncmp(dl.dl_version, "dlV3", 4)
-        ) {
-            diskOffset = MO_BLOCK0;
-            blockSize  = MO_BLOCKSZ;
-            rsDecode   = true;
-            read(0, sizeof(dl), &dl);
-            if(
-               strncmp(dl.dl_version, "NeXT", 4) &&
-               strncmp(dl.dl_version, "dlV2", 4) &&
-               strncmp(dl.dl_version, "dlV3", 4)
-               ) {
-                   cout << "Unknown version: " << dl.dl_version << endl;
-                   exit(1);
-               }
+       strncmp(dl.dl_version, "NeXT", 4) &&
+       strncmp(dl.dl_version, "dlV2", 4) &&
+       strncmp(dl.dl_version, "dlV3", 4)
+       ) {
+        diskOffset = MO_BLOCK0;
+        blockSize  = MO_BLOCKSZ;
+        rsDecode   = true;
+        read(0, sizeof(dl), &dl);
+        if(
+           strncmp(dl.dl_version, "NeXT", 4) &&
+           strncmp(dl.dl_version, "dlV2", 4) &&
+           strncmp(dl.dl_version, "dlV3", 4)
+           ) {
+            cout << "Unknown version: " << dl.dl_version << endl;
+            exit(1);
         }
+        cout << "Optical disk detected" << endl;
+        if (strncmp(dl.dl_version, "dlV3", 4)) {
+            bbt_off  = 558;
+            bbt_size = 6680;
+        } else {
+            bbt_off  = 4*BLOCKSZ;
+            bbt_size = 12*BLOCKSZ;
+        }
+        read(bbt_off, bbt_size, bbt);
+    }
     sectorSize = fsv(dl.dl_dt.d_secsize);
     if(sectorSize != 0x400) {
         cout << "Unsupported sector size: " << fsv(dl.dl_size);
@@ -382,7 +391,17 @@ static int rs_decode_string(uint8_t* sector, int off, int step) {
     }
 }
 
+static bool empty_block(uint8_t* block) {
+    for(int i = 0; i < MO_BLOCKSZ; i++)
+        if(block[i] != 0xFF)
+            return false;
+    return true;
+}
+
 static int rs_decode(uint8_t* block) {
+    if(empty_block(block))
+        return 0;
+    
     int i,e;
     int ecount = 0;
     /* Decode rows */
@@ -418,9 +437,38 @@ ios_base::iostate DiskImage::read(streampos offset, streamsize size, void* data)
         int64_t rdSize = std::min((int64_t)size, BLOCKSZ - blockOff);
         imf.seekg(block * blockSize + diskOffset, ios::beg);
         imf.read(buffer, blockSize);
-        if(rsDecode)
-            if(rs_decode((uint8_t*)buffer) < 0)
-                memset(buffer, 0, blockSize);
+        if(rsDecode) {
+            int i;
+            int counter = 16;
+            int64_t bad = block;
+            while(rs_decode((uint8_t*)buffer) < 0) {
+                counter--;
+                for(i = 0; i < bbt_size; i+=4) {
+                    int64_t reserve = bbt[i]<<24 | bbt[i+1]<<16 | bbt[i+2]<<8 | bbt[i+3];
+                    if(reserve == bad) {
+                        reserve = (i>>2) / fsv(dl.dl_dt.d_ag_alts);
+                        if(reserve < fsv(dl.dl_dt.d_ngroups)) {
+                            reserve *= fsv(dl.dl_dt.d_ag_size);
+                            reserve += fsv(dl.dl_dt.d_ag_off) + ((i>>2) % fsv(dl.dl_dt.d_ag_alts));
+                        } else {
+                            reserve = fsv(dl.dl_dt.d_ngroups) * fsv(dl.dl_dt.d_ag_size);
+                            reserve += (i>>2) - fsv(dl.dl_dt.d_ngroups) * fsv(dl.dl_dt.d_ag_alts);
+                        }
+                        reserve += fsv(dl.dl_dt.d_front);
+                        cout << "Mapping bad block " << bad << " to " << reserve << endl;
+                        imf.seekg(reserve * blockSize + diskOffset, ios::beg);
+                        imf.read(buffer, blockSize);
+                        bad = reserve;
+                        break;
+                    }
+                }
+                if((i == bbt_size) || (counter == 0)) {
+                    cout << "Warning: Block " << bad << " not decodable" << endl;
+                    memset(buffer, 0, blockSize);
+                    break;
+                }
+            }
+        }
         memcpy(dataPtr, buffer + blockOff, rdSize);
         blockOff = 0;
         size    -= rdSize;

@@ -340,7 +340,7 @@ static void process_inodes_recr(UFS& ufs, map<uint32_t, string>& inode2path, set
                 if(ft) ft->touch(dirEntPath);
                 break;
             default:
-                cout << "WARNING: unknonw format (" << (fsv(inode.ic_mode) & IFMT) << ") '" << dirEntPath << "'" << endl;
+                cout << "WARNING: unknown format (" << (fsv(inode.ic_mode) & IFMT) << ") '" << dirEntPath << "'" << endl;
                 break;
         }
         

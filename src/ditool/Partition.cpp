@@ -42,12 +42,40 @@ bool Partition::isUFS(void) const {
 }
 
 int Partition::readSectors(uint32_t sector, uint32_t count, uint8_t* dst) const {
-    int64_t offset = sector;
-    offset += fsOff;
-    offset *= im->sectorSize;
-    streamsize size = count;
-    size *= im->sectorSize;
-    ios_base::iostate result = im->read(offset, size, dst);
+    streamsize size;
+    ios_base::iostate result;
+    const struct  disktab& dt = im->dl.dl_dt;
+    int64_t       usable      = fsv(dt.d_ag_size) - fsv(dt.d_ag_alts);
+
+    sector += fsv(part.p_base);
+
+    int64_t limit(0);
+    int64_t offset(0);
+    do {
+        if (usable) {
+            offset = sector % usable;
+            if (offset >= fsv(dt.d_ag_off))
+                offset += fsv(dt.d_ag_alts);
+            if (offset < fsv(dt.d_ag_off))
+                limit = fsv(dt.d_ag_off) - offset;
+            else
+                limit = fsv(dt.d_ag_size) - offset + fsv(dt.d_ag_off);
+            limit  = count > limit ? limit : count;
+            sector = sector / usable*fsv(dt.d_ag_size) + offset + fsv(dt.d_front);
+        } else {
+            limit = count;
+            sector += fsv(dt.d_front);
+        }
+        offset = sector * im->sectorSize;
+        size   = limit  * im->sectorSize;
+        
+        result = im->read(offset, size, dst);
+        
+        sector += limit;
+        count  -= limit;
+        dst    += size;
+    } while((count > 0) && (result == ios_base::goodbit));
+
     if     (result == ios_base::goodbit) return ERR_NO;
     else if(result &  ios_base::eofbit)  return ERR_EOF;
     else                                 return ERR_FAIL;
