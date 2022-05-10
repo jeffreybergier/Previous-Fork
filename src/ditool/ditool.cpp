@@ -167,9 +167,6 @@ static void verify_attr_recr(UFS& ufs, set<string>& skip, uint32_t ino, const st
                 break;
         }
         
-        if(dirEntPath == "/NextAdmin")
-            cout << endl;
-        
         struct stat fstat;
         ft.stat(dirEntPath, fstat);
         if(fstat.st_mode != fsv(inode.ic_mode))

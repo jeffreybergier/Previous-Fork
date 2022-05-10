@@ -15,17 +15,14 @@ using namespace std;
 
 static disk_partition DUMMY = {};
 
-Partition::Partition(void) : partNo(-1), partIdx(-1), im(NULL), dl(NULL), part(DUMMY), fsOff(0) {}
+Partition::Partition(void) : partNo(-1), partIdx(-1), im(NULL), dl(NULL), part(DUMMY) {}
 
 Partition::Partition(int partNo, size_t partIdx, DiskImage* im, const disk_label* dl, disk_partition& part)
 : partNo(partNo)
 , partIdx(partIdx)
 , im(im)
 , dl(dl)
-, part(part)
-, fsOff(fsv(part.p_base)) {
-    fsOff += fsv(im->dl.dl_dt.d_front);
-}
+, part(part) {}
 
 Partition::~Partition(void) {}
 
@@ -60,14 +57,16 @@ int Partition::readSectors(uint32_t sector, uint32_t count, uint8_t* dst) const 
                 limit = fsv(dt.d_ag_off) - offset;
             else
                 limit = fsv(dt.d_ag_size) - offset + fsv(dt.d_ag_off);
-            limit  = count > limit ? limit : count;
-            sector = sector / usable*fsv(dt.d_ag_size) + offset + fsv(dt.d_front);
+            limit = count > limit ? limit : count;
+            offset += sector / usable * fsv(dt.d_ag_size);
         } else {
-            limit = count;
-            sector += fsv(dt.d_front);
+            limit  = count;
+            offset = sector;
         }
-        offset = sector * im->sectorSize;
-        size   = limit  * im->sectorSize;
+        offset += fsv(dt.d_front);
+        
+        offset *= im->sectorSize;
+        size = limit * im->sectorSize;
         
         result = im->read(offset, size, dst);
         
