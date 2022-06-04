@@ -171,21 +171,13 @@ void i860_cpu_device::handle_trap(UINT32 savepc) {
         debugger('d', trap_info());
     
     if(m_dim)
-        Log_Printf(LOG_WARN, "[i860] Trap while DIM %s pc=%08X m_flow=%08X", trap_info(), savepc, m_flow);
+        Log_Printf(LOG_DEBUG, "[i860] Trap while DIM %s pc=%08X m_flow=%08X", trap_info(), savepc, m_flow);
 
     /* If we need to trap, change PC to trap address.
      Also set supervisor mode, copy U and IM to their
      previous versions, clear IM.  */
-    if(m_flow & TRAP_WAS_EXTERNAL) {
-        if (GET_PC_UPDATED()) {
-            m_cregs[CR_FIR] = m_pc;
-        } else {
-            m_cregs[CR_FIR] = savepc + 4;
-        }
-    }
-    else if (m_flow & TRAP_IN_DELAY_SLOT) {
-        m_cregs[CR_FIR] = savepc + 4;
-    }
+    if (m_flow & TRAP_IN_DELAY_SLOT)
+        m_cregs[CR_FIR] = m_delay_slot_pc;
     else
         m_cregs[CR_FIR] = savepc;
     
@@ -194,15 +186,18 @@ void i860_cpu_device::handle_trap(UINT32 savepc) {
     SET_PSR_PIM (GET_PSR_IM ());
     SET_PSR_U (0);
     SET_PSR_IM (0);
-    SET_PSR_DIM (0);
-    SET_PSR_DS (0);
+
+    if (m_dim)
+        SET_PSR_DIM (1);
+    else
+        SET_PSR_DIM (0);
     
-    m_save_flow     = m_flow & DIM_OP;
-    m_save_dim      = m_dim;
-    m_save_cc       = m_dim_cc;
-    m_save_cc_valid = m_dim_cc_valid;
-    
-    m_dim           = DIM_NONE;
+    if (((m_dim == DIM_NONE) &&  (m_flow & DIM_OP)) ||
+        ((m_dim == DIM_TEMP) && !(m_flow & DIM_OP)))
+        SET_PSR_DS (1);
+    else
+        SET_PSR_DS (0);
+
     m_dim_cc        = false;
     m_dim_cc_valid  = false;
     
@@ -210,79 +205,26 @@ void i860_cpu_device::handle_trap(UINT32 savepc) {
 }
 
 void i860_cpu_device::ret_from_trap() {
-    m_flow          |= m_save_flow & ~DIM_OP;
-    m_dim            = m_save_dim;
-    m_flow          &= ~FIR_GETS_TRAP;
-    m_dim_cc         = m_save_cc;
-    m_dim_cc_valid   = m_save_cc_valid;
+    if (GET_PSR_DIM()) {
+        m_dim = DIM_FULL;
+        if (GET_PSR_DS()) {
+            m_flow &= ~DIM_OP;
+        } else {
+            m_flow |= DIM_OP;
+        }
+    } else {
+        m_dim = DIM_NONE;
+        if (GET_PSR_DS()) {
+            m_flow |= DIM_OP;
+        } else {
+            m_flow &= ~DIM_OP;
+        }
+    }
+
+    m_flow &= ~FIR_GETS_TRAP;
 }
 
-void i860_cpu_device::run_cycle() {
-    CLEAR_FLOW();
-    m_dim_cc_valid = false;
-    m_flow        &= ~DIM_OP;
-    UINT64 insn64  = ifetch64(m_pc);
-    
-    if(!(m_pc & 4)) {
-        UINT32 savepc  = m_pc;
-        
-#if ENABLE_DEBUGGER
-        if(m_single_stepping) debugger(0,0);
-#endif
-        
-        UINT32 insnLow = insn64;
-        if(insnLow == INSN_FNOP_DIM) {
-            if(m_dim) m_flow |=  DIM_OP;
-            else      m_flow &= ~DIM_OP;
-        } else if((insnLow & INSN_MASK_DIM) == INSN_FP_DIM)
-            m_flow |= DIM_OP;
-        
-        decode_exec(insnLow);
-        
-        if (PENDING_TRAP()) {
-            handle_trap(savepc);
-            goto done;
-        } else if(GET_PC_UPDATED()) {
-            goto done;
-        } else {
-            // If the PC wasn't updated by a control flow instruction, just bump to next sequential instruction.
-            m_pc   += 4;
-            CLEAR_FLOW();
-        }
-    }
-    
-    if(m_pc & 4) {
-        UINT32 savepc  = m_pc;
-        
-#if ENABLE_DEBUGGER
-        if(m_single_stepping && !(m_dim)) debugger(0,0);
-#endif
-
-        UINT32 insnHigh= insn64 >> 32;
-        decode_exec(insnHigh);
-        
-        // only check for external interrupts
-        // - on high-word (speedup)
-        // - not DIM (safety :-)
-        // - when no other traps are pending
-        if(!(m_dim) && !(PENDING_TRAP())) {
-            if(m_flow & EXT_INTR) {
-                m_flow &= ~EXT_INTR;
-                gen_interrupt();
-            } else
-                clr_interrupt();
-        }
-        
-        if (PENDING_TRAP()) {
-            handle_trap(savepc);
-        } else if (GET_PC_UPDATED()) {
-            goto done;
-        } else {
-            // If the PC wasn't updated by a control flow instruction, just bump to next sequential instruction.
-            m_pc += 4;
-        }
-    }
-done:
+inline void i860_cpu_device::dim_switch() {
     switch (m_dim) {
         case DIM_NONE:
             if(m_flow & DIM_OP)
@@ -296,6 +238,84 @@ done:
                 m_dim = DIM_TEMP;
             break;
     }
+    m_flow &= ~DIM_OP;
+}
+
+void i860_cpu_device::run_cycle() {
+    CLEAR_FLOW();
+    m_dim_cc_valid = false;
+    UINT32 savepc  = m_pc;
+    UINT64 insn64  = ifetch64(m_pc);
+    
+    if(!(m_pc & 4)) {
+#if ENABLE_DEBUGGER
+        if(m_single_stepping) debugger(0,0);
+#endif
+        
+        UINT32 insnLow = insn64;
+        if(insnLow == INSN_FNOP_DIM) {
+            if(m_dim) m_flow |=  DIM_OP;
+            else      m_flow &= ~DIM_OP;
+        } else if((insnLow & INSN_MASK_DIM) == INSN_FP_DIM)
+            m_flow |= DIM_OP;
+        
+        if ((insnLow & INSN_MASK) == INSN_FP && GET_PSR_KNF())
+            m_flow |= FP_OP_SKIPPED;
+        else
+            decode_exec(insnLow);
+
+        if (PENDING_TRAP()) {
+            handle_trap(savepc);
+            goto done;
+        } else if(GET_PC_UPDATED()) {
+            goto done;
+        } else {
+            // If the PC wasn't updated by a control flow instruction, just bump to next sequential instruction.
+            m_pc   += 4;
+            CLEAR_FLOW();
+        }
+    }
+    
+    if(m_pc & 4) {
+        if (!m_dim)
+            savepc  = m_pc;
+        
+#if ENABLE_DEBUGGER
+        if(m_single_stepping && !(m_dim)) debugger(0,0);
+#endif
+
+        UINT32 insnHigh = insn64 >> 32;
+        
+        if ((insnHigh & INSN_MASK) == INSN_FP && GET_PSR_KNF() && !(m_flow & FP_OP_SKIPPED))
+            m_flow |= FP_OP_SKIPPED;
+        else
+            decode_exec(insnHigh);
+        
+        if (PENDING_TRAP()) {
+            handle_trap(savepc);
+            // If core instruction did trap in DIM, do not reset KNF.
+            if (m_dim)
+                m_flow &= ~FP_OP_SKIPPED;
+        } else if (!(GET_PC_UPDATED())) {
+            // If the PC wasn't updated by a control flow instruction, just bump to next sequential instruction.
+            m_pc += 4;
+        }
+    }
+    
+done:
+    if (m_flow & FP_OP_SKIPPED) {
+        m_flow &= ~FP_OP_SKIPPED;
+        SET_PSR_KNF(0);
+    }
+    
+    // If at 64-bit boundary, switch DIM for next instruction.
+    if (!(m_pc & 4))
+        dim_switch();
+    
+    // Check for external interrupts and trap if an interrupt is pending.
+    gen_interrupt();
+    if (m_flow & TRAP_WAS_EXTERNAL)
+        handle_trap(m_pc);
 }
 
 int i860_cpu_device::memtest(bool be) {
@@ -427,6 +447,7 @@ void i860_cpu_device::init(void) {
     m_console_idx       = 0;
     m_break_on_next_msg = false;
     m_dim               = DIM_NONE;
+    m_way               = 0;
     m_traceback_idx     = 0;
     memset(m_fregs, 0, sizeof(m_fregs));
     
@@ -542,8 +563,10 @@ bool i860_cpu_device::handle_msgs(int msg) {
     
     if(msg & MSG_I860_RESET)
         reset();
-    else if(msg & MSG_INTR)
-        intr();
+    else if(msg & MSG_RAISE_INTR)
+        raise_intr();
+    else if(msg & MSG_LOWER_INTR)
+        lower_intr();
     if(msg & MSG_DBG_BREAK)
         debugger('d', "BREAK at pc=%08X", m_pc);
     return true;
@@ -577,10 +600,11 @@ const char* i860_cpu_device::reports(Uint64 realTime, Uint64 hostTime) {
         m_report[0] = 0;
     } else {
         if(dVT == 0) dVT = 0.0001;
-        sprintf(m_report, "i860:{MIPS=%.1f icache_hit=%lld%% tlb_hit=%lld%% icach_inval/s=%.0f tlb_inval/s=%.0f intr/s=%0.f}",
+        sprintf(m_report, "i860:{MIPS=%.1f icache_hit=%lld%% tlb_hit=%lld%% tlb_search=%lld%% icach_inval/s=%.0f tlb_inval/s=%.0f intr/s=%0.f}",
                                (float) (m_insn_decoded / (dVT*1000*1000)),
                                m_icache_hit+m_icache_miss == 0 ? 0LL : (100LL * m_icache_hit) / (m_icache_hit+m_icache_miss) ,
                                m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_hit)    / (m_tlb_hit+m_tlb_miss),
+                               m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_search) / (m_tlb_hit+m_tlb_miss),
                                (float) (m_icache_inval)/dVT,
                                (float) (m_tlb_inval)/dVT,
                                (float) (m_intrs)/dVT
@@ -591,6 +615,7 @@ const char* i860_cpu_device::reports(Uint64 realTime, Uint64 hostTime) {
         m_icache_miss   = 0;
         m_icache_inval  = 0;
         m_tlb_hit       = 0;
+        m_tlb_search    = 0;
         m_tlb_miss      = 0;
         m_tlb_inval     = 0;
         m_intrs         = 0;

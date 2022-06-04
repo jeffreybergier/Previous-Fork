@@ -40,22 +40,33 @@
  * - There is some amount of code duplication (e.g., see the
  *   various insn_* routines for the branches and FP routines) that
  *   could be eliminated.
- * - The host's floating point types are used to emulate the i860's
- *   floating point.  Should probably be made machine independent by
- *   using an IEEE FP emulation library.  On the other hand, most machines
- *   today also use IEEE FP.
  *
  */
 
-#define DELAY_SLOT_PC() ((m_dim == DIM_FULL) ? 12 : 8)
+#define DELAY_SLOT_PC() (m_dim ? 12 : 8)
 #define DELAY_SLOT() do{\
-    m_pc += 4; \
+    m_dim_cc_valid = false;\
+    dim_switch();\
+    m_pc += 4;\
+    m_delay_slot_pc = m_pc;\
     UINT32 insn = ifetch(orig_pc+4);\
-    decode_exec(insn); \
-    if((m_dim == DIM_FULL) || (m_flow & DIM_OP)) {\
-        m_pc += 4; \
-        decode_exec(ifetch(orig_pc+8)); \
-    } \
+    if(insn == INSN_FNOP_DIM) {\
+        if(m_dim) m_flow |=  DIM_OP;\
+        else      m_flow &= ~DIM_OP;\
+    } else if((insn & INSN_MASK_DIM) == INSN_FP_DIM)\
+        m_flow |= DIM_OP;\
+    if (m_flow & FP_OP_SKIPPED) {\
+        m_flow &= ~FP_OP_SKIPPED;\
+        SET_PSR_KNF(0);\
+    } else if ((insn & INSN_MASK) == INSN_FP && GET_PSR_KNF())\
+        m_flow |= FP_OP_SKIPPED;\
+    else\
+        decode_exec(insn);\
+    if(m_dim) {\
+        m_pc += 4;\
+        insn = ifetch(orig_pc+8);\
+        decode_exec(insn);\
+    }\
     m_pc = orig_pc;}while(0)
 
 int i860_cpu_device::delay_slots(UINT32 insn) {
@@ -66,22 +77,25 @@ int i860_cpu_device::delay_slots(UINT32 insn) {
     return 0;
 }
 
-void i860_cpu_device::intr() {
-    m_flow |= EXT_INTR;
+/* This is the external interface for indicating an external interrupt
+ to the i860.  */
+void i860_cpu_device::raise_intr() {
+    SET_EPSR_INT (1);
 }
 
-/* This is the external interface for indicating an external interrupt
-   to the i860.  */
+void i860_cpu_device::lower_intr() {
+    SET_EPSR_INT (0);
+}
+
+/* This handles external interrupts.  */
 void i860_cpu_device::gen_interrupt()
 {
-	/* If interrupts are enabled, then set PSR.IN and prepare for trap.
-	   Otherwise, the external interrupt is ignored.  We also set
-	   bit EPSR.INT (which tracks the INT pin).  */
-	if (GET_PSR_IM ()) {
+	/* If interrupts are enabled through PSR.IM and EPSR.INT (which tracks 
+	   the INT pin) is high, then set PSR.IN and prepare for trap. */
+	if (GET_EPSR_INT () && GET_PSR_IM ()) {
 		SET_PSR_IN (1);
 		m_flow |= TRAP_WAS_EXTERNAL;
 	}
-    SET_EPSR_INT (1);
 
     Log_Printf(TRACE_EXT_INT, "[i860] i860_gen_interrupt: External interrupt received %s", GET_PSR_IM() ? "[PSR.IN set, preparing to trap]" : "[ignored (interrupts disabled)]");
 #if ENABLE_PERF_COUNTERS
@@ -89,12 +103,6 @@ void i860_cpu_device::gen_interrupt()
 #endif
 }
 
-
-/* This is the external interface for indicating an external interrupt
- to the i860.  */
-void i860_cpu_device::clr_interrupt() {
-    SET_EPSR_INT (0);
-}
 
 void i860_cpu_device::invalidate_icache() {
     memset(m_icache_vaddr, 0xff, sizeof(UINT32) * (1<<I860_ICACHE_SZ));
@@ -104,7 +112,8 @@ void i860_cpu_device::invalidate_icache() {
 }
 
 void i860_cpu_device::invalidate_tlb() {
-    memset(m_tlb_vaddr, 0xff, sizeof(UINT32) * (1<<I860_TLB_SZ));
+    m_way = 0;
+    memset(m_tlb_vaddr, 0, sizeof(UINT32) * (1<<I860_TLB_WAYS) * (1<<I860_TLB_SETS));
 #if ENABLE_PERF_COUNTERS
     m_tlb_inval++;
 #endif
@@ -183,46 +192,97 @@ inline UINT64 i860_cpu_device::ifetch64(const UINT32 pc) {
  
  (SC) added TLB support. Read access updates even entries, Write access updates odd entries.
  TLB lookup checks both entries. R/W separation is for DPS copy loops.
+ (AG) Modified TLB to match real hardware. 
+ FIXME: Take into account cache related bits and bus locking.
  */
+
+#define PTE_P       0x01
+#define PTE_W       0x02
+#define PTE_U       0x04
+#define PTE_WT      0x08
+#define PTE_CD      0x10
+#define PTE_A       0x20
+#define PTE_D       0x40
+
+#define TLB_TAG_MASK    0xFFFF0000
+#define TLB_SET_MASK    0x0000F000
+#define TLB_PAGE_MASK   0xFFFFF000
+#define TLB_OFF_MASK    0x00000FFF
+#define TLB_FLAG_MASK   0x0000005F
+
+#define TLB_WAYS        4
+#define TLB_WAY_MASK    3
+
 inline UINT32 i860_cpu_device::get_address_translation (UINT32 vaddr, int is_dataref, int is_write)
 {
-    UINT32 voffset        = vaddr & I860_PAGE_OFF_MASK;
-    UINT32 tlbidx         = ((vaddr << 1) | is_write) & I860_TLB_MASK;
-    
-    if(m_tlb_vaddr[tlbidx] == (vaddr & I860_PAGE_FRAME_MASK)) {
-#if ENABLE_PERF_COUNTERS
-        m_tlb_hit++;
-#endif
-        return (m_tlb_paddr[tlbidx] & I860_PAGE_FRAME_MASK) + voffset;
-    }
+    UINT32 tag     = 0;
+    UINT32 flags   = 0;
+    UINT32 vset    = (vaddr & TLB_SET_MASK) >> 12;
+    UINT32 vtag    = vaddr & TLB_TAG_MASK;
+    UINT32 voffset = vaddr & TLB_OFF_MASK;
 
-    if(m_tlb_vaddr[tlbidx ^ 1] == (vaddr & I860_PAGE_FRAME_MASK)) {
+    for (int i = 0; i < TLB_WAYS; i++) {
+        tag   = m_tlb_vaddr[m_way][vset] & TLB_TAG_MASK;
+        flags = m_tlb_vaddr[m_way][vset] & TLB_FLAG_MASK;
+        
+        if ((tag == vtag) && (flags & PTE_P)) {
+            /* Check for page fault conditions */
+            if ((flags & PTE_W) == 0 && is_write && (GET_PSR_U () || GET_EPSR_WP ())) {
+                SET_PSR_DAT (1);
+                m_flow |= TRAP_NORMAL;
+                /* Dummy return.  */
+                return 0;
+            }
+            if ((flags & PTE_U) == 0 && GET_PSR_U ()) {
+                if (is_dataref)
+                    SET_PSR_DAT (1);
+                else
+                    SET_PSR_IAT (1);
+                m_flow |= TRAP_NORMAL;
+                /* Dummy return.  */
+                return 0;
+            }
+            if ((flags & PTE_D) == 0 && is_write) {
+                SET_PSR_DAT (1);
+                m_flow |= TRAP_NORMAL;
+                /* Dummy return.  */
+                return 0;
+            }
+            
 #if ENABLE_PERF_COUNTERS
-        m_tlb_hit++;
+            m_tlb_hit++;
 #endif
-        return (m_tlb_paddr[tlbidx ^ 1] & I860_PAGE_FRAME_MASK) + voffset;
+            
+            return (m_tlb_paddr[m_way][vset] & TLB_PAGE_MASK) | voffset;
+        }
+        
+#if ENABLE_PERF_COUNTERS
+        m_tlb_search++;
+#endif
+
+        m_way = (m_way + 1) & TLB_WAY_MASK;
     }
     
-    return get_address_translation(vaddr, voffset, tlbidx, is_dataref, is_write);
-}
-
-UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UINT32 tlbidx, int is_dataref, int is_write) {
 #if ENABLE_PERF_COUNTERS
     m_tlb_miss++;
 #endif
+    
+    return get_address_translation(vaddr, voffset, vset, is_dataref, is_write);
+}
 
-    UINT32 vpage          = (vaddr >> I860_PAGE_SZ) & 0x3ff;
-    UINT32 vdir           = (vaddr >> 22) & 0x3ff;
+UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UINT32 vset, int is_dataref, int is_write)
+{
+	UINT32 vpage          = (vaddr >> I860_PAGE_SZ) & 0x3ff;
+	UINT32 vdir           = (vaddr >> 22) & 0x3ff;
 	UINT32 dtb            = (m_cregs[CR_DIRBASE]) & I860_PAGE_FRAME_MASK;
 	UINT32 pg_dir_entry_a = 0;
 	UINT32 pg_dir_entry   = 0;
 	UINT32 pg_tbl_entry_a = 0;
 	UINT32 pg_tbl_entry   = 0;
+	UINT32 flags          = 0;
 	UINT32 pfa1           = 0;
 	UINT32 pfa2           = 0;
 	UINT32 ret            = 0;
-	UINT32 ttpde          = 0;
-	UINT32 ttpte          = 0;
 
 	assert (GET_DIRBASE_ATE ());
 
@@ -231,23 +291,19 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
     NextDimension::i860_rd32_le(nd, pg_dir_entry_a, &pg_dir_entry);
 
 	/* Check for non-present PDE.  */
-	if (!(pg_dir_entry & 1))
+	if ((pg_dir_entry & PTE_P) == 0)
 	{
-		/* PDE is not present, generate DAT or IAT.  */
 		if (is_dataref)
 			SET_PSR_DAT (1);
 		else
 			SET_PSR_IAT (1);
 		m_flow |= TRAP_NORMAL;
-
 		/* Dummy return.  */
 		return 0;
 	}
 
 	/* PDE Check for write protection violations.  */
-	if (is_write && is_dataref
-		&& !(pg_dir_entry & 2)                  /* W = 0.  */
-		&& (GET_PSR_U () || GET_EPSR_WP ()))   /* PSR_U = 1 or EPSR_WP = 1.  */
+	if ((pg_dir_entry & PTE_W) == 0 && is_write && (GET_PSR_U () || GET_EPSR_WP ()))
 	{
 		SET_PSR_DAT (1);
         m_flow |= TRAP_NORMAL;
@@ -256,8 +312,7 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
 	}
 
 	/* PDE Check for user-mode access to supervisor pages.  */
-	if (GET_PSR_U ()
-		&& !(pg_dir_entry & 4))                 /* U = 0.  */
+	if ((pg_dir_entry & PTE_U) == 0 && GET_PSR_U ())
 	{
 		if (is_dataref)
 			SET_PSR_DAT (1);
@@ -268,7 +323,13 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
 		return 0;
 	}
 
-	/* FIXME: How exactly to handle A check/update?.  */
+	/* PDE Check and mark page as accessed.  */
+	if ((pg_dir_entry & PTE_A) == 0)
+	{
+		NextDimension::i860_rd32_le(nd, pg_dir_entry_a, &pg_dir_entry);
+		pg_dir_entry |= PTE_A;
+		NextDimension::i860_wr32_le(nd, pg_dir_entry_a, &pg_dir_entry);
+	}
 
 	/* Get page table entry at PFA1:PAGE:00.  */
 	pfa1 = pg_dir_entry & I860_PAGE_FRAME_MASK;
@@ -276,23 +337,19 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
     NextDimension::i860_rd32_le(nd, pg_tbl_entry_a, &pg_tbl_entry);
 
 	/* Check for non-present PTE.  */
-	if (!(pg_tbl_entry & 1))
+	if ((pg_tbl_entry & PTE_P) == 0)
 	{
-		/* PTE is not present, generate DAT or IAT.  */
 		if (is_dataref)
 			SET_PSR_DAT (1);
 		else
 			SET_PSR_IAT (1);
 		m_flow |= TRAP_NORMAL;
-
 		/* Dummy return.  */
 		return 0;
 	}
 
 	/* PTE Check for write protection violations.  */
-	if (is_write && is_dataref
-		&& !(pg_tbl_entry & 2)                  /* W = 0.  */
-		&& (GET_PSR_U () || GET_EPSR_WP ()))   /* PSR_U = 1 or EPSR_WP = 1.  */
+	if ((pg_tbl_entry & PTE_W) == 0 && is_write && (GET_PSR_U () || GET_EPSR_WP ()))
 	{
 		SET_PSR_DAT (1);
 		m_flow |= TRAP_NORMAL;
@@ -301,8 +358,7 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
 	}
 
 	/* PTE Check for user-mode access to supervisor pages.  */
-	if (GET_PSR_U ()
-		&& !(pg_tbl_entry & 4))                 /* U = 0.  */
+	if ((pg_tbl_entry & PTE_U) == 0 && GET_PSR_U ())
 	{
 		if (is_dataref)
 			SET_PSR_DAT (1);
@@ -313,27 +369,33 @@ UINT32 i860_cpu_device::get_address_translation(UINT32 vaddr, UINT32 voffset, UI
 		return 0;
 	}
 
-	/* Update A bit and check D bit.  */
-	ttpde = pg_dir_entry | 0x20;
-	ttpte = pg_tbl_entry | 0x20;
-    NextDimension::i860_wr32_le(nd, pg_dir_entry_a, &ttpde);
-    NextDimension::i860_wr32_le(nd, pg_tbl_entry_a, &ttpte);
-
-	if (is_write && is_dataref && (pg_tbl_entry & 0x40) == 0)
+	/* PTE Check and mark page as accessed.  */
+	if ((pg_tbl_entry & PTE_A) == 0)
 	{
-		/* Log_Printf(LOG_WARN, "[i860] DAT trap on write without dirty bit v%08X/p%08X\n",
-		   vaddr, (pg_tbl_entry & ~0xfff)|voffset); */
+		NextDimension::i860_rd32_le(nd, pg_tbl_entry_a, &pg_tbl_entry);
+		pg_tbl_entry |= PTE_A;
+		NextDimension::i860_wr32_le(nd, pg_tbl_entry_a, &pg_tbl_entry);
+	}
+
+	/* PTE Check for write access to non-dirty page.  */
+	if ((pg_tbl_entry & PTE_D) == 0 && is_write)
+	{
 		SET_PSR_DAT (1);
 		m_flow |= TRAP_NORMAL;
 		/* Dummy return.  */
 		return 0;
 	}
 
-	pfa2 = (pg_tbl_entry & I860_PAGE_FRAME_MASK);
-    
-    m_tlb_vaddr[tlbidx] = vaddr & I860_PAGE_FRAME_MASK;
-    m_tlb_paddr[tlbidx] = pfa2;
-    
+	pfa2   = (pg_tbl_entry & TLB_PAGE_MASK);
+
+	m_way  = (m_way + vset) & TLB_WAY_MASK; /* pseudo-random */
+
+	flags  = pg_dir_entry & pg_tbl_entry & (PTE_P | PTE_U | PTE_W);
+	flags |= pg_tbl_entry & (PTE_WT | PTE_CD | PTE_D);
+
+	m_tlb_vaddr[m_way][vset] = (vaddr & TLB_TAG_MASK) | (flags & TLB_FLAG_MASK);
+	m_tlb_paddr[m_way][vset] = pfa2;
+
 	ret = pfa2 | voffset;
 
 	Log_Printf(TRACE_ADDR_TRANSLATION, "[i860] get_address_translation: virt(%08X) -> phys(%08X)\n", vaddr, ret);
@@ -2920,7 +2982,7 @@ void i860_cpu_device::insn_frcp (UINT32 insn)
         if (FLOAT64_IS_ZERO(v))
 		{
 			/* Generate source-exception trap if fsrc2 is 0.  */
-			if (0 /* && GET_FSR_FTE () */)
+			if (GET_FSR_FTE ())
 			{
 				SET_PSR_FT (1);
 				SET_FSR_SE (1);
@@ -2949,7 +3011,7 @@ void i860_cpu_device::insn_frcp (UINT32 insn)
 		if (FLOAT32_IS_ZERO(v))
 		{
 			/* Generate source-exception trap if fsrc2 is 0.  */
-			if (0 /* GET_FSR_FTE () */)
+			if (GET_FSR_FTE ())
 			{
 				SET_PSR_FT (1);
 				SET_FSR_SE (1);
@@ -3007,7 +3069,7 @@ void i860_cpu_device::insn_frsqr (UINT32 insn)
 		if (FLOAT64_IS_ZERO(v) || FLOAT64_IS_NEG(v))
 		{
 			/* Generate source-exception trap if fsrc2 is 0 or negative.  */
-			if (0 /* GET_FSR_FTE () */)
+			if (GET_FSR_FTE ())
 			{
 				SET_PSR_FT (1);
 				SET_FSR_SE (1);
@@ -3034,7 +3096,7 @@ void i860_cpu_device::insn_frsqr (UINT32 insn)
 		if (FLOAT32_IS_ZERO(v) || FLOAT32_IS_NEG(v))
 		{
 			/* Generate source-exception trap if fsrc2 is 0 or negative.  */
-			if (0 /* GET_FSR_FTE () */)
+			if (GET_FSR_FTE ())
 			{
 				SET_PSR_FT (1);
 				SET_FSR_SE (1);
