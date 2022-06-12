@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.4
+                                  Previous 2.5
 
 
 
@@ -117,6 +117,8 @@ Previous with:
 
 If all works fine, you should get the executable "Previous" in the src/ sub-
 directory of the build tree. 
+
+For more detailed building instructions read the file building.previous.txt.
 
 
  4) Status
@@ -297,6 +299,12 @@ Previous v2.4:
   > Fixes bug in Real Time Clock. Time is now saved correctly.
   > Fixes bug that caused error messages during printer startup.
   > Fixes bug that caused black screen instead of options dialog on start.
+
+Previous v2.5:
+  > Adds support for changing window size.
+  > Adds keyboard shortcut to hide statusbar.
+  > Fixes bug that caused sporadic failures of the NeXTdimension board.
+  > Fixes bug that caused display errors when using NeXTdimension board.
 
 
  7) Running Previous

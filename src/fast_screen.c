@@ -49,8 +49,9 @@ static void*         uiBuffer;         /* uiBuffer used for ui texture */
 static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
 static Uint32        mask;             /* green screen mask for transparent UI areas */
-static volatile bool doRepaint  = true; /* Repaint thread runs while true */
+static volatile bool doRepaint = true; /* Repaint thread runs while true */
 static SDL_Rect      statusBar;
+static SDL_Rect      screenRect;
 
 
 static Uint32 BW2RGB[0x400];
@@ -240,8 +241,6 @@ static int repainter(void* unused) {
     
     Statusbar_Init(sdlscrn);
     
-    Main_SetMouseGrab(bGrabMouse);
-
     /* Configure some SDL stuff: */
     SDL_ShowCursor(SDL_DISABLE);
     
@@ -291,8 +290,8 @@ static int repainter(void* unused) {
         if (updateFB || updateUI) {
             SDL_RenderClear(sdlRenderer);
             // Render NeXT framebuffer texture
-            SDL_RenderCopy(sdlRenderer, fbTexture, NULL, NULL);
-            SDL_RenderCopy(sdlRenderer, uiTexture, NULL, NULL);
+            SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
+            SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
             // SDL_RenderPresent sleeps until next VSYNC because of SDL_RENDERER_PRESENTVSYNC in ScreenInit
             SDL_RenderPresent(sdlRenderer);
         } else {
@@ -322,7 +321,7 @@ void Screen_Init(void) {
     /* Set initial window resolution */
     width  = NeXT_SCRN_WIDTH;
     height = NeXT_SCRN_HEIGHT;    
-    bInFullScreen = ConfigureParams.Screen.bFullScreen;
+    bInFullScreen = false;
     nScreenZoomX  = 1;
     nScreenZoomY  = 1;
 
@@ -334,6 +333,12 @@ void Screen_Init(void) {
     statusBar.h = Statusbar_GetHeight();
     /* Grow to fit statusbar */
     height += Statusbar_GetHeight();
+    
+    /* Screen */
+    screenRect.x = 0;
+    screenRect.y = 0;
+    screenRect.h = height;
+    screenRect.w = width;
     
     /* Set new video mode */
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -352,7 +357,7 @@ void Screen_Init(void) {
             if(r.x >= 0 && SDL_GetNumVideoDisplays() == 1) x = r.x + 8;
         }
     }
-    sdlWindow  = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_ALLOW_HIGHDPI);
+    sdlWindow  = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!sdlWindow) {
         fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
         exit(-1);
@@ -367,6 +372,12 @@ void Screen_Init(void) {
     initLatch     = SDL_CreateSemaphore(0);
     repaintThread = SDL_CreateThread(repainter, "[Previous] screen repaint", NULL);
     SDL_SemWait(initLatch);
+    
+    Main_SetMouseGrab(bGrabMouse);
+    
+    if (ConfigureParams.Screen.bFullScreen) {
+        Screen_EnterFullScreen();
+    }
 }
 
 void nd_sdl_destroy(void);
@@ -457,6 +468,17 @@ void Screen_ReturnFromFullScreen(void) {
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Force things associated with changing screen size
+ */
+void Screen_SizeChanged(void) {
+    
+    /* Make sure screen is painted in case emulation is paused */
+    SDL_AtomicSet(&blitUI, 1);
+}
+
+
+/*-----------------------------------------------------------------------*/
+/**
  * Force things associated with changing between fullscreen/windowed
  */
 void Screen_ModeChanged(void) {
@@ -475,6 +497,36 @@ void Screen_ModeChanged(void) {
     } else {
         nd_sdl_hide();
     }
+}
+
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Force things associated with changing statusbar visibility
+ */
+void Screen_StatusbarChanged(void) {
+    float scale;
+    
+    if (!sdlscrn) {
+        /* screen not yet initialized */
+        return;
+    }
+    
+    /* Get new heigt for our window */
+    height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
+    
+    if (bInFullScreen) {
+        scale = (float)saveWindowBounds.w / NeXT_SCRN_WIDTH;
+        saveWindowBounds.h = height * scale;
+        SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+    } else {
+        SDL_RenderGetScale(sdlRenderer, &scale, &scale);
+        SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
+        SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+        SDL_RenderSetScale(sdlRenderer, scale, scale);
+    }
+    
+    Screen_SizeChanged();
 }
 
 

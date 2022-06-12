@@ -199,8 +199,9 @@ enum {
      it is 0 to get the ld.c address.  This is set to 1 only when a
      non-reset trap occurs.  */
     FIR_GETS_TRAP      = 0x10000000,
-    /* An external interrupt occured. */
-    EXT_INTR           = 0x20000000,
+    /* This flag indicates that an f-op was skipped because the KNF bit
+     in the PSR was set. */
+    FP_OP_SKIPPED      = 0x20000000,
     /* A f-op with DIM bit set encountered. */
     DIM_OP             = 0x40000000,
 };
@@ -210,9 +211,10 @@ enum {
     MSG_I860_RESET     = 0x01,
     MSG_I860_KILL      = 0x02,
     MSG_DBG_BREAK      = 0x04,
-    MSG_INTR           = 0x08,
-    MSG_DISPLAY_BLANK  = 0x10,
-    MSG_VIDEO_BLANK    = 0x20,
+    MSG_RAISE_INTR     = 0x08,
+    MSG_LOWER_INTR     = 0x10,
+    MSG_DISPLAY_BLANK  = 0x20,
+    MSG_VIDEO_BLANK    = 0x40,
 };
 
 /* dual mode instruction state */
@@ -286,6 +288,10 @@ enum {
 /* PSR: DIM flag (PSR[14]):  set/get.  */
 #define GET_PSR_DIM()  ((m_cregs[CR_PSR] >> 14) & 1)
 #define SET_PSR_DIM(val)  (m_cregs[CR_PSR] = (m_cregs[CR_PSR] & ~(1 << 14)) | (((val) & 1) << 14))
+
+/* PSR: KNF flag (PSR[15]):  set/get.  */
+#define GET_PSR_KNF()  ((m_cregs[CR_PSR] >> 15) & 1)
+#define SET_PSR_KNF(val)  (m_cregs[CR_PSR] = (m_cregs[CR_PSR] & ~(1 << 15)) | (((val) & 1) << 15))
 
 /* PSR: LCC (PSR[3]):  set/get.  */
 #define GET_PSR_LCC()  ((m_cregs[CR_PSR] >> 3) & 1)
@@ -374,14 +380,13 @@ const UINT32 INSN_FP_DIM   = INSN_FP   | INSN_DIM;
 const UINT32 INSN_MASK     = 0xFC000000;
 const UINT32 INSN_MASK_DIM = INSN_MASK | INSN_DIM;
 
-const size_t I860_ICACHE_SZ       = 9; // in powers of two lines (2^9 = 512; 512 x 2 words = 4 kbytes)
+const size_t I860_ICACHE_SZ       = 9;  // in powers of two lines (2^9 = 512; 512 x 2 words = 4 kbytes)
 const size_t I860_ICACHE_MASK     = (1<<I860_ICACHE_SZ)-1;
-const size_t I860_TLB_SZ          = 11; // in powers of two
-const size_t I860_TLB_MASK        = (1<<I860_TLB_SZ)-1;
+const size_t I860_TLB_SETS        = 4;  // in powers of two (2^4 = 16 sets)
+const size_t I860_TLB_WAYS        = 2;  // in powers of two (2^2 =  4 ways)
 const size_t I860_PAGE_SZ         = 12; // in powers of two
 const size_t I860_PAGE_OFF_MASK   = (1<<I860_PAGE_SZ)-1;
 const size_t I860_PAGE_FRAME_MASK = ~I860_PAGE_OFF_MASK;
-const size_t I860_TLB_FLAGS       = I860_PAGE_OFF_MASK;
 
 /* Control register numbers.  */
 enum {
@@ -469,6 +474,7 @@ private:
     UINT64 m_icache_miss;
     UINT64 m_icache_inval;
     UINT64 m_tlb_hit;
+    UINT64 m_tlb_search;
     UINT64 m_tlb_miss;
     UINT64 m_tlb_inval;
     UINT64 m_intrs;
@@ -487,6 +493,9 @@ private:
     /* Program counter (1 x 32-bits).  Reset starts at pc=0xffffff00.  */
     UINT32 m_pc;
 
+    /* Program counter at start of delay slot */
+    UINT32 m_delay_slot_pc;
+    
 	/* Integer registers (32 x 32-bits).  */
 	UINT32  m_iregs[32];
     
@@ -498,14 +507,11 @@ private:
 	/* Control registers (6 x 32-bits).  */
 	UINT32 m_cregs[6];
 
-    /* Dual instruction mode flags */
+    /* Dual instruction mode */
+    inline void dim_switch(void);
     int  m_dim;
     bool m_dim_cc;
     bool m_dim_cc_valid;
-    int  m_save_dim;
-    int  m_save_flow;
-    bool m_save_cc;
-    bool m_save_cc_valid;
     
 	/* Special registers (4 x 64-bits).  */
 	union
@@ -583,8 +589,9 @@ private:
     UINT32 m_icache_vaddr[1<<I860_ICACHE_SZ];
     
     /* Translation look-aside buffer */
-    UINT32 m_tlb_vaddr[1<<I860_TLB_SZ];
-    UINT32 m_tlb_paddr[1<<I860_TLB_SZ];
+    UINT32 m_tlb_vaddr[1<<I860_TLB_WAYS][1<<I860_TLB_SETS];
+    UINT32 m_tlb_paddr[1<<I860_TLB_WAYS][1<<I860_TLB_SETS];
+    UINT32 m_way;
     
 	/*
 	 * Halt state. Can be set externally
@@ -708,19 +715,20 @@ private:
 	void   dbg_memdump (UINT32 addr, int len);
 	int    delay_slots(UINT32 insn);
 	UINT32 get_address_translation(UINT32 vaddr, int is_dataref, int is_write);
-    inline UINT32 get_address_translation(UINT32 vaddr, UINT32 voffset, UINT32 tlbidx, int is_dataref, int is_write);
+	inline UINT32 get_address_translation(UINT32 vaddr, UINT32 voffset, UINT32 set, int is_dataref, int is_write);
 	FLOAT32  get_fval_from_optype_s (UINT32 insn, int optype);
 	FLOAT64 get_fval_from_optype_d (UINT32 insn, int optype);
     int    memtest(bool be);
     void   dbg_check_wr(UINT32 addr, int size, UINT8* data);
     
-    /* This is theinterface for asserting an external interrupt to the i860.  */
     void gen_interrupt();
-    /* This is the interface for clearing an external interrupt of the i860.  */
-    void clr_interrupt();
+    
     /* This is the interface for reseting the i860.  */
     void reset();
-    void intr();
+    /* This is the interface for asserting an external interrupt to the i860.  */
+    void raise_intr();
+    /* This is the interface for clearing an external interrupt of the i860.  */
+    void lower_intr();
 
 	typedef void (i860_cpu_device::*insn_func)(UINT32);
 	static const insn_func decode_tbl[64];
