@@ -36,6 +36,7 @@ extern "C" {
 #include "nd_nbic.hpp"
 #include "nd_mem.hpp"
 #include "ramdac.h"
+#include <vector>
 
 class NextDimension;
 
@@ -125,26 +126,28 @@ class NextDimension : public NextBusBoard {
     /* Message port for host->dimension communication */
     atomic_int      m_port;
 public:
-    ND_Addrbank**   mem_banks;
-    Uint8*          ram;
-    Uint8*          vram;
-    Uint8*          rom;
+    ND_Addrbank**             mem_banks;
+    std::vector<ND_Addrbank*> toDelete;
     
-    Uint32          rom_last_addr;;
-    Uint32          bankmask[4];
+    Uint8*                    ram;
+    Uint8*                    vram;
+    Uint8*                    rom;
     
-    NDSDL           sdl;
-    i860_cpu_device i860;
-    NBIC            nbic;
-    MC              mc;
-    DP              dp;
-    DMCD            dmcd;
-    DCSC            dcsc0;
-    DCSC            dcsc1;
-    bt463           ramdac;
+    Uint32                    rom_last_addr;;
+    Uint32                    bankmask[4];
     
-    Uint8           dmem[512];
-    Uint8           rom_command;
+    NDSDL                     sdl;
+    i860_cpu_device           i860;
+    NBIC                      nbic;
+    MC                        mc;
+    DP                        dp;
+    DMCD                      dmcd;
+    DCSC                      dcsc0;
+    DCSC                      dcsc1;
+    bt463                     ramdac;
+    
+    Uint8                     dmem[512];
+    Uint8                     rom_command;
 
     NextDimension(int slot);
     void mem_init(void);

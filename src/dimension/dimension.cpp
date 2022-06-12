@@ -57,6 +57,10 @@ NextDimension::~NextDimension() {
     i860.uninit();
     sdl.destroy();
     
+    for(size_t i = toDelete.size(); --i >= 0;)
+        delete toDelete[i];
+    toDelete.clear();
+    
     delete[] mem_banks;
     free(ram);
     free(vram);

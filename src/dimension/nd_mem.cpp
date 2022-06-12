@@ -352,9 +352,11 @@ public:
     }
 };
 
-/* Illegal access functions */
+ND_Addrbank::ND_Addrbank(NextDimension* nd) : nd(nd) {
+    nd->toDelete.push_back(this);
+}
 
-ND_Addrbank::ND_Addrbank(NextDimension* nd) : nd(nd) {}
+/* Illegal access functions */
 
 Uint32 ND_Addrbank::lget(Uint32 addr) const {
     Log_Printf(LOG_ND_MEM, "[ND] Slot %i: Illegal lget at %08X\n",nd->slot,addr);
