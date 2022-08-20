@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.5
+                                  Previous 2.6
 
 
 
@@ -306,6 +306,11 @@ Previous v2.5:
   > Fixes bug that caused sporadic failures of the NeXTdimension board.
   > Fixes bug that caused display errors when using NeXTdimension board.
 
+Previous v2.6:
+  > Improves system control and status register access for booting Plan 9.
+  > Improves window resizing.
+  > Fixes bug that caused problems when changing statusbar visibility.
+
 
  7) Running Previous
  -------------------
@@ -326,8 +331,8 @@ Previous was written by Andreas Grabher, Simon Schubiger and Gilles Fetis.
 Many thanks go to the members of the NeXT International Forums for their help. 
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
-L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner and
-Frank Wegmann!
+L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
+Frank Wegmann and Grzegorz Szwoch!
 
 This emulator would not exist without their help.
 

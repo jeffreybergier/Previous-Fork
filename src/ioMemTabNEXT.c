@@ -206,6 +206,12 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_NEXT[] =
 	{ 0x0200d002, SIZE_BYTE, SCR2_Read2, SCR2_Write2 },
 	{ 0x0200d003, SIZE_BYTE, SCR2_Read3, SCR2_Write3 },
 	
+	/* System Control Register 2 (alias) */
+	{ 0x0200d700, SIZE_BYTE, SCR2_Read0, SCR2_Write0 },
+	{ 0x0200d701, SIZE_BYTE, SCR2_Read1, SCR2_Write1 },
+	{ 0x0200d702, SIZE_BYTE, SCR2_Read2, SCR2_Write2 },
+	{ 0x0200d703, SIZE_BYTE, SCR2_Read3, SCR2_Write3 },
+	
 	/* Monitor/Soundbox (Keyboard, Mouse, Sound) */
 	{ 0x0200e000, SIZE_BYTE, KMS_Stat_Snd_Read, KMS_Ctrl_Snd_Write },
 	{ 0x0200e001, SIZE_BYTE, KMS_Stat_KM_Read, KMS_Ctrl_KM_Write },
