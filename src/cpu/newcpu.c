@@ -105,6 +105,7 @@ static int cachedsets04060, cachedsets04060mask, cachedtag04060mask;
 
 static int cpu_prefs_changed_flag;
 
+int cpuipldelay;
 int cpucycleunit;
 int cpu_tracer;
 bool cpu_bus_rmw;
@@ -233,9 +234,9 @@ static uae_u32 (*x2_get_byte)(uaecptr);
 static void (*x2_put_long)(uaecptr,uae_u32);
 static void (*x2_put_word)(uaecptr,uae_u32);
 static void (*x2_put_byte)(uaecptr,uae_u32);
-static void (*x2_do_cycles)(uae_u32);
-static void (*x2_do_cycles_pre)(uae_u32);
-static void (*x2_do_cycles_post)(uae_u32, uae_u32);
+static void (*x2_do_cycles)(int);
+static void (*x2_do_cycles_pre)(int);
+static void (*x2_do_cycles_post)(int, uae_u32);
 
 uae_u32 (*x_prefetch)(int);
 uae_u32 (*x_next_iword)(void);
@@ -260,9 +261,9 @@ void (*x_cp_put_word)(uaecptr,uae_u32);
 void (*x_cp_put_byte)(uaecptr,uae_u32);
 uae_u32 (REGPARAM3 *x_cp_get_disp_ea_020)(uae_u32 base, int idx) REGPARAM;
 
-void (*x_do_cycles)(uae_u32);
-void (*x_do_cycles_pre)(uae_u32);
-void (*x_do_cycles_post)(uae_u32, uae_u32);
+void (*x_do_cycles)(int);
+void (*x_do_cycles_pre)(int);
+void (*x_do_cycles_post)(int, uae_u32);
 
 uae_u32(*x_phys_get_iword)(uaecptr);
 uae_u32(*x_phys_get_ilong)(uaecptr);
@@ -407,7 +408,7 @@ static bool check_trace (void)
 		return true;
 	if (!cputrace.readcounter && !cputrace.writecounter && !cputrace.cyclecounter) {
 		if (cpu_tracer != -2) {
-			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08x\n"),
+			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08llx\n"),
 				cputrace.cyclecounter_pre, cputrace.cyclecounter_post, get_cycles ());
 			cpu_tracer = -2; // dma_cycle() allowed to work now
 		}
@@ -431,7 +432,7 @@ static bool check_trace (void)
 	x_do_cycles_pre = x2_do_cycles_pre;
 	x_do_cycles_post = x2_do_cycles_post;
 	set_x_cp_funcs();
-	write_log(_T("CPU tracer playback complete. STARTCYCLES=%08x NOWCYCLES=%08x\n"), cputrace.startcycles, get_cycles());
+	write_log(_T("CPU tracer playback complete. STARTCYCLES=%016llx NOWCYCLES=%016llx\n"), cputrace.startcycles, get_cycles());
 	cputrace.needendcycles = 1;
 	cpu_tracer = 0;
 	return true;
@@ -444,7 +445,7 @@ static bool get_trace (uaecptr addr, int accessmode, int size, uae_u32 *data)
 		struct cputracememory *ctm = &cputrace.ctm[i];
 		if (ctm->addr == addr && ctm->mode == mode) {
 			ctm->mode = 0;
-			write_log (_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08x)\n"),
+			write_log (_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08llx)\n"),
 				i, cputrace.pc, addr, ctm->data, accessmode, size,
 				cputrace.cyclecounter, cputrace.cyclecounter_pre, cputrace.cyclecounter_post,
 				cputrace.readcounter, cputrace.writecounter, get_cycles ());
@@ -685,7 +686,7 @@ static void cputracefunc2_x_put_byte (uaecptr o, uae_u32 val)
 		write_log (_T("cputracefunc2_x_put_byte %d <> %d\n"), v, val);
 }
 
-static void cputracefunc_x_do_cycles (uae_u32 cycles)
+static void cputracefunc_x_do_cycles(int cycles)
 {
 	while (cycles >= CYCLE_UNIT) {
 		cputrace.cyclecounter += CYCLE_UNIT;
@@ -698,7 +699,7 @@ static void cputracefunc_x_do_cycles (uae_u32 cycles)
 	}
 }
 
-static void cputracefunc2_x_do_cycles (uae_u32 cycles)
+static void cputracefunc2_x_do_cycles(int cycles)
 {
 	if (cputrace.cyclecounter > (long)cycles) {
 		cputrace.cyclecounter -= cycles;
@@ -712,7 +713,7 @@ static void cputracefunc2_x_do_cycles (uae_u32 cycles)
 		x_do_cycles (cycles);
 }
 
-static void cputracefunc_x_do_cycles_pre (uae_u32 cycles)
+static void cputracefunc_x_do_cycles_pre(int cycles)
 {
 	cputrace.cyclecounter_post = 0;
 	cputrace.cyclecounter_pre = 0;
@@ -729,7 +730,7 @@ static void cputracefunc_x_do_cycles_pre (uae_u32 cycles)
 }
 // cyclecounter_pre = how many cycles we need to SWALLOW
 // -1 = rerun whole access
-static void cputracefunc2_x_do_cycles_pre (uae_u32 cycles)
+static void cputracefunc2_x_do_cycles_pre (int cycles)
 {
 	if (cputrace.cyclecounter_pre == -1) {
 		cputrace.cyclecounter_pre = 0;
@@ -749,7 +750,7 @@ static void cputracefunc2_x_do_cycles_pre (uae_u32 cycles)
 		x_do_cycles (cycles);
 }
 
-static void cputracefunc_x_do_cycles_post (uae_u32 cycles, uae_u32 v)
+static void cputracefunc_x_do_cycles_post (int cycles, uae_u32 v)
 {
 	if (cputrace.memoryoffset < 1) {
 #if CPUTRACE_DEBUG
@@ -773,9 +774,9 @@ static void cputracefunc_x_do_cycles_post (uae_u32 cycles, uae_u32 v)
 	cputrace.cyclecounter_post = 0;
 }
 // cyclecounter_post = how many cycles we need to WAIT
-static void cputracefunc2_x_do_cycles_post (uae_u32 cycles, uae_u32 v)
+static void cputracefunc2_x_do_cycles_post (int cycles, uae_u32 v)
 {
-	uae_u32 c;
+	int c;
 	if (cputrace.cyclecounter_post) {
 		c = cputrace.cyclecounter_post;
 		cputrace.cyclecounter_post = 0;
@@ -787,15 +788,15 @@ static void cputracefunc2_x_do_cycles_post (uae_u32 cycles, uae_u32 v)
 		x_do_cycles (c);
 }
 
-static void do_cycles_post (uae_u32 cycles, uae_u32 v)
+static void do_cycles_post (int cycles, uae_u32 v)
 {
 	do_cycles (cycles);
 }
-static void do_cycles_ce_post (uae_u32 cycles, uae_u32 v)
+static void do_cycles_ce_post (int cycles, uae_u32 v)
 {
 	do_cycles_ce (cycles);
 }
-static void do_cycles_ce020_post (uae_u32 cycles, uae_u32 v)
+static void do_cycles_ce020_post (int cycles, uae_u32 v)
 {
 	do_cycles_ce020 (cycles);
 }
@@ -865,12 +866,21 @@ void(*write_data_030_fc_lput)(uaecptr, uae_u32, uae_u32);
 static void set_x_ifetches(void)
 {
 	if (m68k_pc_indirect) {
-		// indirect via addrbank
-		x_get_ilong = get_iilong;
-		x_get_iword = get_iiword;
-		x_get_ibyte = get_iibyte;
-		x_next_iword = next_iiword;
-		x_next_ilong = next_iilong;
+		if (0) {
+			// indirect via addrbank
+			x_get_ilong = get_iilong_jit;
+			x_get_iword = get_iiword_jit;
+			x_get_ibyte = get_iibyte_jit;
+			x_next_iword = next_iiword_jit;
+			x_next_ilong = next_iilong_jit;
+		} else {
+			// indirect via addrbank
+			x_get_ilong = get_iilong;
+			x_get_iword = get_iiword;
+			x_get_ibyte = get_iibyte;
+			x_next_iword = next_iiword;
+			x_next_ilong = next_iilong;
+		}
 	} else {
 		// direct to memory
 		x_get_ilong = get_dilong;
@@ -884,11 +894,11 @@ static void set_x_ifetches(void)
 
 #ifdef WINUAE_FOR_HATARI
 
-void (*x_do_cycles_hatari_blitter_save)(uae_u32);
-void (*x_do_cycles_pre_hatari_blitter_save)(uae_u32);
-void (*x_do_cycles_post_hatari_blitter_save)(uae_u32, uae_u32);
+void (*x_do_cycles_hatari_blitter_save)(int);
+void (*x_do_cycles_pre_hatari_blitter_save)(int);
+void (*x_do_cycles_post_hatari_blitter_save)(int, uae_u32);
 
-static void do_cycles_ce_post_hatari_blitter (uae_u32 cycles, uae_u32 v)
+static void do_cycles_ce_post_hatari_blitter (int cycles, uae_u32 v)
 {
 	do_cycles_ce_hatari_blitter (cycles);
 }
@@ -940,7 +950,7 @@ static bool nommu_is_super_access(bool read)
 // indirect memory access functions
 static void set_x_funcs (void)
 {
-//	if (currprefs.cpu_model >= 68010) {
+	if (currprefs.cpu_model >= 68010) {
 		if (currprefs.mmu_model == 68030) {
 			is_super_access = mmu030_is_super_access;
 		} else if (currprefs.mmu_model >= 68040) {
@@ -948,9 +958,9 @@ static void set_x_funcs (void)
 		} else {
 			is_super_access = nommu_is_super_access;
 		}
-//	} else {
-//		is_super_access = is_super_access_68000;
-//	}
+	} else {
+		is_super_access = is_super_access_68000;
+	}
 
 	if (currprefs.mmu_model) {
 		if (currprefs.cpu_model == 68060) {
@@ -1022,317 +1032,324 @@ static void set_x_funcs (void)
 				x_get_byte = get_byte_dc030;
 			}
 		}
-		x_do_cycles = do_cycles;
-		x_do_cycles_pre = do_cycles;
-		x_do_cycles_post = do_cycles_post;
-
-//	} else if (currprefs.cpu_model < 68020) {
+		if (currprefs.cpu_cycle_exact) {
+			x_do_cycles = do_cycles_ce020;
+			x_do_cycles_pre = do_cycles_ce020;
+			x_do_cycles_post = do_cycles_ce020_post;
+		} else {
+			x_do_cycles = do_cycles;
+			x_do_cycles_pre = do_cycles;
+			x_do_cycles_post = do_cycles_post;
+		}
+#ifndef WINUAE_FOR_PREVIOUS
+	} else if (currprefs.cpu_model < 68020) {
 		// 68000/010
-//		if (currprefs.cpu_cycle_exact) {
-//			x_prefetch = get_word_ce000_prefetch;
-//			x_get_ilong = NULL;
-//			x_get_iword = get_wordi_ce000;
-//			x_get_ibyte = NULL;
-//			x_next_iword = NULL;
-//			x_next_ilong = NULL;
-//			x_put_long = put_long_ce000;
-//			x_put_word = put_word_ce000;
-//			x_put_byte = put_byte_ce000;
-//			x_get_long = get_long_ce000;
-//			x_get_word = get_word_ce000;
-//			x_get_byte = get_byte_ce000;
-//			x_do_cycles = do_cycles_ce;
-//			x_do_cycles_pre = do_cycles_ce;
-//			x_do_cycles_post = do_cycles_ce_post;
-//		} else if (currprefs.cpu_memory_cycle_exact) {
+		if (currprefs.cpu_cycle_exact) {
+			x_prefetch = get_word_ce000_prefetch;
+			x_get_ilong = NULL;
+			x_get_iword = get_wordi_ce000;
+			x_get_ibyte = NULL;
+			x_next_iword = NULL;
+			x_next_ilong = NULL;
+			x_put_long = put_long_ce000;
+			x_put_word = put_word_ce000;
+			x_put_byte = put_byte_ce000;
+			x_get_long = get_long_ce000;
+			x_get_word = get_word_ce000;
+			x_get_byte = get_byte_ce000;
+			x_do_cycles = do_cycles_ce;
+			x_do_cycles_pre = do_cycles_ce;
+			x_do_cycles_post = do_cycles_ce_post;
+		} else if (currprefs.cpu_memory_cycle_exact) {
 			// cpu_memory_cycle_exact + cpu_compatible
-//			x_prefetch = get_word_000_prefetch;
-//			x_get_ilong = NULL;
-//			x_get_iword = get_iiword;
-//			x_get_ibyte = get_iibyte;
-//			x_next_iword = NULL;
-//			x_next_ilong = NULL;
-//			x_put_long = put_long_ce000;
-//			x_put_word = put_word_ce000;
-//			x_put_byte = put_byte_ce000;
-//			x_get_long = get_long_ce000;
-//			x_get_word = get_word_ce000;
-//			x_get_byte = get_byte_ce000;
-//			x_do_cycles = do_cycles;
-//			x_do_cycles_pre = do_cycles;
-//			x_do_cycles_post = do_cycles_post;
-//		} else if (currprefs.cpu_compatible) {
+			x_prefetch = get_word_000_prefetch;
+			x_get_ilong = NULL;
+			x_get_iword = get_iiword;
+			x_get_ibyte = get_iibyte;
+			x_next_iword = NULL;
+			x_next_ilong = NULL;
+			x_put_long = put_long_ce000;
+			x_put_word = put_word_ce000;
+			x_put_byte = put_byte_ce000;
+			x_get_long = get_long_ce000;
+			x_get_word = get_word_ce000;
+			x_get_byte = get_byte_ce000;
+			x_do_cycles = do_cycles;
+			x_do_cycles_pre = do_cycles;
+			x_do_cycles_post = do_cycles_post;
+		} else if (currprefs.cpu_compatible) {
 			// cpu_compatible only
-//			x_prefetch = get_word_000_prefetch;
-//			x_get_ilong = NULL;
-//			x_get_iword = get_iiword;
-//			x_get_ibyte = get_iibyte;
-//			x_next_iword = NULL;
-//			x_next_ilong = NULL;
-//			x_put_long = put_long_compatible;
-//			x_put_word = put_word_compatible;
-//			x_put_byte = put_byte_compatible;
-//			x_get_long = get_long_compatible;
-//			x_get_word = get_word_compatible;
-//			x_get_byte = get_byte_compatible;
-//			x_do_cycles = do_cycles;
-//			x_do_cycles_pre = do_cycles;
-//			x_do_cycles_post = do_cycles_post;
-//		} else {
-//			x_prefetch = NULL;
-//			x_get_ilong = get_dilong;
-//			x_get_iword = get_diword;
-//			x_get_ibyte = get_dibyte;
-//			x_next_iword = next_diword;
-//			x_next_ilong = next_dilong;
-//			x_put_long = put_long;
-//			x_put_word = put_word;
-//			x_put_byte = put_byte;
-//			x_get_long = get_long;
-//			x_get_word = get_word;
-//			x_get_byte = get_byte;
-//			x_do_cycles = do_cycles;
-//			x_do_cycles_pre = do_cycles;
-//			x_do_cycles_post = do_cycles_post;
-//		}
-//	} else if (!currprefs.cpu_cycle_exact) {
+			x_prefetch = get_word_000_prefetch;
+			x_get_ilong = NULL;
+			x_get_iword = get_iiword;
+			x_get_ibyte = get_iibyte;
+			x_next_iword = NULL;
+			x_next_ilong = NULL;
+			x_put_long = put_long_compatible;
+			x_put_word = put_word_compatible;
+			x_put_byte = put_byte_compatible;
+			x_get_long = get_long_compatible;
+			x_get_word = get_word_compatible;
+			x_get_byte = get_byte_compatible;
+			x_do_cycles = do_cycles;
+			x_do_cycles_pre = do_cycles;
+			x_do_cycles_post = do_cycles_post;
+		} else {
+			x_prefetch = NULL;
+			x_get_ilong = get_dilong;
+			x_get_iword = get_diword;
+			x_get_ibyte = get_dibyte;
+			x_next_iword = next_diword;
+			x_next_ilong = next_dilong;
+			x_put_long = put_long;
+			x_put_word = put_word;
+			x_put_byte = put_byte;
+			x_get_long = get_long;
+			x_get_word = get_word;
+			x_get_byte = get_byte;
+			x_do_cycles = do_cycles;
+			x_do_cycles_pre = do_cycles;
+			x_do_cycles_post = do_cycles_post;
+		}
+	} else if (!currprefs.cpu_cycle_exact) {
 		// 68020+ no ce
-//		if (currprefs.cpu_memory_cycle_exact) {
+		if (currprefs.cpu_memory_cycle_exact) {
 			// cpu_memory_cycle_exact + cpu_compatible
-//			if (currprefs.cpu_model == 68020 && !currprefs.cachesize) {
-//				x_prefetch = get_word_020_prefetch;
-//				x_get_ilong = get_long_020_prefetch;
-//				x_get_iword = get_word_020_prefetch;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_020_prefetch;
-//				x_next_ilong = next_ilong_020_prefetch;
-//				x_put_long = put_long_ce020;
-//				x_put_word = put_word_ce020;
-//				x_put_byte = put_byte_ce020;
-//				x_get_long = get_long_ce020;
-//				x_get_word = get_word_ce020;
-//				x_get_byte = get_byte_ce020;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else if (currprefs.cpu_model == 68030 && !currprefs.cachesize) {
-//				x_prefetch = get_word_030_prefetch;
-//				x_get_ilong = get_long_030_prefetch;
-//				x_get_iword = get_word_030_prefetch;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_030_prefetch;
-//				x_next_ilong = next_ilong_030_prefetch;
-//				x_put_long = put_long_ce030;
-//				x_put_word = put_word_ce030;
-//				x_put_byte = put_byte_ce030;
-//				x_get_long = get_long_ce030;
-//				x_get_word = get_word_ce030;
-//				x_get_byte = get_byte_ce030;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else if (currprefs.cpu_model < 68040) {
+			if (currprefs.cpu_model == 68020 && !currprefs.cachesize) {
+				x_prefetch = get_word_020_prefetch;
+				x_get_ilong = get_long_020_prefetch;
+				x_get_iword = get_word_020_prefetch;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_020_prefetch;
+				x_next_ilong = next_ilong_020_prefetch;
+				x_put_long = put_long_ce020;
+				x_put_word = put_word_ce020;
+				x_put_byte = put_byte_ce020;
+				x_get_long = get_long_ce020;
+				x_get_word = get_word_ce020;
+				x_get_byte = get_byte_ce020;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else if (currprefs.cpu_model == 68030 && !currprefs.cachesize) {
+				x_prefetch = get_word_030_prefetch;
+				x_get_ilong = get_long_030_prefetch;
+				x_get_iword = get_word_030_prefetch;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_030_prefetch;
+				x_next_ilong = next_ilong_030_prefetch;
+				x_put_long = put_long_ce030;
+				x_put_word = put_word_ce030;
+				x_put_byte = put_byte_ce030;
+				x_get_long = get_long_ce030;
+				x_get_word = get_word_ce030;
+				x_get_byte = get_byte_ce030;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else if (currprefs.cpu_model < 68040) {
 				// JIT or 68030+ does not have real prefetch only emulation
-//				x_prefetch = NULL;
-//				set_x_ifetches();
-//				x_put_long = put_long;
-//				x_put_word = put_word;
-//				x_put_byte = put_byte;
-//				x_get_long = get_long;
-//				x_get_word = get_word;
-//				x_get_byte = get_byte;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else {
+				x_prefetch = NULL;
+				set_x_ifetches();
+				x_put_long = put_long;
+				x_put_word = put_word;
+				x_put_byte = put_byte;
+				x_get_long = get_long;
+				x_get_word = get_word;
+				x_get_byte = get_byte;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else {
 				// 68040+ (same as below)
-//				x_prefetch = NULL;
-//				x_get_ilong = get_ilong_cache_040;
-//				x_get_iword = get_iword_cache_040;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_cache040;
-//				x_next_ilong = next_ilong_cache040;
-//				if (currprefs.cpu_data_cache) {
-//					x_put_long = put_long_cache_040;
-//					x_put_word = put_word_cache_040;
-//					x_put_byte = put_byte_cache_040;
-//					x_get_long = get_long_cache_040;
-//					x_get_word = get_word_cache_040;
-//					x_get_byte = get_byte_cache_040;
-//				} else {
-//					x_get_byte = mem_access_delay_byte_read_c040;
-//					x_get_word = mem_access_delay_word_read_c040;
-//					x_get_long = mem_access_delay_long_read_c040;
-//					x_put_byte = mem_access_delay_byte_write_c040;
-//					x_put_word = mem_access_delay_word_write_c040;
-//					x_put_long = mem_access_delay_long_write_c040;
-//				}
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			}
-//		} else if (currprefs.cpu_compatible) {
+				x_prefetch = NULL;
+				x_get_ilong = get_ilong_cache_040;
+				x_get_iword = get_iword_cache_040;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_cache040;
+				x_next_ilong = next_ilong_cache040;
+				if (currprefs.cpu_data_cache) {
+					x_put_long = put_long_cache_040;
+					x_put_word = put_word_cache_040;
+					x_put_byte = put_byte_cache_040;
+					x_get_long = get_long_cache_040;
+					x_get_word = get_word_cache_040;
+					x_get_byte = get_byte_cache_040;
+				} else {
+					x_get_byte = mem_access_delay_byte_read_c040;
+					x_get_word = mem_access_delay_word_read_c040;
+					x_get_long = mem_access_delay_long_read_c040;
+					x_put_byte = mem_access_delay_byte_write_c040;
+					x_put_word = mem_access_delay_word_write_c040;
+					x_put_long = mem_access_delay_long_write_c040;
+				}
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			}
+		} else if (currprefs.cpu_compatible) {
 			// cpu_compatible only
-//			if (currprefs.cpu_model == 68020 && !currprefs.cachesize) {
-//				x_prefetch = get_word_020_prefetch;
-//				x_get_ilong = get_long_020_prefetch;
-//				x_get_iword = get_word_020_prefetch;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_020_prefetch;
-//				x_next_ilong = next_ilong_020_prefetch;
-//				x_put_long = put_long_compatible;
-//				x_put_word = put_word_compatible;
-//				x_put_byte = put_byte_compatible;
-//				x_get_long = get_long_compatible;
-//				x_get_word = get_word_compatible;
-//				x_get_byte = get_byte_compatible;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else if (currprefs.cpu_model == 68030 && !currprefs.cachesize) {
-//				x_prefetch = get_word_030_prefetch;
-//				x_get_ilong = get_long_030_prefetch;
-//				x_get_iword = get_word_030_prefetch;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_030_prefetch;
-//				x_next_ilong = next_ilong_030_prefetch;
-//				x_put_long = put_long_030;
-//				x_put_word = put_word_030;
-//				x_put_byte = put_byte_030;
-//				x_get_long = get_long_030;
-//				x_get_word = get_word_030;
-//				x_get_byte = get_byte_030;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else if (currprefs.cpu_model < 68040) {
+			if (currprefs.cpu_model == 68020 && !currprefs.cachesize) {
+				x_prefetch = get_word_020_prefetch;
+				x_get_ilong = get_long_020_prefetch;
+				x_get_iword = get_word_020_prefetch;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_020_prefetch;
+				x_next_ilong = next_ilong_020_prefetch;
+				x_put_long = put_long_compatible;
+				x_put_word = put_word_compatible;
+				x_put_byte = put_byte_compatible;
+				x_get_long = get_long_compatible;
+				x_get_word = get_word_compatible;
+				x_get_byte = get_byte_compatible;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else if (currprefs.cpu_model == 68030 && !currprefs.cachesize) {
+				x_prefetch = get_word_030_prefetch;
+				x_get_ilong = get_long_030_prefetch;
+				x_get_iword = get_word_030_prefetch;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_030_prefetch;
+				x_next_ilong = next_ilong_030_prefetch;
+				x_put_long = put_long_030;
+				x_put_word = put_word_030;
+				x_put_byte = put_byte_030;
+				x_get_long = get_long_030;
+				x_get_word = get_word_030;
+				x_get_byte = get_byte_030;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else if (currprefs.cpu_model < 68040) {
 				// JIT or 68030+ does not have real prefetch only emulation
-//				x_prefetch = NULL;
-//				set_x_ifetches();
-//				x_put_long = put_long;
-//				x_put_word = put_word;
-//				x_put_byte = put_byte;
-//				x_get_long = get_long;
-//				x_get_word = get_word;
-//				x_get_byte = get_byte;
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			} else {
-//				x_prefetch = NULL;
-//				x_get_ilong = get_ilong_cache_040;
-//				x_get_iword = get_iword_cache_040;
-//				x_get_ibyte = NULL;
-//				x_next_iword = next_iword_cache040;
-//				x_next_ilong = next_ilong_cache040;
-//				if (currprefs.cpu_data_cache) {
-//					x_put_long = put_long_cache_040;
-//					x_put_word = put_word_cache_040;
-//					x_put_byte = put_byte_cache_040;
-//					x_get_long = get_long_cache_040;
-//					x_get_word = get_word_cache_040;
-//					x_get_byte = get_byte_cache_040;
-//				} else {
-//					x_put_long = put_long;
-//					x_put_word = put_word;
-//					x_put_byte = put_byte;
-//					x_get_long = get_long;
-//					x_get_word = get_word;
-//					x_get_byte = get_byte;
-//				}
-//				x_do_cycles = do_cycles;
-//				x_do_cycles_pre = do_cycles;
-//				x_do_cycles_post = do_cycles_post;
-//			}
-//		} else {
-//			x_prefetch = NULL;
-//			set_x_ifetches();
-//			if (currprefs.cachesize) {
-//				x_put_long = put_long_jit;
-//				x_put_word = put_word_jit;
-//				x_put_byte = put_byte_jit;
-//				x_get_long = get_long_jit;
-//				x_get_word = get_word_jit;
-//				x_get_byte = get_byte_jit;
-//			} else {
-//				x_put_long = put_long;
-//				x_put_word = put_word;
-//				x_put_byte = put_byte;
-//				x_get_long = get_long;
-//				x_get_word = get_word;
-//				x_get_byte = get_byte;
-//			}
-//			x_do_cycles = do_cycles;
-//			x_do_cycles_pre = do_cycles;
-//			x_do_cycles_post = do_cycles_post;
-//		}
+				x_prefetch = NULL;
+				set_x_ifetches();
+				x_put_long = put_long;
+				x_put_word = put_word;
+				x_put_byte = put_byte;
+				x_get_long = get_long;
+				x_get_word = get_word;
+				x_get_byte = get_byte;
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			} else {
+				x_prefetch = NULL;
+				x_get_ilong = get_ilong_cache_040;
+				x_get_iword = get_iword_cache_040;
+				x_get_ibyte = NULL;
+				x_next_iword = next_iword_cache040;
+				x_next_ilong = next_ilong_cache040;
+				if (currprefs.cpu_data_cache) {
+					x_put_long = put_long_cache_040;
+					x_put_word = put_word_cache_040;
+					x_put_byte = put_byte_cache_040;
+					x_get_long = get_long_cache_040;
+					x_get_word = get_word_cache_040;
+					x_get_byte = get_byte_cache_040;
+				} else {
+					x_put_long = put_long;
+					x_put_word = put_word;
+					x_put_byte = put_byte;
+					x_get_long = get_long;
+					x_get_word = get_word;
+					x_get_byte = get_byte;
+				}
+				x_do_cycles = do_cycles;
+				x_do_cycles_pre = do_cycles;
+				x_do_cycles_post = do_cycles_post;
+			}
+		} else {
+			x_prefetch = NULL;
+			set_x_ifetches();
+			if (currprefs.cachesize) {
+				x_put_long = put_long_jit;
+				x_put_word = put_word_jit;
+				x_put_byte = put_byte_jit;
+				x_get_long = get_long_jit;
+				x_get_word = get_word_jit;
+				x_get_byte = get_byte_jit;
+			} else {
+				x_put_long = put_long;
+				x_put_word = put_word;
+				x_put_byte = put_byte;
+				x_get_long = get_long;
+				x_get_word = get_word;
+				x_get_byte = get_byte;
+			}
+			x_do_cycles = do_cycles;
+			x_do_cycles_pre = do_cycles;
+			x_do_cycles_post = do_cycles_post;
+		}
 		// 68020+ cycle exact
-//	} else if (currprefs.cpu_model == 68020) {
-//		x_prefetch = get_word_ce020_prefetch;
-//		x_get_ilong = get_long_ce020_prefetch;
-//		x_get_iword = get_word_ce020_prefetch;
-//		x_get_ibyte = NULL;
-//		x_next_iword = next_iword_020ce;
-//		x_next_ilong = next_ilong_020ce;
-//		x_put_long = put_long_ce020;
-//		x_put_word = put_word_ce020;
-//		x_put_byte = put_byte_ce020;
-//		x_get_long = get_long_ce020;
-//		x_get_word = get_word_ce020;
-//		x_get_byte = get_byte_ce020;
-//		x_do_cycles = do_cycles_ce020;
-//		x_do_cycles_pre = do_cycles_ce020;
-//		x_do_cycles_post = do_cycles_ce020_post;
-//	} else if (currprefs.cpu_model == 68030) {
-//		x_prefetch = get_word_ce030_prefetch;
-//		x_get_ilong = get_long_ce030_prefetch;
-//		x_get_iword = get_word_ce030_prefetch;
-//		x_get_ibyte = NULL;
-//		x_next_iword = next_iword_030ce;
-//		x_next_ilong = next_ilong_030ce;
-//		if (currprefs.cpu_data_cache) {
-//			x_put_long = put_long_dc030;
-//			x_put_word = put_word_dc030;
-//			x_put_byte = put_byte_dc030;
-//			x_get_long = get_long_dc030;
-//			x_get_word = get_word_dc030;
-//			x_get_byte = get_byte_dc030;
-//		} else {
-//			x_put_long = put_long_ce030;
-//			x_put_word = put_word_ce030;
-//			x_put_byte = put_byte_ce030;
-//			x_get_long = get_long_ce030;
-//			x_get_word = get_word_ce030;
-//			x_get_byte = get_byte_ce030;
-//		}
-//		x_do_cycles = do_cycles_ce020;
-//		x_do_cycles_pre = do_cycles_ce020;
-//		x_do_cycles_post = do_cycles_ce020_post;
-//	} else if (currprefs.cpu_model >= 68040) {
-//		x_prefetch = NULL;
-//		x_get_ilong = get_ilong_cache_040;
-//		x_get_iword = get_iword_cache_040;
-//		x_get_ibyte = NULL;
-//		x_next_iword = next_iword_cache040;
-//		x_next_ilong = next_ilong_cache040;
-//		if (currprefs.cpu_data_cache) {
-//			x_put_long = put_long_cache_040;
-//			x_put_word = put_word_cache_040;
-//			x_put_byte = put_byte_cache_040;
-//			x_get_long = get_long_cache_040;
-//			x_get_word = get_word_cache_040;
-//			x_get_byte = get_byte_cache_040;
-//		} else {
-//			x_get_byte = mem_access_delay_byte_read_c040;
-//			x_get_word = mem_access_delay_word_read_c040;
-//			x_get_long = mem_access_delay_long_read_c040;
-//			x_put_byte = mem_access_delay_byte_write_c040;
-//			x_put_word = mem_access_delay_word_write_c040;
-//			x_put_long = mem_access_delay_long_write_c040;
-//		}
-//		x_do_cycles = do_cycles_ce020;
-//		x_do_cycles_pre = do_cycles_ce020;
-//		x_do_cycles_post = do_cycles_ce020_post;
+	} else if (currprefs.cpu_model == 68020) {
+		x_prefetch = get_word_ce020_prefetch;
+		x_get_ilong = get_long_ce020_prefetch;
+		x_get_iword = get_word_ce020_prefetch;
+		x_get_ibyte = NULL;
+		x_next_iword = next_iword_020ce;
+		x_next_ilong = next_ilong_020ce;
+		x_put_long = put_long_ce020;
+		x_put_word = put_word_ce020;
+		x_put_byte = put_byte_ce020;
+		x_get_long = get_long_ce020;
+		x_get_word = get_word_ce020;
+		x_get_byte = get_byte_ce020;
+		x_do_cycles = do_cycles_ce020;
+		x_do_cycles_pre = do_cycles_ce020;
+		x_do_cycles_post = do_cycles_ce020_post;
+	} else if (currprefs.cpu_model == 68030) {
+		x_prefetch = get_word_ce030_prefetch;
+		x_get_ilong = get_long_ce030_prefetch;
+		x_get_iword = get_word_ce030_prefetch;
+		x_get_ibyte = NULL;
+		x_next_iword = next_iword_030ce;
+		x_next_ilong = next_ilong_030ce;
+		if (currprefs.cpu_data_cache) {
+			x_put_long = put_long_dc030;
+			x_put_word = put_word_dc030;
+			x_put_byte = put_byte_dc030;
+			x_get_long = get_long_dc030;
+			x_get_word = get_word_dc030;
+			x_get_byte = get_byte_dc030;
+		} else {
+			x_put_long = put_long_ce030;
+			x_put_word = put_word_ce030;
+			x_put_byte = put_byte_ce030;
+			x_get_long = get_long_ce030;
+			x_get_word = get_word_ce030;
+			x_get_byte = get_byte_ce030;
+		}
+		x_do_cycles = do_cycles_ce020;
+		x_do_cycles_pre = do_cycles_ce020;
+		x_do_cycles_post = do_cycles_ce020_post;
+	} else if (currprefs.cpu_model >= 68040) {
+		x_prefetch = NULL;
+		x_get_ilong = get_ilong_cache_040;
+		x_get_iword = get_iword_cache_040;
+		x_get_ibyte = NULL;
+		x_next_iword = next_iword_cache040;
+		x_next_ilong = next_ilong_cache040;
+		if (currprefs.cpu_data_cache) {
+			x_put_long = put_long_cache_040;
+			x_put_word = put_word_cache_040;
+			x_put_byte = put_byte_cache_040;
+			x_get_long = get_long_cache_040;
+			x_get_word = get_word_cache_040;
+			x_get_byte = get_byte_cache_040;
+		} else {
+			x_get_byte = mem_access_delay_byte_read_c040;
+			x_get_word = mem_access_delay_word_read_c040;
+			x_get_long = mem_access_delay_long_read_c040;
+			x_put_byte = mem_access_delay_byte_write_c040;
+			x_put_word = mem_access_delay_word_write_c040;
+			x_put_long = mem_access_delay_long_write_c040;
+		}
+		x_do_cycles = do_cycles_ce020;
+		x_do_cycles_pre = do_cycles_ce020;
+		x_do_cycles_post = do_cycles_ce020_post;
+#endif // WINUAE_FOR_PREVIOUS
 	}
 	x2_prefetch = x_prefetch;
 	x2_get_ilong = x_get_ilong;
@@ -1390,7 +1407,7 @@ static void set_x_funcs (void)
 	mmu_set_funcs();
 	mmu030_set_funcs();
 
-    dcache_lput = phys_put_long;
+	dcache_lput = phys_put_long;
 	dcache_wput = phys_put_word;
 	dcache_bput = phys_put_byte;
 	dcache_lget = phys_get_long;
@@ -1548,6 +1565,14 @@ void invalidate_cpu_data_caches(void)
 	}
 }
 
+static void flush_cpu_cache_debug(uaecptr addr, int size)
+{
+	debugmem_flushcache(0, -1);
+#ifndef WINUAE_FOR_HATARI
+	debug_smc_clear(0, -1);
+#endif
+}
+
 void flush_cpu_caches(bool force)
 {
 	bool doflush = currprefs.cpu_compatible || currprefs.cpu_memory_cycle_exact;
@@ -1557,12 +1582,12 @@ void flush_cpu_caches(bool force)
 			for (int i = 0; i < CACHELINES020; i++)
 				caches020[i].valid = 0;
 			regs.cacr &= ~0x08;
-			debugmem_flushcache(0, -1);
+			flush_cpu_cache_debug(0, -1);
 		}
 		if (regs.cacr & 0x04) { // clear entry in instr cache
 			caches020[(regs.caar >> 2) & (CACHELINES020 - 1)].valid = 0;
 			regs.cacr &= ~0x04;
-			debugmem_flushcache(regs.caar, CACHELINES020);
+			flush_cpu_cache_debug(regs.caar, CACHELINES020);
 		}
 	} else if (currprefs.cpu_model == 68030) {
 		if ((regs.cacr & 0x08) || force) { // clear instr cache
@@ -1575,12 +1600,12 @@ void flush_cpu_caches(bool force)
 				}
 			}
 			regs.cacr &= ~0x08;
-			debugmem_flushcache(0, -1);
+			flush_cpu_cache_debug(0, -1);
 		}
 		if (regs.cacr & 0x04) { // clear entry in instr cache
 			icaches030[(regs.caar >> 4) & (CACHELINES030 - 1)].valid[(regs.caar >> 2) & 3] = 0;
 			regs.cacr &= ~0x04;
-			debugmem_flushcache(regs.caar, CACHELINES030);
+			flush_cpu_cache_debug(regs.caar, CACHELINES030);
 		}
 		if ((regs.cacr & 0x800) || force) { // clear data cache
 			if (doflush) {
@@ -1607,7 +1632,7 @@ void flush_cpu_caches(bool force)
 					icaches040[i].valid[j] = false;
 				}
 			}
-			debugmem_flushcache(0, -1);
+			flush_cpu_cache_debug(0, -1);
 		}
 	}
 }
@@ -1717,7 +1742,7 @@ static void flush_cpu_caches_040_2(int cache, int scope, uaecptr addr, bool push
 						tagmask = cacheitag04060mask;
 						index = (addr >> 4) & cacheisets04060mask;
 						c = &icaches040[index];
-						debugmem_flushcache(addr, 16);
+						flush_cpu_cache_debug(addr, 16);
 					} else {
 						tagmask = cachedtag04060mask;
 						index = (addr >> 4) & cachedsets04060mask;
@@ -1875,22 +1900,31 @@ static void build_cpufunctbl (void)
 	int lvl, mode, jit;
 
 	jit = 0;
-	if (currprefs.mmu_model) {
-		if (currprefs.cpu_cycle_exact)
-			mode = 7;
-		else if (currprefs.cpu_compatible)
-			mode = 6;
-		else
-			mode = 5;
-	} else if (currprefs.cpu_cycle_exact) {
-		mode = 4;
-	} else if (currprefs.cpu_compatible) {
-		mode = 3;
+	if (1) {
+		if (currprefs.mmu_model) {
+			if (currprefs.cpu_cycle_exact)
+				mode = 7;
+			else if (currprefs.cpu_compatible)
+				mode = 6;
+			else
+				mode = 5;
+		} else if (currprefs.cpu_cycle_exact) {
+			mode = 4;
+		} else if (currprefs.cpu_compatible) {
+			mode = 3;
+		} else {
+			mode = 0;
+		}
+		m68k_pc_indirect = mode != 0 ? 1 : 0;
 	} else {
-		mode = 0;
+		mode = 1;
+		m68k_pc_indirect = 0;
+		jit = 1;
+		if (0) {
+			mode = 2;
+			m68k_pc_indirect = -1;
+		}
 	}
-	m68k_pc_indirect = mode != 0 ? 1 : 0;
-	
 	lvl = (currprefs.cpu_model - 68000) / 10;
 	if (lvl == 6)
 		lvl = 5;
@@ -1913,18 +1947,20 @@ static void build_cpufunctbl (void)
 	}
 
 	/* hack fpu to 68000/68010 mode */
-//	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
-//		tbl = op_smalltbl_3;
-//		for (i = 0; tbl[i].handler_ff != NULL; i++) {
-//			if ((tbl[i].opcode & 0xfe00) == 0xf200) {
-//				cpufunctbl[tbl[i].opcode] = tbl[i].handler_ff;
-//				cpudatatbl[tbl[i].opcode].length = tbl[i].length;
-//				cpudatatbl[tbl[i].opcode].disp020[0] = tbl[i].disp020[0];
-//				cpudatatbl[tbl[i].opcode].disp020[1] = tbl[i].disp020[1];
-//				cpudatatbl[tbl[i].opcode].branch = tbl[i].branch;
-//			}
-//		}
-//	}
+#ifndef WINUAE_FOR_PREVIOUS
+	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
+		tbl = op_smalltbl_3;
+		for (i = 0; tbl[i].handler_ff != NULL; i++) {
+			if ((tbl[i].opcode & 0xfe00) == 0xf200) {
+				cpufunctbl[tbl[i].opcode] = tbl[i].handler_ff;
+				cpudatatbl[tbl[i].opcode].length = tbl[i].length;
+				cpudatatbl[tbl[i].opcode].disp020[0] = tbl[i].disp020[0];
+				cpudatatbl[tbl[i].opcode].disp020[1] = tbl[i].disp020[1];
+				cpudatatbl[tbl[i].opcode].branch = tbl[i].branch;
+			}
+		}
+	}
+#endif // WINUAE_FOR_PREVIOUS
 
 	opcnt = 0;
 	for (opcode = 0; opcode < 65536; opcode++) {
@@ -2021,14 +2057,16 @@ static void build_cpufunctbl (void)
 	/* TODO ? Force address_space_24=0 for 68040 ? */
 #endif
 	m68k_interrupt_delay = false;
-//	if (currprefs.cpu_cycle_exact) {
-//		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21 || tbl == op_smalltbl_23)
-//			m68k_interrupt_delay = true;
-//	} else if (currprefs.cpu_compatible) {
-//		if (currprefs.cpu_model <= 68010 && currprefs.m68k_speed == 0) {
-//			m68k_interrupt_delay = true;
-//		}
-//	}
+#ifndef WINUAE_FOR_PREVIOUS
+	if (currprefs.cpu_cycle_exact) {
+		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21 || tbl == op_smalltbl_23)
+			m68k_interrupt_delay = true;
+	} else if (currprefs.cpu_compatible) {
+		if (currprefs.cpu_model <= 68010 && currprefs.m68k_speed == 0) {
+			m68k_interrupt_delay = true;
+		}
+	}
+#endif // WINUAE_FOR_PREVIOUS
 
 	if (currprefs.cpu_cycle_exact) {
 		if (currprefs.cpu_model == 68000)
@@ -2058,6 +2096,12 @@ static void build_cpufunctbl (void)
 	}
 	write_log(_T("\n"));
 
+	if (m68k_interrupt_delay) {
+		cpuipldelay = 4 * cpucycleunit;
+	} else {
+		cpuipldelay = 0;
+	}
+
 	set_cpu_caches (true);
 #ifndef WINUAE_FOR_HATARI
 	target_cpu_speed();
@@ -2077,15 +2121,24 @@ static void update_68k_cycles (void)
 	if (currprefs.m68k_speed == 0) { // approximate
 		cycles_mult = CYCLES_DIV;
 		if (currprefs.cpu_model >= 68040) {
-			cycles_mult = CYCLES_DIV / 12;
+			if (currprefs.mmu_model) {
+				cycles_mult = CYCLES_DIV / 20;
+			} else {
+				cycles_mult = CYCLES_DIV / 12;
+			}
 		} else if (currprefs.cpu_model >= 68020) {
-			cycles_mult = CYCLES_DIV / 6;
+			if (currprefs.mmu_model) {
+				cycles_mult = CYCLES_DIV / 10;
+			} else {
+				cycles_mult = CYCLES_DIV / 6;
+			}
 		}
+
 		if (!currprefs.cpu_cycle_exact) {
 			if (currprefs.m68k_speed_throttle < 0) {
-				cycles_mult = (cycles_mult * 1000) / (1000 + currprefs.m68k_speed_throttle);
+				cycles_mult = (uae_u32)((cycles_mult * 1000) / (1000 + currprefs.m68k_speed_throttle));
 			} else if (currprefs.m68k_speed_throttle > 0) {
-				cycles_mult = (cycles_mult * 1000) / (1000 + currprefs.m68k_speed_throttle);
+				cycles_mult = (uae_u32)((cycles_mult * 1000) / (1000 + currprefs.m68k_speed_throttle));
 			}
 		}
 	} else {
@@ -2187,6 +2240,9 @@ static void prefs_changed_cpu (void)
 	currprefs.cpu_memory_cycle_exact = changed_prefs.cpu_memory_cycle_exact;
 	currprefs.int_no_unimplemented = changed_prefs.int_no_unimplemented;
 	currprefs.fpu_no_unimplemented = changed_prefs.fpu_no_unimplemented;
+#ifndef WINUAE_FOR_HATARI
+	mman_set_barriers(false);
+#endif
 }
 
 static int check_prefs_changed_cpu2(void)
@@ -2212,10 +2268,7 @@ static int check_prefs_changed_cpu2(void)
 			cpu_prefs_changed_flag |= 1;
 	}
 	if (changed
-//		|| currprefs.m68k_speed != changed_prefs.m68k_speed
-//		|| currprefs.m68k_speed_throttle != changed_prefs.m68k_speed_throttle
 		|| currprefs.cpu_clock_multiplier != changed_prefs.cpu_clock_multiplier
-//		|| currprefs.reset_delay != changed_prefs.reset_delay
 		|| currprefs.cpu_frequency != changed_prefs.cpu_frequency) {
 			cpu_prefs_changed_flag |= 2;
 	}
@@ -2227,12 +2280,10 @@ void check_prefs_changed_cpu(void)
 #ifndef WINUAE_FOR_HATARI	/* [NP] TODO : handle cpu change on the fly ? */
 	if (!config_changed)
 		return;
-#endif
 
-//	currprefs.cpu_idle = changed_prefs.cpu_idle;
-//	currprefs.ppc_cpu_idle = changed_prefs.ppc_cpu_idle;
-//	currprefs.reset_delay = changed_prefs.reset_delay;
-#ifndef WINUAE_FOR_HATARI
+	currprefs.cpu_idle = changed_prefs.cpu_idle;
+	currprefs.ppc_cpu_idle = changed_prefs.ppc_cpu_idle;
+	currprefs.reset_delay = changed_prefs.reset_delay;
 	currprefs.cpuboard_settings = changed_prefs.cpuboard_settings;
 #endif
 
@@ -2358,33 +2409,32 @@ static void activate_trace(void)
 }
 
 // make sure interrupt is checked immediately after current instruction
-static void doint_imm(void)
+void checkint(void)
 {
 	doint();
 	if (!(regs.spcflags & SPCFLAG_INT) && (regs.spcflags & SPCFLAG_DOINT))
 		set_special(SPCFLAG_INT);
 }
 
-void REGPARAM2 MakeSR (void)
+void REGPARAM2 MakeSR(void)
 {
 	regs.sr = ((regs.t1 << 15) | (regs.t0 << 14)
 		| (regs.s << 13) | (regs.m << 12) | (regs.intmask << 8)
-		| (GET_XFLG () << 4) | (GET_NFLG () << 3)
-		| (GET_ZFLG () << 2) | (GET_VFLG () << 1)
-		|  GET_CFLG ());
-
+		| (GET_XFLG() << 4) | (GET_NFLG() << 3)
+		| (GET_ZFLG() << 2) | (GET_VFLG() << 1)
+		|  GET_CFLG());
 }
 
-static void SetSR (uae_u16 sr)
+static void SetSR(uae_u16 sr)
 {
 	regs.sr &= 0xff00;
 	regs.sr |= sr;
 
-	SET_XFLG ((regs.sr >> 4) & 1);
-	SET_NFLG ((regs.sr >> 3) & 1);
-	SET_ZFLG ((regs.sr >> 2) & 1);
-	SET_VFLG ((regs.sr >> 1) & 1);
-	SET_CFLG (regs.sr & 1);
+	SET_XFLG((regs.sr >> 4) & 1);
+	SET_NFLG((regs.sr >> 3) & 1);
+	SET_ZFLG((regs.sr >> 2) & 1);
+	SET_VFLG((regs.sr >> 1) & 1);
+	SET_CFLG(regs.sr & 1);
 }
 
 static void MakeFromSR_x(int t0trace)
@@ -2394,11 +2444,11 @@ static void MakeFromSR_x(int t0trace)
 	int oldt0 = regs.t0;
 	int oldt1 = regs.t1;
 
-	SET_XFLG ((regs.sr >> 4) & 1);
-	SET_NFLG ((regs.sr >> 3) & 1);
-	SET_ZFLG ((regs.sr >> 2) & 1);
-	SET_VFLG ((regs.sr >> 1) & 1);
-	SET_CFLG (regs.sr & 1);
+	SET_XFLG((regs.sr >> 4) & 1);
+	SET_NFLG((regs.sr >> 3) & 1);
+	SET_ZFLG((regs.sr >> 2) & 1);
+	SET_VFLG((regs.sr >> 1) & 1);
+	SET_CFLG(regs.sr & 1);
 	if (regs.t1 == ((regs.sr >> 15) & 1) &&
 		regs.t0 == ((regs.sr >> 14) & 1) &&
 		regs.s  == ((regs.sr >> 13) & 1) &&
@@ -2408,8 +2458,14 @@ static void MakeFromSR_x(int t0trace)
 	regs.t1 = (regs.sr >> 15) & 1;
 	regs.t0 = (regs.sr >> 14) & 1;
 	regs.s  = (regs.sr >> 13) & 1;
-	regs.m  = (regs.sr >> 12) & 1;
-	regs.intmask = (regs.sr >> 8) & 7;
+	regs.m = (regs.sr >> 12) & 1;
+
+	if (regs.intmask != ((regs.sr >> 8) & 7)) {
+		regs.intmask = (regs.sr >> 8) & 7;
+		if (m68k_interrupt_delay && (regs.ipl[0] > 0 || regs.ipl[1] > 0)) {
+			set_special(SPCFLAG_INT);
+		}
+	}
 
 	if (currprefs.cpu_model >= 68020) {
 		/* 68060 does not have MSP but does have M-bit.. */
@@ -2459,7 +2515,6 @@ static void MakeFromSR_x(int t0trace)
 	}
 #endif
 
-	doint_imm();
 	if (regs.t1 || regs.t0) {
 		set_special (SPCFLAG_TRACE);
 	} else {
@@ -2482,6 +2537,10 @@ void REGPARAM2 MakeFromSR_T0(void)
 void REGPARAM2 MakeFromSR(void)
 {
 	MakeFromSR_x(0);
+}
+void REGPARAM2 MakeFromSR_STOP(void)
+{
+	MakeFromSR_x(-1);
 }
 
 void REGPARAM2 MakeFromSR_intmask(uae_u16 oldsr, uae_u16 newsr)
@@ -2525,13 +2584,13 @@ static void exception_check_trace (int nr)
 
 static void exception_debug (int nr)
 {
-#ifdef WINUAE_FOR_HATARI
-//	if (unlikely(ExceptionDebugMask & EXCEPT_NOHANDLER) && STMemory_ReadLong(regs.vbr + 4*nr) == 0) {
-//		fprintf(stderr,"Uninitialized exception handler #%i!\n", nr);
-//		DebugUI(REASON_CPU_EXCEPTION);
-//	} else {
-//		DebugUI_Exceptions(nr, M68K_GETPC);
-//	}
+#ifndef WINUAE_FOR_PREVIOUS
+	if (unlikely(ExceptionDebugMask & EXCEPT_NOHANDLER) && STMemory_ReadLong(regs.vbr + 4*nr) == 0) {
+		fprintf(stderr,"Uninitialized exception handler #%i!\n", nr);
+		DebugUI(REASON_CPU_EXCEPTION);
+	} else {
+		DebugUI_Exceptions(nr, M68K_GETPC);
+	}
 #else
 #ifdef DEBUGGER
 	if (!exception_debugging)
@@ -2692,7 +2751,7 @@ Interrupt:
 ...
 
 */
-#if 0
+#ifndef WINUAE_FOR_PREVIOUS
 static int iack_cycle(int nr)
 {
 	int vector;
@@ -2710,7 +2769,7 @@ static int iack_cycle(int nr)
 #else
 	int iack_start = CPU_IACK_CYCLES_START;
 	int e_cycles;
-	int cycle_exact = currprefs.cpu_cycle_exact && !currprefs.mmu_model;
+	int cycle_exact = currprefs.cpu_cycle_exact && !currprefs.mmu_model;	// TODO/CHECK HATARI : use CpuRunCycleExact instead ?
 
 	/* In cycle exact mode, the cycles before reaching IACK are already counted */
 	if (cycle_exact)
@@ -2743,8 +2802,9 @@ static int iack_cycle(int nr)
 				M68000_AddCycles ( iack_start + CPU_IACK_CYCLES_MFP );
 
 			CPU_IACK = true;
-			while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
-				CALL_VAR(PendingInterruptFunction);
+// 			while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
+// 				CALL_VAR(PendingInterruptFunction);
+			CycInt_Process();
 			vector = MFP_ProcessIACK ( nr );
 			CPU_IACK = false;
 		}
@@ -2773,6 +2833,14 @@ static int iack_cycle(int nr)
 
 		e_cycles = M68000_WaitEClock ();
 //		fprintf ( stderr , "wait e clock %d\n" , e_cycles);
+		if ( nr == 26 )
+		{
+			LOG_TRACE ( TRACE_VIDEO_HBL , "HBL=%d clock=%"PRIu64" e_clock_jitter=%d\n" , nHBL , Cycles_GetClockCounterImmediate() , e_cycles );
+		}
+		else if ( nr == 28 )
+		{
+			LOG_TRACE ( TRACE_VIDEO_VBL , "VBL=%d clock=%"PRIu64" e_clock_jitter=%d\n" , nVBLs , Cycles_GetClockCounterImmediate() , e_cycles );
+		}
 
 		if (cycle_exact)
 		{
@@ -2785,8 +2853,9 @@ static int iack_cycle(int nr)
 			M68000_AddCycles ( e_cycles + CPU_IACK_CYCLES_VIDEO_CE );
 
 		CPU_IACK = true;
-		while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
-			CALL_VAR(PendingInterruptFunction);
+// 		while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
+// 			CALL_VAR(PendingInterruptFunction);
+		CycInt_Process();
 		if ( MFP_UpdateNeeded == true )
 			MFP_UpdateIRQ_All ( 0 );				/* update MFP's state if some internal timers related to MFP expired */
 		pendingInterrupts &= ~( 1 << ( nr - 24 ) );			/* clear HBL or VBL pending bit (even if an MFP timer occurred during IACK) */
@@ -2805,7 +2874,7 @@ static int iack_cycle(int nr)
 #endif
 	return vector;
 }
-#endif
+#endif // WINUAE_FOR_PREVIOUS
 
 static void Exception_ce000 (int nr)
 {
@@ -2838,9 +2907,9 @@ static void Exception_ce000 (int nr)
 	if (start)
 		x_do_cycles (start * cpucycleunit);
 
-#ifdef WINUAE_FOR_HATARI
-//	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-//		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+#ifndef WINUAE_FOR_PREVIOUS
+	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
+		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
 	exception_debug (nr);
 	MakeSR ();
@@ -2860,12 +2929,14 @@ static void Exception_ce000 (int nr)
 		write_log (_T("Exception %d (%08x %x) at %x -> %x!\n"),
 			nr, last_op_for_exception_3, last_addr_for_exception_3, currpc, get_long_debug (4 * nr));
 #else
-//		if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
-//			Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
-//			           nr == 2 ? "Bus" : "Address",
-//			           last_writeaccess_for_exception_3 ? "writing" : "reading",
-//			           last_fault_for_exception_3, currpc,
-//			           last_addr_for_exception_3 , last_op_for_exception_3);
+#ifndef WINUAE_FOR_PREVIOUS
+		if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
+			Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
+			           nr == 2 ? "Bus" : "Address",
+			           last_writeaccess_for_exception_3 ? "writing" : "reading",
+			           last_fault_for_exception_3, currpc,
+			           last_addr_for_exception_3 , last_op_for_exception_3);
+#endif // WINUAE_FOR_PREVIOUS
 #endif
 		if (currprefs.cpu_model == 68000) {
 			// 68000 bus/address error
@@ -2920,8 +2991,10 @@ static void Exception_ce000 (int nr)
 		}
 		exception_in_exception = 1;
 		x_put_word (m68k_areg (regs, 7) + 4, currpc); // write low address
-//		if (interrupt)
-//			vector_nr = iack_cycle(nr);
+#ifndef WINUAE_FOR_PREVIOUS
+		if (interrupt)
+			vector_nr = iack_cycle(nr);
+#endif // WINUAE_FOR_PREVIOUS
 		x_put_word (m68k_areg (regs, 7) + 0, regs.sr); // write SR
 		x_put_word (m68k_areg (regs, 7) + 2, currpc >> 16); // write high address
 		x_put_word (m68k_areg (regs, 7) + 6, (frame_id << 12) | (vector_nr * 4));
@@ -2934,8 +3007,10 @@ static void Exception_ce000 (int nr)
 		exception_in_exception = 1;
 		x_put_word (m68k_areg (regs, 7) + 4, currpc); // write low address
 //fprintf ( stderr , "ex iack1 %d %ld\n" , nr , currcycle );
-//		if (interrupt)
-//			vector_nr = iack_cycle(nr);
+#ifndef WINUAE_FOR_PREVIOUS
+		if (interrupt)
+			vector_nr = iack_cycle(nr);
+#endif // WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "ex iack2 %d %ld\n" , nr , currcycle );
 		x_put_word (m68k_areg (regs, 7) + 0, regs.sr); // write SR
 		x_put_word (m68k_areg (regs, 7) + 2, currpc >> 16); // write high address
@@ -2995,21 +3070,22 @@ kludge_me_do:
 	}
 	regs.ird = regs.ir;
 	x_do_cycles (2 * cpucycleunit);
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	/* [NP] IPL should be updated just before the last x_get_word for irc */
 	/* (4 cycles before end of exception), so we need to add 2 cycles now */
 	/* to be aligned on 4 cycles (else the 2 cycles will be added in x_get_word */
 	/* and IPL will be updated 2 cycles too soon) */
 	x_do_cycles (2 * cpucycleunit);
 	/* Add all cycles needed for the exception so far */
-//	M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
+	M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
 	currcycle = 0;
 	/* Update IPL / interrupts state, in case a new interrupt happened during this exception */
-//	while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
-//		CALL_VAR(PendingInterruptFunction);
+// 	while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
+// 		CALL_VAR(PendingInterruptFunction);
+	CycInt_Process();
 #endif
 	regs.ipl_pin = intlev();
-	ipl_fetch();
+	ipl_fetch_now();
 	regs.irc = x_get_word (m68k_getpc () + 2); // prefetch 2
 	if (hardware_bus_error) {
 		if (nr == 2 || nr == 3) {
@@ -3025,10 +3101,10 @@ kludge_me_do:
 	exception_check_trace (nr);
 
 //fprintf ( stderr , "ex out %d %ld\n" , nr , currcycle );
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	/* Add all cycles needed for the exception */
-//	M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
-//	currcycle = 0;
+	M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
+	currcycle = 0;
 #endif
 }
 #endif
@@ -3041,14 +3117,14 @@ static void Exception_mmu030 (int nr, uaecptr oldpc)
 
 	interrupt = nr >= 24 && nr < 24 + 8;
 
-#ifdef WINUAE_FOR_HATARI
-//	if (interrupt)
-//		nr = iack_cycle(nr);
+#ifndef WINUAE_FOR_PREVIOUS
+	if (interrupt)
+		nr = iack_cycle(nr);
 #endif
 
-#ifdef WINUAE_FOR_HATARI
-//	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-//		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+#ifndef WINUAE_FOR_PREVIOUS
+	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
+		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
     exception_debug (nr);
     MakeSR ();
@@ -3121,14 +3197,14 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 	// operations don't allocate new cachelines
 	cache_default_data |= CACHE_DISABLE_ALLOCATE;
 
-#ifdef WINUAE_FOR_HATARI
-//	if (interrupt)
-//		nr = iack_cycle(nr);
+#ifndef WINUAE_FOR_PREVIOUS
+	if (interrupt)
+		nr = iack_cycle(nr);
 #endif
 
-#ifdef WINUAE_FOR_HATARI
-//	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-//		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+#ifndef WINUAE_FOR_PREVIOUS
+	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
+		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
 	exception_debug (nr);
 	MakeSR ();
@@ -3187,9 +3263,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 	exception_check_trace (nr);
 }
 
-#if 0
 static void add_approximate_exception_cycles(int nr)
 {
+#ifndef WINUAE_FOR_PREVIOUS
 	int cycles;
 
 	if (currprefs.cpu_model == 68000) {
@@ -3264,8 +3340,8 @@ static void add_approximate_exception_cycles(int nr)
 #endif
 	cycles = adjust_cycles(cycles * CYCLE_UNIT / 2);
 	x_do_cycles(cycles);
+#endif // WINUAE_FOR_PREVIOUS
 }
-#endif
 
 static void Exception_normal (int nr)
 {
@@ -3289,8 +3365,10 @@ static void Exception_normal (int nr)
 	}
 #else
 	g1 = generates_group1_exception(regs.ir);
-//	if (interrupt)
-//		vector_nr = iack_cycle(nr);
+#ifndef WINUAE_FOR_PREVIOUS
+	if (interrupt)
+		vector_nr = iack_cycle(nr);
+#endif // WINUAE_FOR_PREVIOUS
 #endif
 
 	exception_debug (nr);
@@ -3337,9 +3415,9 @@ static void Exception_normal (int nr)
 	if (currprefs.cpu_model > 68000) {
 		uae_u32 oldpc = regs.instruction_pc;
 		nextpc = exception_pc (nr);
-#ifdef WINUAE_FOR_HATARI
-//		LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d vector %x currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-//			nr, 4*vector_nr , currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+#ifndef WINUAE_FOR_PREVIOUS
+		LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d vector %x currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
+			nr, 4*vector_nr , currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
 		if (nr == 2 || nr == 3) {
 			int i;
@@ -3451,12 +3529,14 @@ static void Exception_normal (int nr)
 #ifndef WINUAE_FOR_HATARI
 			write_log (_T("Exception %d (%x) at %x -> %x!\n"), nr, regs.instruction_pc, currpc, get_long_debug (regs.vbr + 4 * vector_nr));
 #else
-//			if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
-//				Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
-//				           nr == 2 ? "Bus" : "Address",
-//				           last_writeaccess_for_exception_3 ? "writing" : "reading",
-//				           last_fault_for_exception_3, currpc,
-//				           last_addr_for_exception_3, last_op_for_exception_3);
+#ifndef WINUAE_FOR_PREVIOUS
+			if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
+				Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
+				           nr == 2 ? "Bus" : "Address",
+				           last_writeaccess_for_exception_3 ? "writing" : "reading",
+				           last_fault_for_exception_3, currpc,
+				           last_addr_for_exception_3, last_op_for_exception_3);
+#endif // WINUAE_FOR_PREVIOUS
 #endif
 		} else if (regs.m && interrupt) { /* M + Interrupt */
 			m68k_areg (regs, 7) -= 2;
@@ -3479,9 +3559,9 @@ static void Exception_normal (int nr)
 		}
  	} else {
 		nextpc = m68k_getpc ();
-#ifdef WINUAE_FOR_HATARI
-//		LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d vector %x currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-//			nr, 4*vector_nr , currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+#ifndef WINUAE_FOR_PREVIOUS
+		LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d vector %x currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
+			nr, 4*vector_nr , currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
 		if (nr == 2 || nr == 3) {
 			// 68000 bus/address error
@@ -3493,12 +3573,14 @@ static void Exception_normal (int nr)
 #ifndef WINUAE_FOR_HATARI
 			write_log (_T("Exception %d (%x) at %x -> %x!\n"), nr, last_fault_for_exception_3, currpc, get_long_debug (regs.vbr + 4 * vector_nr));
 #else
-//			if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
-//				Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
-//				           nr == 2 ? "Bus" : "Address",
-//				           last_writeaccess_for_exception_3 ? "writing" : "reading",
-//				           last_fault_for_exception_3, currpc,
-//				           last_addr_for_exception_3, last_op_for_exception_3);
+#ifndef WINUAE_FOR_PREVIOUS
+			if (nr != 2 || M68000_IsVerboseBusError(currpc, last_fault_for_exception_3))
+				Log_Printf(LOG_WARN, "%s Error %s at address $%x, PC=$%x addr_e3=%x op_e3=%x\n",
+				           nr == 2 ? "Bus" : "Address",
+				           last_writeaccess_for_exception_3 ? "writing" : "reading",
+				           last_fault_for_exception_3, currpc,
+				           last_addr_for_exception_3, last_op_for_exception_3);
+#endif // WINUAE_FOR_PREVIOUS
 #endif
 			goto kludge_me_do;
 		}
@@ -3557,20 +3639,21 @@ kludge_me_do:
 		}
 		return;
 	}
-//	add_approximate_exception_cycles(nr);
+	add_approximate_exception_cycles(nr);
 	m68k_setpc (newpc);
 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	/* Update IPL / interrupts state, in case a new interrupt happened during this exception */
-//	while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
-//		CALL_VAR(PendingInterruptFunction);
+// 	while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) )
+// 		CALL_VAR(PendingInterruptFunction);
+	CycInt_Process();
 #endif
 #ifdef JIT
 	set_special (SPCFLAG_END_COMPILE);
 #endif
 	branch_stack_push(currpc, nextpc);
 	regs.ipl_pin = intlev();
-	ipl_fetch();
+	ipl_fetch_now();
 	fill_prefetch ();
 	exception_check_trace (nr);
 }
@@ -3581,6 +3664,12 @@ static void ExceptionX (int nr, uaecptr address, uaecptr oldpc)
 	uaecptr pc = m68k_getpc();
 	regs.exception = nr;
 	regs.loop_mode = 0;
+
+#ifndef WINUAE_FOR_HATARI
+	if (debug_dma) {
+		record_dma_event_data(DMA_EVENT_CPUINS, current_hpos(), vpos, 0x20000);
+	}
+#endif
 	if (cpu_tracer) {
 		cputrace.state = nr;
 	}
@@ -3588,48 +3677,44 @@ static void ExceptionX (int nr, uaecptr address, uaecptr oldpc)
 		regs.instruction_pc_user_exception = pc;
 	}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	/* Handle Hatari GEM and BIOS traps */
-//	if (nr == 0x22) {
+	if (nr == 0x22) {
 		/* Intercept VDI & AES exceptions (Trap #2) */
-//		if (bVdiAesIntercept && VDI_AES_Entry()) {
+		if (bVdiAesIntercept && VDI_AES_Entry()) {
 			/* Set 'PC' to address of 'VDI_OPCODE' illegal instruction.
 			 * This will call OpCode_VDI() after completion of Trap call!
 			 * Used to modify specific VDI return vectors contents. */
-//			VDI_OldPC = m68k_getpc();
-//			m68k_setpc(CART_VDI_OPCODE_ADDR);
-//		}
-//	}
-//	else if (nr == 0x2d) {
+			VDI_OldPC = m68k_getpc();
+			m68k_setpc(CART_VDI_OPCODE_ADDR);
+		}
+	}
+	else if (nr == 0x2d) {
 		/* Intercept BIOS (Trap #13) calls */
-//		if (Bios()) {
-//			fill_prefetch ();
-//			regs.exception = 0;
-//			return;
-//		}
-//	}
-//	else if (nr == 0x2e) {
+		if (Bios()) {
+			fill_prefetch ();
+			regs.exception = 0;
+			return;
+		}
+	}
+	else if (nr == 0x2e) {
 		/* Intercept XBIOS (Trap #14) calls */
-//		if (XBios()) {
-//			fill_prefetch ();
-//			regs.exception = 0;
-//			return;
-//		}
-//	}
+		if (XBios()) {
+			fill_prefetch ();
+			regs.exception = 0;
+			return;
+		}
+	}
 #endif
 
 	if (oldpc != 0xffffffff) {
 		regs.instruction_pc = oldpc;
 	}
 
-#ifndef WINUAE_FOR_HATARI
-	if (debug_illegal && !in_rom(pc)) {
-		if (nr <= 63 && (debug_illegal_mask & ((uae_u64)1 << nr))) {
-			write_log(_T("Exception %d breakpoint\n"), nr);
-			activate_debugger();
-		}
-	}
+#ifdef DEBUGGER
+	debug_exception(nr);
 #endif
+	m68k_resumestopped();
 
 #ifdef CPUEMU_13
 	if (currprefs.cpu_cycle_exact && currprefs.cpu_model <= 68010)
@@ -3693,9 +3778,25 @@ static void bus_error(void)
 	} ENDTRY
 }
 
+static int get_ipl(void)
+{
+	return regs.ipl[0];
+}
+
 static void do_interrupt (int nr)
 {
-	m68k_unset_stop();
+#ifndef WINUAE_FOR_HATARI
+	if (debug_dma)
+		record_dma_event(DMA_EVENT_CPUIRQ, current_hpos (), vpos);
+
+	if (inputrecord_debug & 2) {
+		if (input_record > 0)
+			inprec_recorddebug_cpu (2);
+		else if (input_play > 0)
+			inprec_playdebug_cpu (2);
+	}
+#endif
+
 	assert (nr < 8 && nr >= 0);
 
 	for (;;) {
@@ -3703,7 +3804,7 @@ static void do_interrupt (int nr)
 		if (!currprefs.cpu_compatible || currprefs.cpu_model == 68060)
 			break;
 		if (m68k_interrupt_delay)
-			nr = regs.ipl;
+			nr = get_ipl();
 		else
 			nr = intlev();
 		if (nr <= 0 || regs.intmask >= nr)
@@ -3763,7 +3864,7 @@ static void m68k_reset2(bool hardreset)
 
 	regs.spcflags = 0;
 	m68k_reset_delay = 0;
-	regs.ipl = regs.ipl_pin = 0;
+	regs.ipl[0] = regs.ipl[1] = regs.ipl_pin = 0;
 #ifndef WINUAE_FOR_HATARI
 	for (int i = 0; i < IRQ_SOURCE_MAX; i++) {
 		uae_interrupts2[i] = 0;
@@ -3771,6 +3872,10 @@ static void m68k_reset2(bool hardreset)
 		uae_interrupt = 0;
 	}
 #endif
+
+	// Force config changes (CPU speed) into effect on hard reset
+	update_68k_cycles();
+
 
 #ifdef SAVESTATE
 	if (isrestore ()) {
@@ -3861,8 +3966,8 @@ static void m68k_reset2(bool hardreset)
 	}
 //	regs.ce020memcycles = 0;
 	regs.ce020startcycle = regs.ce020endcycle = 0;
-    if (currprefs.cpu_memory_cycle_exact)
-        fill_prefetch ();
+
+	fill_prefetch ();
 //fprintf ( stderr,"m68k_reset2 out pc=%x\n" , regs.pc );
 }
 
@@ -4483,8 +4588,11 @@ void safe_interrupt_set(int num, int id, bool i6)
 		atomic_or(p, 1 << id);
 		atomic_or(&uae_interrupt, 1);
 	} else {
-		uae_u16 v = i6 ? 0x2000 : 0x0008;
-		if (currprefs.cpu_cycle_exact || (!(intreq & v) && !currprefs.cpu_cycle_exact)) {
+		int inum = i6 ? 13 : 3;
+		uae_u16 v = 1 << inum;
+		if (currprefs.cpu_cycle_exact || currprefs.cpu_compatible) {
+			INTREQ_INT(inum, 0);
+		} else if (!(intreq & v)) {
 			INTREQ_0(0x8000 | v);
 		}
 	}
@@ -4520,7 +4628,7 @@ int cpu_sleep_millis(int ms)
 // 10 = max wait
 
 #ifndef WINUAE_FOR_HATARI
-static bool haltloop_do(int vsynctimeline, int rpt_end, int lines)
+static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
 {
 	int ovpos = vpos;
 	while (lines-- >= 0) {
@@ -4556,7 +4664,7 @@ static bool haltloop_do(int vsynctimeline, int rpt_end, int lines)
 #endif
 			if (event_wait)
 				break;
-			int d = read_processor_time() - rpt_end;
+			frame_time_t d = read_processor_time() - rpt_end;
 			if (d < -2 * vsynctimeline || d >= 0)
 				break;
 		}
@@ -4574,10 +4682,10 @@ static bool haltloop(void)
 		int ovpos = vpos;
 
 		while (regs.halted) {
-			int vsynctimeline = vsynctimebase / (maxvpos_display + 1);
+			int vsynctimeline = (int)(vsynctimebase / (maxvpos_display + 1));
 			int lines;
-			int rpt_scanline = read_processor_time();
-			int rpt_end = rpt_scanline + vsynctimeline;
+			frame_time_t rpt_scanline = read_processor_time();
+			frame_time_t rpt_end = rpt_scanline + vsynctimeline;
 
 			// See expansion handling.
 			// Dialog must be opened from main thread.
@@ -4608,7 +4716,7 @@ static bool haltloop(void)
 				check_uae_int_request();
 				uae_ppc_execute_check();
 
-				lines = (read_processor_time() - rpt_scanline) / vsynctimeline + 1;
+				lines = (int)(read_processor_time() - rpt_scanline) / vsynctimeline + 1;
 
 			} else {
 
@@ -4668,21 +4776,58 @@ static bool uae_ppc_poll_check_halt(void)
 #endif
 
 
-// handle interrupt delay (few cycles)
+// check if interrupt active
 STATIC_INLINE bool time_for_interrupt (void)
 {
-	return regs.ipl > regs.intmask || regs.ipl == 7;
+	int ipl = get_ipl();
+	return ipl > regs.intmask || ipl == 7;
+}
+
+// ipl check was early enough, interrupt possible after current instruction
+void ipl_fetch_now(void)
+{
+	if (regs.ipl[0] != regs.ipl_pin) {
+		regs.ipl[0] = regs.ipl_pin;
+		regs.ipl[1] = 0;
+		set_special(SPCFLAG_INT);
+	}
+}
+// ipl check was too late, interrupt possible after following instruction
+void ipl_fetch_next(void)
+{
+	if (regs.ipl[1] != regs.ipl_pin) {
+		regs.ipl[1] = regs.ipl_pin;
+		set_special(SPCFLAG_INT);
+	}
+}
+
+void intlev_load(void)
+{
+	doint();
 }
 
 void doint(void)
 {
-#if 0 // Previous: for now this is done inside the run-loops
+#ifndef WINUAE_FOR_PREVIOUS // Previous: for now this is done inside the run-loops
+#ifdef WITH_PPC
+	if (ppc_state) {
+		if (!ppc_interrupt(intlev()))
+			return;
+	}
+#endif
+	int il = intlev();
+	regs.ipl_pin = il;
+#ifdef DEBUGGER
+#ifndef WINUAE_FOR_HATARI
+	if (debug_dma) {
+		record_dma_ipl(current_hpos(), vpos);
+	}
+#endif
+#endif
 //fprintf ( stderr , "doint1 %d ipl=%x ipl_pin=%x intmask=%x spcflags=%x\n" , m68k_interrupt_delay,regs.ipl, regs.ipl_pin , regs.intmask, regs.spcflags );
 	if (m68k_interrupt_delay) {
-		int il = intlev();
-		regs.ipl_pin = il;
 //fprintf ( stderr , "doint2 %d ipl=%x ipl_pin=%x intmask=%x spcflags=%x\n" , m68k_interrupt_delay,regs.ipl, regs.ipl_pin , regs.intmask, regs.spcflags );
-		if (regs.ipl_pin > regs.intmask || regs.ipl_pin == 7) {
+		if (regs.ipl_pin > 0) {
 			set_special(SPCFLAG_INT);
 		}
 		return;
@@ -4691,7 +4836,7 @@ void doint(void)
 		set_special (SPCFLAG_INT);
 	else
 		set_special (SPCFLAG_DOINT);
-#endif // Previous
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 
@@ -4709,13 +4854,13 @@ static bool do_specialties_interrupt (int Pending)
          return true;
     }
 #endif
-
+#ifndef WINUAE_FOR_PREVIOUS
     /* Check for MFP ints (level 6) */
-//    if (regs.spcflags & SPCFLAG_MFP) {
-//       if (MFP_ProcessIRQ_All() == true)
-//         return true;					/* MFP exception was generated, no higher interrupt can happen */
-//    }
-
+    if (regs.spcflags & SPCFLAG_MFP) {
+       if (MFP_ProcessIRQ_All() == true)
+         return true;					/* MFP exception was generated, no higher interrupt can happen */
+    }
+#endif // WINUAE_FOR_PREVIOUS
     /* No MFP int, check for VBL/HBL ints (levels 4/2) */
     if (regs.spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)) {
 	int intr = intlev ();
@@ -4744,10 +4889,21 @@ static void check_debugger(void)
 	}
 }
 
-static int ndCycles = 0;
+static void debug_cpu_stop(void)
+{
+#ifndef WINUAE_FOR_HATARI
+	record_dma_event(DMA_EVENT_CPUSTOP, current_hpos(), vpos);
+	if (time_for_interrupt()) {
+		record_dma_event(DMA_EVENT_CPUSTOPIPL, current_hpos(), vpos);
+	}
+#endif
+}
+
 // give other MPUs (DSP, i860) some time to run on m68k thread
 static inline void run_other_MPUs(void)
 {
+	static int ndCycles = 0;
+
 	ndCycles += cpu_cycles;
 	// bundle some 68k cycles for MPUs
 	
@@ -4762,148 +4918,67 @@ static inline void run_other_MPUs(void)
 
 static int do_specialties (int cycles)
 {
-	bool stopped_debug = false;
+	uaecptr pc = m68k_getpc();
 
 	if (regs.spcflags & SPCFLAG_MODE_CHANGE)
 		return 1;
 	
 	if (regs.spcflags & SPCFLAG_DOTRACE)
-		Exception (9);
+		Exception(9);
 
-	if ((regs.spcflags & SPCFLAG_STOP) && regs.s == 0 && currprefs.cpu_model <= 68010) {
-		// 68000/68010 undocumented special case:
-		// if STOP clears S-bit and T was not set:
-		// cause privilege violation exception, PC pointing to following instruction.
-		// If T was set before STOP: STOP works as documented.
-		m68k_unset_stop();
-		Exception(8);
+#ifndef WINUAE_FOR_HATARI
+	if (regs.spcflags & SPCFLAG_TRAP) {
+		unset_special (SPCFLAG_TRAP);
+		Exception(3);
 	}
-
-	bool first = true;
-	while ((regs.spcflags & SPCFLAG_STOP) && !(regs.spcflags & SPCFLAG_BRK)) {
-//fprintf ( stderr , "stop wait %d %ld %ld\n" , currcycle , CyclesGlobalClockCounter );
-	isstopped:
-
-		if (cpu_tracer > 0) {
-			cputrace.stopped = regs.stopped;
-			cputrace.intmask = regs.intmask;
-			cputrace.sr = regs.sr;
-			cputrace.state = 1;
-			cputrace.pc = m68k_getpc ();
-			cputrace.memoryoffset = 0;
-			cputrace.cyclecounter = cputrace.cyclecounter_pre = cputrace.cyclecounter_post = 0;
-			cputrace.readcounter = cputrace.writecounter = 0;
-		}
-		if (!first)
-			x_do_cycles (currprefs.cpu_cycle_exact ? 2 * CYCLE_UNIT : 4 * CYCLE_UNIT);
-
-#ifdef WINUAE_FOR_HATARI
-		if (!first)
-			M68000_AddCycles(4);
-		
-		run_other_MPUs();
-		
-		/* We can have several interrupts at the same time before the next CPU instruction */
-		/* We must check for pending interrupt and call do_specialties_interrupt() only */
-		/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
-		/* and prevent exiting the STOP state when calling do_specialties() after. */
-		/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-		while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) ) {
-			CALL_VAR(PendingInterrupt.pFunction);		/* call the interrupt handler */
-		}
-		
-		/* Previous: for now we poll the interrupt pins with every instruction.
-		 * TODO: only do this when an actual interrupt is active to not
-		 * unneccessarily slow down emulation.
-		 */
-		int intr = intlev ();
-		if (intr > regs.intmask || intr == 7)
-			do_interrupt (intr);
 #endif
-		first = false;
-#if 0 // Previous: for now this is done inside the run loops
-		if (m68k_interrupt_delay) {
-			unset_special(SPCFLAG_INT);
-			ipl_fetch ();
-			if (time_for_interrupt ()) {
-				do_interrupt (regs.ipl);
-			}
-		} else {
-			if (regs.spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)) {
-				int intr = intlev ();
-				unset_special (SPCFLAG_INT | SPCFLAG_DOINT);
-#ifdef WITH_PPC
-				bool m68kint = true;
-				if (ppc_state) {
-					m68kint = ppc_interrupt(intr);
-				}
-				if (m68kint) {
-#endif
-					if (intr > 0 && intr > regs.intmask)
-						do_interrupt (intr);
-#ifdef WITH_PPC
-				}
-#endif
-			}
-		}
-#endif // Previous
-		if (regs.spcflags & SPCFLAG_MODE_CHANGE) {
-			m68k_resumestopped();
-			return 1;
-		}
-	}
 
 	if (regs.spcflags & SPCFLAG_TRACE)
-		do_trace ();
+		do_trace();
 
-#if 0 // Previous: for now this is done inside the run-loops
+#ifndef WINUAE_FOR_PREVIOUS // Previous: for now this is done inside the run-loops
 //fprintf ( stderr , "dospec1 %d %d spcflags=%x ipl=%x ipl_pin=%x intmask=%x\n" , m68k_interrupt_delay,time_for_interrupt() , regs.spcflags , regs.ipl , regs.ipl_pin, regs.intmask );
 	if (m68k_interrupt_delay) {
-		if (time_for_interrupt ()) {
+		if (time_for_interrupt()) {
 			unset_special(SPCFLAG_INT);
-			do_interrupt (regs.ipl);
+			do_interrupt(get_ipl());
+		} else {
+			if (regs.ipl[0] == regs.ipl[1]) {
+				unset_special(SPCFLAG_INT);
+			} else {
+				regs.ipl[0] = regs.ipl[1];
+				regs.ipl[1] = 0;
+			}
 		}
 	} else {
 		if (regs.spcflags & SPCFLAG_INT) {
-			int intr = intlev ();
+			int intr = intlev();
 			unset_special (SPCFLAG_INT | SPCFLAG_DOINT);
 			if (intr > 0 && (intr > regs.intmask || intr == 7))
-				do_interrupt (intr);
+				do_interrupt(intr);
 		}
 	}
 
 //fprintf ( stderr , "dospec2 %d %d spcflags=%x ipl=%x ipl_pin=%x intmask=%x\n" , m68k_interrupt_delay,time_for_interrupt() , regs.spcflags , regs.ipl , regs.ipl_pin, regs.intmask );
 	if (regs.spcflags & SPCFLAG_DOINT) {
-		unset_special (SPCFLAG_DOINT);
-		set_special (SPCFLAG_INT);
+		unset_special(SPCFLAG_DOINT);
+		set_special(SPCFLAG_INT);
 	}
 //fprintf ( stderr , "dospec3 %d %d spcflags=%x ipl=%x ipl_pin=%x intmask=%x\n" , m68k_interrupt_delay,time_for_interrupt() , regs.spcflags , regs.ipl , regs.ipl_pin, regs.intmask );
-#endif // Previous
-	
+#endif // WINUAE_FOR_PREVIOUS
+
 #ifdef WINUAE_FOR_HATARI
 	if (regs.spcflags & SPCFLAG_DEBUGGER)
 		DebugCpu_Check();
 #endif
 
-	if ((regs.spcflags & SPCFLAG_BRK) || stopped_debug) {
-//		unset_special(SPCFLAG_BRK);
+	if (regs.spcflags & SPCFLAG_BRK) {
+#ifndef WINUAE_FOR_PREVIOUS
+		unset_special(SPCFLAG_BRK);
+#endif // WINUAE_FOR_PREVIOUS
 #ifdef DEBUGGER
-		if (stopped_debug && !regs.stopped) {
-			if (debugging) {
-				debugger_active = 1;
-				stopped_debug = false;
-			}
-		}
 		if (debugging) {
-			if (!stopped_debug)
-				debug();
-			if (regs.stopped) {
-				stopped_debug = true;
-				if (debugging) {
-					debugger_active = 0;
-				}
-				goto isstopped;
-			}
+			debug();
 		}
 #endif
 #ifdef WINUAE_FOR_HATARI
@@ -4913,6 +4988,14 @@ static int do_specialties (int cycles)
 
 	return 0;
 }
+
+
+#ifndef WINUAE_FOR_HATARI
+uaecptr m68kpc(void)
+{
+	return m68k_getpc();
+}
+#endif
 
 //static uae_u32 pcs[1000];
 
@@ -5014,7 +5097,9 @@ static void m68k_run_1 (void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_1\n");
+#endif
 
 	while (!exit) {
 		check_debugger();
@@ -5024,17 +5109,15 @@ static void m68k_run_1 (void)
 
 				count_instr (r->opcode);
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 
 #if DEBUG_CD32CDTVIO
@@ -5065,32 +5148,33 @@ static void m68k_run_1 (void)
 				do_cycles(cpu_cycles);
 				regs.instruction_cnt++;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Also add some extra cycles to simulate some wait state */
 				/* TODO  [NP] do this in all m68k_run_xx() */
-//				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT + WaitStateCycles);
-//				WaitStateCycles = 0;
+				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT + WaitStateCycles);
+				WaitStateCycles = 0;
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 				if (r->spcflags) {
 					if (do_specialties (cpu_cycles))
 						exit = true;
 				}
-				regs.ipl = regs.ipl_pin;
+				regs.ipl[0] = regs.ipl_pin;
 
-#ifdef WINUAE_FOR_HATARI
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+#ifndef WINUAE_FOR_PREVIOUS
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 
 				if (!currprefs.cpu_compatible || (currprefs.cpu_cycle_exact && currprefs.cpu_model <= 68010))
@@ -5102,7 +5186,7 @@ static void m68k_run_1 (void)
 				if (do_specialties(cpu_cycles))
 					exit = true;
 			}
-			regs.ipl = regs.ipl_pin;
+			regs.ipl[0] = regs.ipl[1] = regs.ipl_pin;
 		} ENDTRY
 	}
 }
@@ -5125,7 +5209,10 @@ static void m68k_run_1_ce (void)
 	bool first = true;
 	bool exit = false;
 
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_1_ce\n");
+	CpuRunCycleExact = true;
+#endif
 
 	while (!exit) {
 		check_debugger();
@@ -5155,8 +5242,6 @@ static void m68k_run_1_ce (void)
 					} else {
 						write_log (_T("CPU TRACE: STOPPED\n"));
 					}
-					if (r->stopped)
-						set_special (SPCFLAG_STOP);
 					set_cpu_tracer (false);
 					goto cont;
 				}
@@ -5167,18 +5252,15 @@ static void m68k_run_1_ce (void)
 			while (!exit) {
 				r->opcode = r->ir;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-
-//fprintf ( stderr , "clock %ld\n" , CyclesGlobalClockCounter );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 
 #if DEBUG_CD32CDTVIO
@@ -5225,22 +5307,28 @@ static void m68k_run_1_ce (void)
 #endif
 
 				r->instruction_pc = m68k_getpc ();
+#ifndef WINUAE_FOR_HATARI
+				if (debug_dma) {
+					record_dma_event_data(DMA_EVENT_CPUINS, current_hpos(), vpos, r->opcode);
+				}
+#endif
 
 				(*cpufunctbl[r->opcode])(r->opcode);
 				if (!regs.loop_mode)
 					regs.ird = regs.opcode;
 				regs.instruction_cnt++;
 				wait_memory_cycles();			// TODO NP : ici, ou plus bas ?
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr, "cyc_1ce %d\n" , currcycle );
 				/* Flush all CE cycles so far to update PendingInterruptCount */
-//				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
-//				currcycle = 0;
+				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
+				currcycle = 0;
 
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 //				wait_memory_cycles();			// TODO NP : plus haut ou ici ?
@@ -5250,7 +5338,7 @@ static void m68k_run_1_ce (void)
 cont:
 				if (cputrace.needendcycles) {
 					cputrace.needendcycles = 0;
-					write_log (_T("STARTCYCLES=%08x ENDCYCLES=%08x\n"), cputrace.startcycles, get_cycles ());
+					write_log(_T("STARTCYCLES=%016llx ENDCYCLES=%016llx\n"), cputrace.startcycles, get_cycles());
 #ifndef WINUAE_FOR_HATARI
 					log_dma_record ();
 #endif
@@ -5261,9 +5349,9 @@ cont:
 						exit = true;
 				}
 
-#ifdef WINUAE_FOR_HATARI
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+#ifndef WINUAE_FOR_PREVIOUS
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 
 				if (!currprefs.cpu_cycle_exact || currprefs.cpu_model > 68010)
@@ -5361,10 +5449,7 @@ static int do_specialties_thread(void)
 			do_interrupt(ilvl);
 		}
 
-		if (!(regs.spcflags & SPCFLAG_STOP))
-			break;
-
-		uae_sem_wait(&cpu_wakeup_sema);
+		break;
 	}
 
 	return 0;
@@ -5744,7 +5829,9 @@ static void cpu_thread_run_jit(void *v)
 
 static void m68k_run_jit(void)
 {
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_jit\n");
+#endif
 #ifdef WITH_THREADED_CPU
 	if (currprefs.cpu_thread) {
 		run_cpu_thread(cpu_thread_run_jit);
@@ -5763,7 +5850,7 @@ static void m68k_run_jit(void)
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
 					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
 				}
 #endif
@@ -5773,6 +5860,7 @@ static void m68k_run_jit(void)
 				check_uae_int_request();
 				if (regs.spcflags) {
 					if (do_specialties(0)) {
+						STOPTRY;
 						return;
 					}
 				}
@@ -5908,15 +5996,15 @@ static void m68k_run_mmu060 (void)
 		check_debugger();
 		TRY (prb) {
 			for (;;) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 				f.cznv = regflags.cznv;
 				f.x = regflags.x;
@@ -5934,33 +6022,36 @@ static void m68k_run_mmu060 (void)
 
 				cpu_cycles = adjust_cycles (cpu_cycles);
 				regs.instruction_cnt++;
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				M68000_AddCycles(cpu_cycles * 2 / CYCLE_UNIT);
 
-//				if ( WaitStateCycles ) {
+				if ( WaitStateCycles ) {
 					/* Add some extra cycles to simulate a wait state */
-//					M68000_AddCycles(WaitStateCycles);
-//					WaitStateCycles = 0;
-//				}
+					M68000_AddCycles(WaitStateCycles);
+					WaitStateCycles = 0;
+				}
 
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 				if (regs.spcflags) {
-					if (do_specialties (cpu_cycles))
+					if (do_specialties(cpu_cycles)) {
+						STOPTRY;
 						return;
+					}
 				}
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
 					DSP_Run(2 * cpu_cycles * 2 / CYCLE_UNIT);
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH (prb) {
@@ -5987,9 +6078,9 @@ static void m68k_run_mmu060 (void)
 static void m68k_run_mmu040 (void)
 {
 	struct flag_struct f;
-	int halt = 0;
-    int intr             = 0;
-    int lastintr         = 0;
+	int halt     = 0;
+    int intr     = 0;
+    int lastintr = 0;
 
 	check_halt();
 #ifdef WINUAE_FOR_HATARI
@@ -6006,7 +6097,7 @@ static void m68k_run_mmu040 (void)
 				regs.instruction_pc = m68k_getpc ();
 
 				do_cycles (cpu_cycles);
-                
+
 				mmu_opcode = -1;
 				mmu_opcode = regs.opcode = x_prefetch (0);
 				count_instr (regs.opcode);
@@ -6037,7 +6128,7 @@ static void m68k_run_mmu040 (void)
 #endif
 
 				if (regs.spcflags) {
-					if (do_specialties (cpu_cycles)) {
+					if (do_specialties(cpu_cycles)) {
 						STOPTRY;
 						return;
 					}
@@ -6066,14 +6157,13 @@ static void m68k_run_mmu040 (void)
 
 #ifdef CPUEMU_32
 
-
 // Previous MMU 68030
 static void m68k_run_mmu030 (void)
 {
 	struct flag_struct f;
-	int halt = 0;
-    int intr             = 0;
-    int lastintr         = 0;
+	int halt     = 0;
+    int intr     = 0;
+    int lastintr = 0;
 
 #ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG,  "m68k_run_mmu030\n");
@@ -6121,7 +6211,7 @@ insretry:
 
 				mmu030_opcode = regs.opcode;
 				mmu030_idx_done = 0;
-				
+
 				cnt = 50;
 				for (;;) {
 					regs.opcode = regs.irc = mmu030_opcode;
@@ -6213,22 +6303,25 @@ static void m68k_run_3ce (void)
 	bool exit = false;
 	int extracycles = 0;
 
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_3ce\n");
+	CpuRunCycleExact = true;
+#endif
 
 	while (!exit) {
 		check_debugger();
 		TRY(prb) {
 			while (!exit) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
-//				currcycle = CYCLE_UNIT / 2;	/* Assume at least 1 cycle per instruction */
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
+				currcycle = CYCLE_UNIT / 2;	/* Assume at least 1 cycle per instruction */
 #endif
 				r->instruction_pc = m68k_getpc();
 				r->opcode = get_iword_cache_040(0);
@@ -6244,21 +6337,23 @@ static void m68k_run_3ce (void)
 
 				(*cpufunctbl[r->opcode])(r->opcode);
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr, "cyc_3ce %ld\n" , currcycle );
 				/* Flush all CE cycles so far to update PendingInterruptCount */
-//				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
-//				currcycle = 0;	// FIXME : uncomment this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
+				int dsp_cycles = 2 * currcycle * 2 / CYCLE_UNIT;	// FIXME : remove this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				currcycle = 0;
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 				if (r->spcflags) {
 					if (do_specialties (0))
@@ -6277,15 +6372,15 @@ static void m68k_run_3ce (void)
 #endif
 				}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
-					DSP_Run(2 * currcycle * 2 / CYCLE_UNIT);
+					DSP_Run( dsp_cycles );
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH(prb) {
@@ -6306,21 +6401,23 @@ static void m68k_run_3p(void)
 	bool exit = false;
 	int cycles;
 
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_3p\n");
+#endif
 
 	while (!exit)  {
 		check_debugger();
 		TRY(prb) {
 			while (!exit) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 				r->instruction_pc = m68k_getpc();
 				r->opcode = get_iword_cache_040(0);
@@ -6342,24 +6439,29 @@ static void m68k_run_3p(void)
 				regs.instruction_cnt++;
 				do_cycles(cycles);
 #else
+#ifndef WINUAE_FOR_PREVIOUS
 				cycles = cpu_cycles = CYCLE_UNIT / 2;
-//				M68000_AddCycles_CE(cycles * 2 / CYCLE_UNIT);
+				M68000_AddCycles_CE(cycles * 2 / CYCLE_UNIT);
 
-//				if ( WaitStateCycles ) {
+				if ( WaitStateCycles ) {
 					/* Add some extra cycles to simulate a wait state */
-//					M68000_AddCycles(WaitStateCycles);
-//					WaitStateCycles = 0;
-//				}
+					M68000_AddCycles(WaitStateCycles);
+					WaitStateCycles = 0;
+				}
+				int dsp_cycles = 2 * cycles * 2 / CYCLE_UNIT;	// FIXME : remove this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				currcycle = 0;
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
+#endif // WINUAE_FOR_PREVIOUS
 #endif
 
 				if (r->spcflags) {
@@ -6367,15 +6469,15 @@ static void m68k_run_3p(void)
 						exit = true;
 				}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
-					DSP_Run(2 * cycles * 2 / CYCLE_UNIT);
+					DSP_Run( dsp_cycles );
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH(prb) {
@@ -6397,7 +6499,10 @@ static void m68k_run_2ce (void)
 	bool exit = false;
 	bool first = true;
 
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_2ce\n");
+	CpuRunCycleExact = true;
+#endif
 
 	while (!exit) {
 		check_debugger();
@@ -6431,8 +6536,6 @@ static void m68k_run_2ce (void)
 						else if (cputrace.state == 1)
 							(*cpufunctbl[cputrace.opcode])(cputrace.opcode);
 					}
-					if (regs.stopped)
-						set_special (SPCFLAG_STOP);
 					set_cpu_tracer (false);
 					goto cont;
 				}
@@ -6444,14 +6547,14 @@ static void m68k_run_2ce (void)
 #if 0
 				static int prevopcode;
 #endif
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
 #if 0
 // logs to debug data cache issues
 struct cache030 *c1 ,*c2;
@@ -6462,9 +6565,9 @@ c2 = getcache030 (dcaches030, (uaecptr)0x7f8192+4, &tag2, &lws2);
 fprintf ( stderr , "cache valid %d tag1 %x lws1 %x ctag %x data %x mem=%x\n" , c1->valid[lws1] , tag1 , lws1 , c1->tag , c1->data[lws1] , get_long(0x27ece) );
 //fprintf ( stderr , "cache valid %d tag2 %x lws2 %x ctag %x data %x mem=%x\n" , c2->valid[lws2] , tag2 , lws2 , c2->tag , c2->data[lws2] , get_long(0x7f8192+4) );
 #endif
-//				}
+				}
 
-//				currcycle = 0;
+				currcycle = 0;
 #endif
 				r->instruction_pc = m68k_getpc ();
 
@@ -6538,47 +6641,49 @@ fprintf ( stderr , "cache valid %d tag1 %x lws1 %x ctag %x data %x mem=%x\n" , c
 				wait_memory_cycles();
 				regs.instruction_cnt++;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr, "cyc_2ce %d\n" , currcycle );
 				/* Flush all CE cycles so far to update PendingInterruptCount */
-//				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
-//				currcycle = 0;	// FIXME : uncomment this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				M68000_AddCycles_CE ( currcycle * 2 / CYCLE_UNIT );
+				int dsp_cycles = 2 * currcycle * 2 / CYCLE_UNIT;	// FIXME : remove this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				currcycle = 0;
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 		cont:
-				regs.ipl = regs.ipl_pin;
+				regs.ipl[0] = regs.ipl_pin;
 				if (r->spcflags || time_for_interrupt ()) {
 					if (do_specialties (0))
 						exit = true;
 				}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
 //fprintf ( stderr, "dsp cyc_2ce %d\n" , currcycle );
-					DSP_Run(2 * currcycle * 2 / CYCLE_UNIT);
+					DSP_Run( dsp_cycles );
 //fprintf ( stderr, "dsp cyc_2ce %d - %d\n" , currcycle * 2 / CYCLE_UNIT , (CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter) );
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 
 			}
 		} CATCH(prb) {
 			bus_error();
-			regs.ipl = regs.ipl_pin;
+			regs.ipl[0] = regs.ipl_pin;
 			if (r->spcflags || time_for_interrupt()) {
 				if (do_specialties(0))
 					exit = true;
@@ -6596,7 +6701,9 @@ static void m68k_run_2p (void)
 	bool exit = false;
 	bool first = true;
 
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_2p\n");
+#endif
 
 	while (!exit) {
 		check_debugger();
@@ -6631,8 +6738,6 @@ static void m68k_run_2p (void)
 						else if (cputrace.state == 1)
 							(*cpufunctbl[cputrace.opcode])(cputrace.opcode);
 					}
-					if (regs.stopped)
-						set_special (SPCFLAG_STOP);
 					set_cpu_tracer (false);
 					goto cont;
 				}
@@ -6641,15 +6746,15 @@ static void m68k_run_2p (void)
 			}
 
 			while (!exit) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 				r->instruction_pc = m68k_getpc ();
 				r->opcode = regs.irc;
@@ -6727,46 +6832,49 @@ static void m68k_run_2p (void)
 					x_do_cycles(cpu_cycles);
 
 cont:
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "waits %d %d %ld\n" , cpu_cycles*2/CYCLE_UNIT , WaitStateCycles , CyclesGlobalClockCounter );
 				M68000_AddCycles(cpu_cycles * 2 / CYCLE_UNIT);
 
 //fprintf ( stderr , "waits %d %d %ld\n" , cpu_cycles*2/CYCLE_UNIT , WaitStateCycles , CyclesGlobalClockCounter );
-//				if ( WaitStateCycles ) {
+				if ( WaitStateCycles ) {
 					/* Add some extra cycles to simulate a wait state */
-//					M68000_AddCycles(WaitStateCycles);
-//					WaitStateCycles = 0;
-//				}
+					M68000_AddCycles(WaitStateCycles);
+					WaitStateCycles = 0;
+				}
 //fprintf ( stderr , "waits %d %d %ld\n" , cpu_cycles*2/CYCLE_UNIT , WaitStateCycles , CyclesGlobalClockCounter );
+				int dsp_cycles = 2 * cpu_cycles * 2 / CYCLE_UNIT;	// FIXME : remove this when using DSP_CyclesGlobalClockCounter in DSP_Run
+				currcycle = 0;
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 				if (r->spcflags) {
 					if (do_specialties (cpu_cycles))
 						exit = true;
 				}
-				ipl_fetch ();
+				ipl_fetch_now();
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
 //if ( DSP_CPU_FREQ_RATIO * ( (CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter) << nCpuFreqShift )  - 2 * cpu_cycles * 2 / CYCLE_UNIT >= 8 )
 //fprintf ( stderr , "dsp %d %d\n" , 2 * cpu_cycles * 2 / CYCLE_UNIT , DSP_CPU_FREQ_RATIO * ( (CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter) << nCpuFreqShift ) );
-					DSP_Run(2 * cpu_cycles * 2 / CYCLE_UNIT);
+					DSP_Run( dsp_cycles );
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH(prb) {
@@ -6775,7 +6883,7 @@ cont:
 				if (do_specialties(cpu_cycles))
 					exit = true;
 			}
-			ipl_fetch();
+			ipl_fetch_now();
 		} ENDTRY
 	}
 }
@@ -6827,21 +6935,23 @@ static void m68k_run_2_000(void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_2_000\n");
+#endif
 
 	while (!exit) {
 		check_debugger();
 		TRY(prb) {
 			while (!exit) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(stderr, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(stderr, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 				r->instruction_pc = m68k_getpc ();
 
@@ -6857,25 +6967,26 @@ static void m68k_run_2_000(void)
 				cpu_cycles = (*cpufunctbl[r->opcode])(r->opcode) & 0xffff;
 				cpu_cycles = adjust_cycles (cpu_cycles);
 				do_cycles(cpu_cycles);
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "cyc_2 %d\n" , cpu_cycles );
-//				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT);
+				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT);
 
-//				if ( WaitStateCycles ) {
+				if ( WaitStateCycles ) {
 					/* Add some extra cycles to simulate a wait state */
-//					M68000_AddCycles(WaitStateCycles);
-//					WaitStateCycles = 0;
-//				}
+					M68000_AddCycles(WaitStateCycles);
+					WaitStateCycles = 0;
+				}
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 				if (r->spcflags) {
@@ -6883,15 +6994,15 @@ static void m68k_run_2_000(void)
 						exit = true;
 				}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
 					DSP_Run(2 * cpu_cycles * 2 / CYCLE_UNIT);
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH(prb) {
@@ -6916,21 +7027,23 @@ static void m68k_run_2_020(void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
+#ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_2_020\n");
+#endif
 
 	while (!exit) {
 		check_debugger();
 		TRY(prb) {
 			while (!exit) {
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-//				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
-//				{
-//					int FrameCycles, HblCounterVideo, LineCycles;
-//					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-//					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
-//					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
-//				}
+				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				{
+					int FrameCycles, HblCounterVideo, LineCycles;
+					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
+					LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
+					m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
+				}
 #endif
 				r->instruction_pc = m68k_getpc();
 
@@ -6945,25 +7058,26 @@ static void m68k_run_2_020(void)
 				cpu_cycles = (*cpufunctbl[r->opcode])(r->opcode) >> 16;
 				cpu_cycles = adjust_cycles(cpu_cycles);
 				do_cycles(cpu_cycles);
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "cyc_2 %d\n" , cpu_cycles );
-//				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT);
+				M68000_AddCyclesWithPairing(cpu_cycles * 2 / CYCLE_UNIT);
 
-//				if ( WaitStateCycles ) {
+				if ( WaitStateCycles ) {
 					/* Add some extra cycles to simulate a wait state */
-//					M68000_AddCycles(WaitStateCycles);
-//					WaitStateCycles = 0;
-//				}
+					M68000_AddCycles(WaitStateCycles);
+					WaitStateCycles = 0;
+				}
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-//				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
-//					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
-//				if ( MFP_UpdateNeeded == true )
-//					MFP_UpdateIRQ_All ( 0 );
+// 				while ( ( PendingInterruptCount <= 0 ) && ( PendingInterruptFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) )
+// 					CALL_VAR(PendingInterruptFunction);		/* call the interrupt handler */
+				CycInt_Process_stop(regs.spcflags & SPCFLAG_STOP );
+				if ( MFP_UpdateNeeded == true )
+					MFP_UpdateIRQ_All ( 0 );
 #endif
 
 				if (r->spcflags) {
@@ -6971,15 +7085,15 @@ static void m68k_run_2_020(void)
 						exit = true;
 				}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
 				if (bDspEnabled) {
 					DSP_Run(2 * cpu_cycles * 2 / CYCLE_UNIT);
 //					DSP_Run ( DSP_CPU_FREQ_RATIO * ( CyclesGlobalClockCounter - DSP_CyclesGlobalClockCounter ) );
 				}
 
-//				if ( savestate_state == STATE_SAVE )
-//					save_state ( NULL , NULL );
+				if ( savestate_state == STATE_SAVE )
+					save_state ( NULL , NULL );
 #endif
 			}
 		} CATCH(prb) {
@@ -7004,7 +7118,7 @@ static void m68k_run_mmu (void)
 		{
 			int FrameCycles, HblCounterVideo, LineCycles;
 			Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
-			LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d : " , FrameCycles, LineCycles, HblCounterVideo );
+			LOG_TRACE_PRINT ( "cpu video_cyc=%6d %3d@%3d %"PRIu64" : " , FrameCycles, LineCycles, HblCounterVideo , CyclesGlobalClockCounter );
 			m68k_disasm_file(TraceFile, m68k_getpc (), NULL, m68k_getpc (), 1);
 		}
 #endif
@@ -7052,7 +7166,6 @@ bool is_keyboardreset(void)
 void m68k_go (int may_quit)
 {
 	int hardboot = 1;
-	int startup = 1;
 
 #ifdef WITH_THREADED_CPU
 	init_cpu_thread();
@@ -7062,7 +7175,7 @@ void m68k_go (int may_quit)
 		abort ();
 	}
 
-//	reset_frame_rate_hack ();
+	reset_frame_rate_hack ();
 	update_68k_cycles ();
 #ifndef WINUAE_FOR_HATARI
 	start_cycles = 0;
@@ -7106,7 +7219,8 @@ void m68k_go (int may_quit)
 
 		if (quit_program > 0 || 1) {
 			cpu_keyboardreset = quit_program == UAE_RESET_KEYBOARD;
-			cpu_hardreset = ((quit_program == UAE_RESET_HARD ? 1 : 0) | hardboot) != 0;
+			cpu_hardreset = ((quit_program == UAE_RESET_HARD ? 1 : 0) || hardboot) != 0;
+			hardboot |= quit_program == UAE_RESET_HARD ? 1 : 0;
 
 			if (quit_program == UAE_QUIT)
 				break;
@@ -7114,7 +7228,6 @@ void m68k_go (int may_quit)
 			hsync_counter = 0;
 			vsync_counter = 0;
 			quit_program = 0;
-			hardboot = 0;
 
 #ifdef SAVESTATE
 			if (savestate_state == STATE_DORESTORE)
@@ -7136,18 +7249,19 @@ void m68k_go (int may_quit)
 #endif
 			custom_reset (cpu_hardreset != 0, cpu_keyboardreset);
 			m68k_reset2 (cpu_hardreset != 0);
-//			if (cpu_hardreset) {
-//				memory_clear ();
-//				write_log (_T("hardreset, memory cleared\n"));
-//			}
-			cpu_hardreset = false;
+#ifndef WINUAE_FOR_PREVIOUS
+			if (cpu_hardreset) {
+				memory_clear ();
+				write_log (_T("hardreset, memory cleared\n"));
+			}
+#endif // WINUAE_FOR_PREVIOUS
 #ifdef SAVESTATE
 			/* We may have been restoring state, but we're done now.  */
 			if (isrestore ()) {
 #ifndef WINUAE_FOR_HATARI
 				if (debug_dma) {
-					record_dma_reset ();
-					record_dma_reset ();
+					record_dma_reset(0);
+					record_dma_reset(0);
 				}
 #endif
 				restored = savestate_restore_finish ();
@@ -7159,7 +7273,7 @@ void m68k_go (int may_quit)
 				} else if (currprefs.mmu_model >= 68040) {
 					mmu_set_tc (regs.tcr);
 				}
-				startup = 1;
+				hardboot = 1;
 			}
 #endif
 #ifndef WINUAE_FOR_HATARI
@@ -7217,8 +7331,6 @@ void m68k_go (int may_quit)
 			}
 			if (cpu_prefs_changed_flag & 2) {
 				fixup_cpu(&changed_prefs);
-//				currprefs.m68k_speed = changed_prefs.m68k_speed;
-//				currprefs.m68k_speed_throttle = changed_prefs.m68k_speed_throttle;
 				update_68k_cycles();
 #ifndef WINUAE_FOR_HATARI
 				target_cpu_speed();
@@ -7229,11 +7341,14 @@ void m68k_go (int may_quit)
 
 		set_x_funcs();
 #ifndef WINUAE_FOR_HATARI
-		if (startup) {
+		if (hardboot) {
 			custom_prepare ();
+			mman_set_barriers(false);
 			protect_roms (true);
 		}
-		startup = 0;
+		cpu_hardreset = false;
+		cpu_keyboardreset = false;
+		hardboot = 0;
 		event_wait = true;
 #endif
 		unset_special(SPCFLAG_MODE_CHANGE);
@@ -7245,18 +7360,20 @@ void m68k_go (int may_quit)
 		}
 #endif
 
+#ifndef WINUAE_FOR_PREVIOUS
 		if (!regs.halted) {
 			// check that PC points to something that looks like memory.
-//			uaecptr pc = m68k_getpc();
+			uaecptr pc = m68k_getpc();
 #ifndef WINUAE_FOR_HATARI
-//			addrbank *ab = get_mem_bank_real(pc);
+			addrbank *ab = get_mem_bank_real(pc);
 #else
-//			addrbank *ab = &get_mem_bank(pc);
+			addrbank *ab = &get_mem_bank(pc);
 #endif
-//			if (ab == NULL || ab == &dummy_bank || (!currprefs.cpu_compatible && !valid_address(pc, 2)) || (pc & 1)) {
-//				cpu_halt(CPU_HALT_INVALID_START_ADDRESS);
-//			}
+			if (ab == NULL || ab == &dummy_bank || (!currprefs.cpu_compatible && !valid_address(pc, 2)) || (pc & 1)) {
+				cpu_halt(CPU_HALT_INVALID_START_ADDRESS);
+			}
 		}
+#endif // WINUAE_FOR_PREVIOUS
 		if (regs.halted) {
 			cpu_halt (regs.halted);
 			if (regs.halted < 0) {
@@ -7265,13 +7382,16 @@ void m68k_go (int may_quit)
 			}
 		}
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 		/* Apply patches for gemdos HD if needed (we need to do it after */
 		/* cpu tables for all opcodes were rebuilt in build_cpufunctbl() ) */
-//		M68000_PatchCpuTables();
+		M68000_PatchCpuTables();
 
 		/* Restore debugger state (breakpoints) after a reset */
-//		M68000_RestoreDebugger();
+		M68000_RestoreDebugger();
+
+		/* Set cycle exact mode to false by default */
+		CpuRunCycleExact = false;
 #endif
 
 #if 0
@@ -7304,6 +7424,7 @@ void m68k_go (int may_quit)
 	}
 #ifndef WINUAE_FOR_HATARI
 	protect_roms (false);
+	mman_set_barriers(false);
 #endif
 	in_m68k_go--;
 }
@@ -7748,12 +7869,10 @@ void restore_cpu_finish (void)
 	set_cycles (start_cycles);
 	events_schedule ();
 #endif
-	if (regs.stopped)
-		set_special (SPCFLAG_STOP);
 	//activate_debugger ();
 }
 
-uae_u8 *save_cpu_trace (int *len, uae_u8 *dstptr)
+uae_u8 *save_cpu_trace(size_t *len, uae_u8 *dstptr)
 {
 	uae_u8 *dstbak, *dst;
 
@@ -7765,7 +7884,7 @@ uae_u8 *save_cpu_trace (int *len, uae_u8 *dstptr)
 	else
 		dstbak = dst = xmalloc (uae_u8, 10000);
 
-	save_u32 (2 | 4 | 16 | 32 | 64);
+	save_u32 (2 | 4 | 16 | 32 | 64 | 128);
 	save_u16 (cputrace.opcode);
 	for (int i = 0; i < 16; i++)
 		save_u32 (cputrace.regs[i]);
@@ -7784,7 +7903,7 @@ uae_u8 *save_cpu_trace (int *len, uae_u8 *dstptr)
 	save_u32 (cputrace.readcounter);
 	save_u32 (cputrace.writecounter);
 	save_u32 (cputrace.memoryoffset);
-	write_log (_T("CPUT SAVE: PC=%08x C=%08X %08x %08x %08x %d %d %d\n"),
+	write_log (_T("CPUT SAVE: PC=%08x C=%016llX %08x %08x %08x %d %d %d\n"),
 		cputrace.pc, cputrace.startcycles,
 		cputrace.cyclecounter, cputrace.cyclecounter_pre, cputrace.cyclecounter_post,
 		cputrace.readcounter, cputrace.writecounter, cputrace.memoryoffset);
@@ -7794,7 +7913,7 @@ uae_u8 *save_cpu_trace (int *len, uae_u8 *dstptr)
 		save_u32 (cputrace.ctm[i].mode);
 		write_log (_T("CPUT%d: %08x %08x %08x\n"), i, cputrace.ctm[i].addr, cputrace.ctm[i].data, cputrace.ctm[i].mode);
 	}
-	save_u32 (cputrace.startcycles);
+	save_u32 ((uae_u32)cputrace.startcycles);
 
 	if (currprefs.cpu_model == 68020) {
 		for (int i = 0; i < CACHELINES020; i++) {
@@ -7824,12 +7943,14 @@ uae_u8 *save_cpu_trace (int *len, uae_u8 *dstptr)
 	save_u16(cputrace.read_buffer);
 	save_u16(cputrace.writecounter);
 
+	save_u32(cputrace.startcycles >> 32);
+
 	*len = dst - dstbak;
 	cputrace.needendcycles = 1;
 	return dstbak;
 }
 
-uae_u8 *restore_cpu_trace (uae_u8 *src)
+uae_u8 *restore_cpu_trace(uae_u8 *src)
 {
 	cpu_tracer = 0;
 	cputrace.state = 0;
@@ -7859,7 +7980,7 @@ uae_u8 *restore_cpu_trace (uae_u8 *src)
 		cputrace.ctm[i].data = restore_u32 ();
 		cputrace.ctm[i].mode = restore_u32 ();
 	}
-	cputrace.startcycles = restore_u32 ();
+	cputrace.startcycles = restore_u32();
 
 	if (v & 4) {
 		if (currprefs.cpu_model == 68020) {
@@ -7917,6 +8038,10 @@ uae_u8 *restore_cpu_trace (uae_u8 *src)
 				cputrace.write_buffer = restore_u16();
 			}
 		}
+
+		if (v & 128) {
+			cputrace.startcycles |= ((uae_u64)restore_u32()) << 32;
+		}
 	}
 
 	cputrace.needendcycles = 1;
@@ -7935,7 +8060,7 @@ uae_u8 *restore_cpu_trace (uae_u8 *src)
 	return src;
 }
 
-uae_u8 *restore_cpu_extra (uae_u8 *src)
+uae_u8 *restore_cpu_extra(uae_u8 *src)
 {
 	restore_u32 ();
 	uae_u32 flags = restore_u32 ();
@@ -7962,7 +8087,7 @@ uae_u8 *restore_cpu_extra (uae_u8 *src)
 	return src;
 }
 
-uae_u8 *save_cpu_extra (int *len, uae_u8 *dstptr)
+uae_u8 *save_cpu_extra(size_t *len, uae_u8 *dstptr)
 {
 	uae_u8 *dstbak, *dst;
 	uae_u32 flags;
@@ -7990,7 +8115,7 @@ uae_u8 *save_cpu_extra (int *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
-uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
+uae_u8 *save_cpu(size_t *len, uae_u8 *dstptr)
 {
 	uae_u8 *dstbak, *dst;
 	int model, khz;
@@ -8149,7 +8274,7 @@ uae_u8 *save_cpu (int *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
-uae_u8 *save_mmu (int *len, uae_u8 *dstptr)
+uae_u8 *save_mmu(size_t *len, uae_u8 *dstptr)
 {
 	uae_u8 *dstbak, *dst;
 	int model;
@@ -8170,7 +8295,7 @@ uae_u8 *save_mmu (int *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
-uae_u8 *restore_mmu (uae_u8 *src)
+uae_u8 *restore_mmu(uae_u8 *src)
 {
 	int flags, model;
 
@@ -8416,17 +8541,18 @@ void exception2_fetch(uae_u32 opcode, int offset, int pcoffset)
 
 bool cpureset (void)
 {
+#ifndef WINUAE_FOR_PREVIOUS
     /* RESET hasn't increased PC yet, 1 word offset */
 	uaecptr pc;
 #ifndef WINUAE_FOR_HATARI
 	uaecptr ksboot = 0xf80002 - 2;
 	uae_u16 ins;
 #endif
-//	addrbank *ab;
+	addrbank *ab;
 	bool extreset = false;
 
 	maybe_disable_fpu();
-//	m68k_reset_delay = currprefs.reset_delay;
+	m68k_reset_delay = currprefs.reset_delay;
 	set_special(SPCFLAG_CHECK);
 #ifndef WINUAE_FOR_HATARI
 	send_internalevent(INTERNALEVENT_CPURESET);
@@ -8441,9 +8567,9 @@ bool cpureset (void)
 	}
 #endif
 	pc = m68k_getpc () + 2;
-//	ab = &get_mem_bank (pc);
-//	if (ab->check (pc, 2)) {
-//		write_log (_T("CPU reset PC=%x (%s)..\n"), pc - 2, ab->name);
+	ab = &get_mem_bank (pc);
+	if (ab->check (pc, 2)) {
+		write_log (_T("CPU reset PC=%x (%s)..\n"), pc - 2, ab->name);
 #ifndef WINUAE_FOR_HATARI
 		ins = get_word (pc);
 		custom_reset_cpu(false, false);
@@ -8461,68 +8587,82 @@ bool cpureset (void)
 			return false;
 		}
 #else
-//		customreset ();		/* From hatari-glue.c */
-//		return false;
+		customreset ();		/* From hatari-glue.c */
+		return false;
 #endif
-//	}
+	}
 	// the best we can do, jump directly to ROM entrypoint
 	// (which is probably what program wanted anyway)
 #ifndef WINUAE_FOR_HATARI
-//	write_log (_T("CPU Reset PC=%x (%s), invalid memory -> %x.\n"), pc, ab->name, ksboot + 2);
-//	custom_reset_cpu(false, false);
-//	m68k_setpc_normal (ksboot);
+	write_log (_T("CPU Reset PC=%x (%s), invalid memory -> %x.\n"), pc, ab->name, ksboot + 2);
+	custom_reset_cpu(false, false);
+	m68k_setpc_normal (ksboot);
 #else
-//	write_log (_T("CPU Reset PC=%x (%s), invalid memory\n"), pc, ab->name);
-//	customreset ();			/* From hatari-glue.c */
+	write_log (_T("CPU Reset PC=%x (%s), invalid memory\n"), pc, ab->name);
+	customreset ();			/* From hatari-glue.c */
 #endif
+#endif // WINUAE_FOR_PREVIOUS
 	return false;
 }
 
+void do_cycles_stop(int c)
+{
+	c *= cpucycleunit;
+	if (!currprefs.cpu_compatible) {
+		do_cycles(c);
+	} else {
+#ifndef WINUAE_FOR_HATARI
+		if (debug_dma) {
+			while (c > 0) {
+				debug_cpu_stop();
+				x_do_cycles(c > CYCLE_UNIT ? CYCLE_UNIT : c);
+				c -= CYCLE_UNIT;
+			}
+		} else {
+			x_do_cycles(c);
+		}
+#else
+		x_do_cycles(c);
+#endif
+	}
+
+}
 
 void m68k_setstopped (void)
 {
-	/* A traced STOP instruction drops through immediately without
-	actually stopping.  */
-	if ((regs.spcflags & SPCFLAG_DOTRACE) == 0) {
-		m68k_set_stop();
-	} else {
-		m68k_resumestopped ();
-	}
+	m68k_set_stop();
 }
 
-void m68k_resumestopped (void)
+void m68k_resumestopped(void)
 {
 	if (!regs.stopped)
 		return;
-	if (currprefs.cpu_cycle_exact && currprefs.cpu_model == 68000) {
-		x_do_cycles (6 * cpucycleunit);
-	}
-	fill_prefetch ();
+	m68k_incpci(4);
 	m68k_unset_stop();
 }
 
 
 uae_u32 mem_access_delay_word_read (uaecptr addr)
 {
-	uae_u32 v;
-//#ifndef WINUAE_FOR_HATARI
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
 #if 1
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		v = wait_cpu_cycle_read (addr, 1);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_word (addr);
-//		x_do_cycles_post (4 * cpucycleunit, v);
-//		break;
-//	default:
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		v = wait_cpu_cycle_read (addr, 1);
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		v = get_word (addr);
-//		break;
-//	}
+		x_do_cycles_post (4 * cpucycleunit, v);
+		break;
+	default:
+		v = get_word (addr);
+		break;
+	}
 #else
 //fprintf ( stderr , "word read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
 	v = get_word (addr);
@@ -8530,30 +8670,31 @@ uae_u32 mem_access_delay_word_read (uaecptr addr)
 #endif
 	regs.db = v;
 	regs.read_buffer = v;
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+#endif
 	return v;
 }
 uae_u32 mem_access_delay_wordi_read (uaecptr addr)
 {
-	uae_u32 v;
-//#ifndef WINUAE_FOR_HATARI
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
 #if 1
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		v = wait_cpu_cycle_read (addr, 2);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_wordi (addr);
-//		x_do_cycles_post (4 * cpucycleunit, v);
-//		break;
-//	default:
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		v = wait_cpu_cycle_read (addr, 2);
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		v = get_wordi (addr);
-//		break;
-//	}
+		x_do_cycles_post (4 * cpucycleunit, v);
+		break;
+	default:
+		v = get_wordi (addr);
+		break;
+	}
 #else
 //fprintf ( stderr , "wordi read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
 	v = get_wordi (addr);
@@ -8561,31 +8702,32 @@ uae_u32 mem_access_delay_wordi_read (uaecptr addr)
 #endif
 	regs.db = v;
 	regs.read_buffer = v;
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+#endif
 	return v;
 }
 
 uae_u32 mem_access_delay_byte_read (uaecptr addr)
 {
-	uae_u32  v;
-//#ifndef WINUAE_FOR_HATARI
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
+	uae_u32  v = 0;
+#ifndef WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
 #if 1
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		v = wait_cpu_cycle_read (addr, 0);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_byte (addr);
-//		x_do_cycles_post (4 * cpucycleunit, v);
-//		break;
-//	default:
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		v = wait_cpu_cycle_read (addr, 0);
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		v = get_byte (addr);
-//		break;
-//	}
+		x_do_cycles_post (4 * cpucycleunit, v);
+		break;
+	default:
+		v = get_byte (addr);
+		break;
+	}
 #else
 //fprintf ( stderr , "byte read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
 	v = get_byte (addr);
@@ -8593,61 +8735,64 @@ uae_u32 mem_access_delay_byte_read (uaecptr addr)
 #endif
 	regs.db = (v << 8) | v;
 	regs.read_buffer = v;
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
+#endif
 	return v;
 }
 void mem_access_delay_byte_write (uaecptr addr, uae_u32 v)
 {
 	regs.db = (v << 8)  | v;
 	regs.write_buffer = v;
-//#ifndef WINUAE_FOR_HATARI
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
 #if 1
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		wait_cpu_cycle_write (addr, 0, v);
-//		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
-//		return;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		put_byte (addr, v);
-//		x_do_cycles_post (4 * cpucycleunit, v);
-//		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
-//		return;
-//	}
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		wait_cpu_cycle_write (addr, 0, v);
+		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
+		return;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
+		put_byte (addr, v);
+		x_do_cycles_post (4 * cpucycleunit, v);
+		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
+		return;
+	}
 	put_byte (addr, v);
 #else
 	put_byte (addr, v);
 	x_do_cycles_post (4 * cpucycleunit, v);
 #endif
+#endif
 }
 void mem_access_delay_word_write (uaecptr addr, uae_u32 v)
 {
-//#ifndef WINUAE_FOR_HATARI
-//	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_HATARI
+	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
 #if 1
 	regs.db = v;
 	regs.write_buffer = v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		wait_cpu_cycle_write (addr, 1, v);
-//		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
-//		return;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		put_word (addr, v);
-//		x_do_cycles_post (4 * cpucycleunit, v);
-//		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
-//		return;
-//	}
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		wait_cpu_cycle_write (addr, 1, v);
+		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
+		return;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
+		put_word (addr, v);
+		x_do_cycles_post (4 * cpucycleunit, v);
+		if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );	// WINUAE_FOR_HATARI
+		return;
+	}
 	put_word (addr, v);
 #else
 	put_word (addr, v);
 	x_do_cycles_post (4 * cpucycleunit, v);
+#endif
 #endif
 }
 
@@ -8699,8 +8844,8 @@ static void fill_icache020 (uae_u32 addr, bool opcode)
 		regs.cacheholdingaddr020 = addr;
 		regs.cacheholdingdata020 = c->data;
 		regs.cacheholdingdata_valid = true;
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.I_Cache_hit++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.I_Cache_hit++;
 #endif
 		return;
 	}
@@ -8731,8 +8876,8 @@ static void fill_icache020 (uae_u32 addr, bool opcode)
 	regs.cacheholdingaddr020 = addr;
 	regs.cacheholdingdata020 = data;
 	regs.cacheholdingdata_valid = true;
-#ifdef WINUAE_FOR_HATARI
-//	CpuInstruction.I_Cache_miss++;
+#ifndef WINUAE_FOR_PREVIOUS
+	CpuInstruction.I_Cache_miss++;
 #endif
 }
 
@@ -8904,247 +9049,263 @@ uae_u32 get_word_020_prefetch (int o)
 
 uae_u32 mem_access_delay_long_read_ce020 (uaecptr addr)
 {
-	uae_u32 v;
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "long read ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, -1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_long (addr);
-//		if ((addr & 3) != 0)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_long (addr);
-//		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, -1);
+		}
+		break;
+	case CE_MEMBANK_FAST32:
 		v = get_long (addr);
-//		break;
-//	}
+		if ((addr & 3) != 0)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	case CE_MEMBANK_FAST16:
+		v = get_long (addr);
+		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		v = get_long (addr);
+		break;
+	}
 //fprintf ( stderr , "long read2 ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-//	end_020_cycle();
+	end_020_cycle();
 //fprintf ( stderr , "long read3 ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_longi_read_ce020 (uaecptr addr)
 {
-	uae_u32 v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		v  = wait_cpu_cycle_read_ce020 (addr + 0, 2) << 16;
-//		v |= wait_cpu_cycle_read_ce020 (addr + 2, 2) <<  0;
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 2) << 16;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 2, 2) <<  0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, -2);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_longi (addr);
-//		if ((addr & 3) != 0)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_longi (addr);
-//		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		v  = wait_cpu_cycle_read_ce020 (addr + 0, 2) << 16;
+		v |= wait_cpu_cycle_read_ce020 (addr + 2, 2) <<  0;
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 2) << 16;
+			v |= wait_cpu_cycle_read_ce020 (addr + 2, 2) <<  0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, -2);
+		}
+		break;
+	case CE_MEMBANK_FAST32:
 		v = get_longi (addr);
-//		break;
-//	}
+		if ((addr & 3) != 0)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	case CE_MEMBANK_FAST16:
+		v = get_longi (addr);
+		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		v = get_longi (addr);
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_wordi_read_ce020 (uaecptr addr)
 {
-	uae_u32 v;
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) == 3) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, 1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_wordi (addr);
-//		if ((addr & 3) == 3)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		 break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) == 3) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
+			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, 1);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
+		v = get_wordi (addr);
+		if ((addr & 3) == 3)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		 break;
+	default:
 		 v = get_wordi (addr);
-//		break;
-//	}
-//	end_020_cycle();
+		break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_word_read_ce020 (uaecptr addr)
 {
-	uae_u32 v;
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) == 3) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, 1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_word (addr);
-//		if ((addr & 3) == 3)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		 break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) == 3) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
+			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, 1);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
+		v = get_word (addr);
+		if ((addr & 3) == 3)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		 break;
+	default:
 		 v = get_word (addr);
-//		break;
-//	}
-//	end_020_cycle();
+		break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_byte_read_ce020 (uaecptr addr)
 {
-	uae_u32 v;
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		v = wait_cpu_cycle_read_ce020 (addr, 0);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		v = get_byte (addr);
-//		do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		v = wait_cpu_cycle_read_ce020 (addr, 0);
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		v = get_byte (addr);
-//		break;
-//	}
-//	end_020_cycle();
+		do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		v = get_byte (addr);
+		break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 void mem_access_delay_byte_write_ce020 (uaecptr addr, uae_u32 v)
 {
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		wait_cpu_cycle_write_ce020 (addr, 0, v);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		put_byte (addr, v);
-//		do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		wait_cpu_cycle_write_ce020 (addr, 0, v);
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		put_byte (addr, v);
-//	break;
-//	}
-//	end_020_cycle();
+		do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		put_byte (addr, v);
+	break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 void mem_access_delay_word_write_ce020 (uaecptr addr, uae_u32 v)
 {
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) == 3) {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 0, (v >> 8) & 0xff);
-//			wait_cpu_cycle_write_ce020 (addr + 1, 0, (v >> 0) & 0xff);
-//		} else {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 1, v);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//	case CE_MEMBANK_FAST32:
-//		put_word (addr, v);
-//		if ((addr & 3) == 3)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) == 3) {
+			wait_cpu_cycle_write_ce020 (addr + 0, 0, (v >> 8) & 0xff);
+			wait_cpu_cycle_write_ce020 (addr + 1, 0, (v >> 0) & 0xff);
+		} else {
+			wait_cpu_cycle_write_ce020 (addr + 0, 1, v);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
+	case CE_MEMBANK_FAST32:
 		put_word (addr, v);
-//	break;
-//	}
-//	end_020_cycle();
+		if ((addr & 3) == 3)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		put_word (addr, v);
+	break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 void mem_access_delay_long_write_ce020 (uaecptr addr, uae_u32 v)
 {
-//	start_020_cycle();
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
-//		wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
-//			wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
-//		} else {
-//			wait_cpu_cycle_write_ce020 (addr + 0, -1, v);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		put_long (addr, v);
-//		if ((addr & 3) != 0)
-//			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		else
-//			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		put_long (addr, v);
-//		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	start_020_cycle();
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
+		wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
+			wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
+		} else {
+			wait_cpu_cycle_write_ce020 (addr + 0, -1, v);
+		}
+		break;
+	case CE_MEMBANK_FAST32:
 		put_long (addr, v);
-//		break;
-//	}
-//	end_020_cycle();
+		if ((addr & 3) != 0)
+			do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		else
+			do_cycles_ce020_mem (1 * CPU020_MEM_CYCLE, v);
+		break;
+	case CE_MEMBANK_FAST16:
+		put_long (addr, v);
+		do_cycles_ce020_mem (2 * CPU020_MEM_CYCLE, v);
+		break;
+	default:
+		put_long (addr, v);
+		break;
+	}
+	end_020_cycle();
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 
@@ -9240,8 +9401,8 @@ static void fill_icache030(uae_u32 addr)
 		regs.cacheholdingaddr020 = addr;
 		regs.cacheholdingdata020 = c->data[lws];
 //fprintf ( stderr , "fill ica %x -> hit %x %x\n" , addr , regs.cacheholdingdata020 , regs.cacr );
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.I_Cache_hit++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.I_Cache_hit++;
 #endif
 		return;
 	}
@@ -9309,14 +9470,18 @@ static void fill_icache030(uae_u32 addr)
 	regs.cacheholdingaddr020 = addr;
 	regs.cacheholdingdata020 = data;
 //fprintf ( stderr , "fill ica %x -> miss %x\n" , addr , regs.cacheholdingdata020 );
-#ifdef WINUAE_FOR_HATARI
-//	CpuInstruction.I_Cache_miss++;
+#ifndef WINUAE_FOR_PREVIOUS
+	CpuInstruction.I_Cache_miss++;
 #endif
 }
 
 #if VALIDATE_68030_DATACACHE
 static void validate_dcache030(void)
 {
+#ifdef WINUAE_FOR_HATARI
+	int	BusMode_old = BusMode;
+	BusMode = BUS_MODE_DEBUGGER;				/* Don't trigger bus error when reading RAM 0-$7FF */
+#endif
 	for (int i = 0; i < CACHELINES030; i++) {
 		struct cache030 *c = &dcaches030[i];
 		uae_u32 addr = c->tag & ~((CACHELINES030 << 4) - 1);
@@ -9331,10 +9496,17 @@ static void validate_dcache030(void)
 			addr += 4;
 		}
 	}
+#ifdef WINUAE_FOR_HATARI
+	BusMode = BusMode_old;
+#endif
 }
 
 static void validate_dcache030_read(uae_u32 addr, uae_u32 ov, int size)
 {
+#ifdef WINUAE_FOR_HATARI
+	int	BusMode_old = BusMode;
+	BusMode = BUS_MODE_DEBUGGER;				/* Don't trigger bus error when reading RAM 0-$7FF */
+#endif
 	uae_u32 ov2;
 	if (size == 2) {
 		ov2 = get_long(addr);
@@ -9348,6 +9520,9 @@ static void validate_dcache030_read(uae_u32 addr, uae_u32 ov, int size)
 	if (ov2 != ov) {
 		write_log(_T("Address read %08x data cache mismatch %08x != %08x\n"), addr, ov2, ov);
 	}
+#ifdef WINUAE_FOR_HATARI
+	BusMode = BusMode_old;
+#endif
 }
 #endif
 
@@ -9446,7 +9621,7 @@ void write_dcache030_retry(uaecptr addr, uae_u32 v, uae_u32 fc, int size, int fl
 
 static void dcache030_maybe_burst(uaecptr addr, struct cache030 *c, int lws)
 {
-	if ((c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1) /*&& ce_banktype[addr >> 16] == CE_MEMBANK_FAST32*/) {
+	if ((c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1)/* && ce_banktype[addr >> 16] == CE_MEMBANK_FAST32*/) {
 		// do burst fetch if cache enabled, not frozen, all slots invalid, no chip ram
 		int i;
 		uaecptr baddr = addr & ~15;
@@ -9544,15 +9719,19 @@ bool read_dcache030_2_real (uaecptr addr, uae_u32 size, uae_u32 *valp);
 static bool read_dcache030_2(uaecptr addr, uae_u32 size, uae_u32 *valp)
 {
   bool b;
+  int	BusMode_old = BusMode;
 
   b = read_dcache030_2_real ( addr , size , valp );
   if ( b==false)
     return false;
 
+  BusMode = BUS_MODE_DEBUGGER;				/* Don't trigger bus error when reading RAM 0-$7FF */
   if ( ( ( size==2 ) && ( *valp != get_long ( addr ) ) )
     || ( ( size==1 ) && ( (*valp&0xffff) != (get_word ( addr ) & 0xffff) ) )
     || ( ( size==0 ) && ( (*valp&0xff) != (get_byte ( addr ) & 0xff ) ) ) )
     fprintf ( stderr , "d-cache mismatch pc=%x addr=%x size=%d cache=%x != mem=%x, d-cache error ?\n" , m68k_getpc(), addr, size, *valp , get_long(addr) );
+
+  BusMode = BusMode_old;
   return true;
 }
 bool read_dcache030_2_real(uaecptr addr, uae_u32 size, uae_u32 *valp)
@@ -9592,14 +9771,14 @@ static bool read_dcache030_2(uaecptr addr, uae_u32 size, uae_u32 *valp)
 		validate_dcache030();
 #endif
 //fprintf ( stderr , "read cache %x %x %d tag1 %x lws1 %x tag2 %x lws2 %x ref %x\n", addr, v1, size, tag1, lws1, tag2, lws2 , get_long (0x1f81ec) );
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.D_Cache_miss++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.D_Cache_miss++;
 #endif
 	} else {
 		// Cache hit, inhibited caching do not prevent read hits.
 		v1 = c1->data[lws1];
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.D_Cache_hit++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.D_Cache_hit++;
 #endif
 	}
 
@@ -9629,13 +9808,13 @@ static bool read_dcache030_2(uaecptr addr, uae_u32 size, uae_u32 *valp)
 		validate_dcache030();
 #endif
 //fprintf ( stderr , "read cache %x %x %d tag1 %x lws1 %x tag2 %x lws2 %x\n", addr, v1, size, tag1, lws1, tag2, lws2 );
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.D_Cache_miss++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.D_Cache_miss++;
 #endif
 	} else {
 		v2 = c2->data[lws2];
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.D_Cache_hit++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.D_Cache_hit++;
 #endif
 	}
 
@@ -9911,8 +10090,8 @@ uae_u32 fill_icache040(uae_u32 addr)
 				if ((lws & 1) != icachehalfline) {
 					icachehalfline ^= 1;
 					icachelinecnt++;
-#ifdef WINUAE_FOR_HATARI
-//				CpuInstruction.I_Cache_hit++;
+#ifndef WINUAE_FOR_PREVIOUS
+				CpuInstruction.I_Cache_hit++;
 #endif
 				}
 				return c->data[cache_lastline][lws];
@@ -9950,8 +10129,8 @@ uae_u32 fill_icache040(uae_u32 addr)
 			icachehalfline ^= 1;
 			icachelinecnt++;
 		}
-#ifdef WINUAE_FOR_HATARI
-//		CpuInstruction.I_Cache_miss++;
+#ifndef WINUAE_FOR_PREVIOUS
+		CpuInstruction.I_Cache_miss++;
 #endif
 		return c->data[line][lws];
 
@@ -9975,193 +10154,207 @@ STATIC_INLINE void do_cycles_c040_mem (int clocks, uae_u32 val)
 
 uae_u32 mem_access_delay_longi_read_c040 (uaecptr addr)
 {
-	uae_u32 v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, -1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_longi (addr);
-//		do_cycles_c040_mem(1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_longi (addr);
-//		break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, -1);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
 		v = get_longi (addr);
-//		break;
-//	}
+		do_cycles_c040_mem(1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		v = get_longi (addr);
+		break;
+	default:
+		v = get_longi (addr);
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 uae_u32 mem_access_delay_long_read_c040 (uaecptr addr)
 {
-	uae_u32 v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, -1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_long (addr);
-//		do_cycles_c040_mem(1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_long (addr);
-//		break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+		v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 1) << 16;
+			v |= wait_cpu_cycle_read_ce020 (addr + 2, 1) <<  0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, -1);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
 		v = get_long (addr);
-//		break;
-//	}
+		do_cycles_c040_mem(1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		v = get_long (addr);
+		break;
+	default:
+		v = get_long (addr);
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_word_read_c040 (uaecptr addr)
 {
-	uae_u32 v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) == 3) {
-//			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
-//			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
-//		} else {
-//			v = wait_cpu_cycle_read_ce020 (addr, 1);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_word (addr);
-//		do_cycles_c040_mem (2, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_word (addr);
-//		 break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) == 3) {
+			v  = wait_cpu_cycle_read_ce020 (addr + 0, 0) << 8;
+			v |= wait_cpu_cycle_read_ce020 (addr + 1, 0) << 0;
+		} else {
+			v = wait_cpu_cycle_read_ce020 (addr, 1);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
+		v = get_word (addr);
+		do_cycles_c040_mem (2, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		v = get_word (addr);
+		 break;
+	default:
 		 v = get_word (addr);
-//		break;
-//	}
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 uae_u32 mem_access_delay_byte_read_c040 (uaecptr addr)
 {
-	uae_u32 v;
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		v = wait_cpu_cycle_read_ce020 (addr, 0);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		v = get_byte (addr);
-//		do_cycles_c040_mem (1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		v = get_byte (addr);
-//		break;
-//	default:
+	uae_u32 v = 0;
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		v = wait_cpu_cycle_read_ce020 (addr, 0);
+		break;
+	case CE_MEMBANK_FAST16:
 		v = get_byte (addr);
-//		break;
-//	}
+		do_cycles_c040_mem (1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		v = get_byte (addr);
+		break;
+	default:
+		v = get_byte (addr);
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 	return v;
 }
 
 void mem_access_delay_byte_write_c040 (uaecptr addr, uae_u32 v)
 {
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		wait_cpu_cycle_write_ce020 (addr, 0, v);
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		put_byte (addr, v);
-//		do_cycles_c040_mem (1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		put_byte (addr, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		wait_cpu_cycle_write_ce020 (addr, 0, v);
+		break;
+	case CE_MEMBANK_FAST16:
 		put_byte (addr, v);
-//	break;
-//	}
+		do_cycles_c040_mem (1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		put_byte (addr, v);
+		break;
+	default:
+		put_byte (addr, v);
+	break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 void mem_access_delay_word_write_c040 (uaecptr addr, uae_u32 v)
 {
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) == 3) {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 0, (v >> 8) & 0xff);
-//			wait_cpu_cycle_write_ce020 (addr + 1, 0, (v >> 0) & 0xff);
-//		} else {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 1, v);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		put_word (addr, v);
-//		if ((addr & 3) == 3)
-//			do_cycles_c040_mem(2, v);
-//		else
-//			do_cycles_c040_mem(1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		put_word (addr, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) == 3) {
+			wait_cpu_cycle_write_ce020 (addr + 0, 0, (v >> 8) & 0xff);
+			wait_cpu_cycle_write_ce020 (addr + 1, 0, (v >> 0) & 0xff);
+		} else {
+			wait_cpu_cycle_write_ce020 (addr + 0, 1, v);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
 		put_word (addr, v);
-//	break;
-//	}
+		if ((addr & 3) == 3)
+			do_cycles_c040_mem(2, v);
+		else
+			do_cycles_c040_mem(1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		put_word (addr, v);
+		break;
+	default:
+		put_word (addr, v);
+	break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 void mem_access_delay_long_write_c040 (uaecptr addr, uae_u32 v)
 {
-//	switch (ce_banktype[addr >> 16])
-//	{
-//	case CE_MEMBANK_CHIP16:
-//		wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
-//		wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
-//		break;
-//	case CE_MEMBANK_CHIP32:
-//		if ((addr & 3) != 0) {
-//			wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
-//			wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
-//		} else {
-//			wait_cpu_cycle_write_ce020 (addr + 0, -1, v);
-//		}
-//		break;
-//	case CE_MEMBANK_FAST16:
-//		put_long (addr, v);
-//		do_cycles_c040_mem(1, v);
-//		break;
-//	case CE_MEMBANK_FAST32:
-//		put_long (addr, v);
-//		break;
-//	default:
+#ifndef WINUAE_FOR_PREVIOUS
+	switch (ce_banktype[addr >> 16])
+	{
+	case CE_MEMBANK_CHIP16:
+		wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
+		wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
+		break;
+	case CE_MEMBANK_CHIP32:
+		if ((addr & 3) != 0) {
+			wait_cpu_cycle_write_ce020 (addr + 0, 1, (v >> 16) & 0xffff);
+			wait_cpu_cycle_write_ce020 (addr + 2, 1, (v >>  0) & 0xffff);
+		} else {
+			wait_cpu_cycle_write_ce020 (addr + 0, -1, v);
+		}
+		break;
+	case CE_MEMBANK_FAST16:
 		put_long (addr, v);
-//		break;
-//	}
+		do_cycles_c040_mem(1, v);
+		break;
+	case CE_MEMBANK_FAST32:
+		put_long (addr, v);
+		break;
+	default:
+		put_long (addr, v);
+		break;
+	}
+#endif // WINUAE_FOR_PREVIOUS
 }
 
 static uae_u32 dcache040_get_data(uaecptr addr, struct cache040 *c, int line, int size)
@@ -10604,7 +10797,7 @@ void fill_prefetch_030_ntx(void)
 		idx = add_prefetch_030(idx, regs.cacheholdingdata020 >>	16, pc2);
 	}
 
-	ipl_fetch();
+	ipl_fetch_now();
 	if (currprefs.cpu_cycle_exact)
 		regs.irc = get_word_ce030_prefetch_opcode (0);
 	else
@@ -10703,7 +10896,7 @@ void fill_prefetch_030_ntx_continue (void)
 		}
 	}
 
-	ipl_fetch();
+	ipl_fetch_now();
 	if (currprefs.cpu_cycle_exact)
 		regs.irc = get_word_ce030_prefetch_opcode(0);
 	else
@@ -10735,7 +10928,7 @@ void fill_prefetch_020_ntx(void)
 		idx = add_prefetch_030(idx, regs.cacheholdingdata020 >>	16, pc);
 	}
 
-	ipl_fetch();
+	ipl_fetch_now();
 	if (currprefs.cpu_cycle_exact)
 		regs.irc = get_word_ce020_prefetch_opcode (0);
 	else
@@ -10776,6 +10969,10 @@ void fill_prefetch_030(void)
 
 void fill_prefetch (void)
 {
+#ifndef WINUAE_FOR_PREVIOUS
+	if (currprefs.cachesize)
+		return;
+#endif // WINUAE_FOR_PREVIOUS
 	if (!currprefs.cpu_compatible)
 		return;
 	reset_pipeline_state();

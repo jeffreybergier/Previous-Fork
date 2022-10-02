@@ -311,6 +311,11 @@ Previous v2.6:
   > Improves window resizing.
   > Fixes bug that caused problems when changing statusbar visibility.
 
+Previous v2.7 (unreleased):
+  > Adds ability to unlock the mouse cursor with control-click.
+  > Fixes bug that caused Daydream to hang on start up.
+  > Fixes bug that caused NeXTdimension window to start with wrong size.
+
 
  7) Running Previous
  -------------------

@@ -22,7 +22,7 @@
 #include "debugui.h"
 #include "debugcpu.h"
 #ifdef WINUAE_FOR_HATARI
-//#include "debug.h"
+#include "debug.h"
 #endif
 
 #define WRITE_LOG_BUF_SIZE 4096
@@ -33,12 +33,12 @@
 /* declared in newcpu.c */
 extern struct regstruct mmu_backup_regs;
 /* declared in events.h */
-uae_u32 currcycle;
+evt_t currcycle;
 /* declared in savestate.h */
 int savestate_state = 0;
 TCHAR *savestate_fname;
 /* declared in custom.h */
-unsigned long int hsync_counter = 0, vsync_counter = 0;
+uae_u32 hsync_counter = 0, vsync_counter = 0;
 #endif
 
 
@@ -51,15 +51,16 @@ static uae_u32 extra_cycle;
 #ifndef WINUAE_FOR_HATARI
 static void sync_cycles(void)
 {
-        uae_u32 c;
-        uae_u32 extra;
-
-        c = get_cycles();
-        extra = c & (CYCLE_UNIT - 1);
-        if (extra) {
-                extra = CYCLE_UNIT - extra;
-                do_cycles(extra);
-        }
+	if (extra_cycle) {
+		do_cycles(extra_cycle);
+		extra_cycle = 0;
+	}
+	evt_t c = get_cycles();
+	int extra = c & (CYCLE_UNIT - 1);
+	if (extra) {
+		extra = CYCLE_UNIT - extra;
+		do_cycles(extra);
+	}
 }
 #endif
 
@@ -122,13 +123,15 @@ uae_u32 wait_cpu_cycle_read (uaecptr addr, int mode)
 	x_do_cycles_post(CYCLE_UNIT, v);
 
 #else						/* WINUAE_FOR_HATARI */
+#ifndef WINUAE_FOR_PREVIOUS
 //	fprintf ( stderr , "mem read ce %x %d %lu %lu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
-//	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
-//	{
+	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
+	{
 //		fprintf ( stderr , "mem wait read %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//		x_do_cycles (2*cpucycleunit);
+		x_do_cycles (2*cpucycleunit);
 //		fprintf ( stderr , "mem wait read after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//	}
+	}
+#endif // WINUAE_FOR_PREVIOUS
 
 	switch(mode)
 	{
@@ -211,18 +214,20 @@ uae_u32 wait_cpu_cycle_read_ce020 (uaecptr addr, int mode)
 
 #else						/* WINUAE_FOR_HATARI */
 
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "wait read ce020 glob %lu\n" , CyclesGlobalClockCounter );
 //fprintf ( stderr , "wait read ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-//	int bus_pos = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
-//	if ( ( bus_pos & 2 ) == 2 )
+	int bus_pos = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
+	if ( ( bus_pos & 2 ) == 2 )
 //	if ( bus_pos )
-//	{
+	{
 //		fprintf ( stderr , "mem wait read %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//		x_do_cycles ((4-bus_pos)*cpucycleunit);
+		x_do_cycles ((4-bus_pos)*cpucycleunit);
 //		fprintf ( stderr , "mem wait read after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//	}
+	}
 
 //fprintf ( stderr , "wait read2 ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
+#endif // WINUAE_FOR_PREVIOUS
 
 	switch (mode) {
 		case -1:
@@ -293,13 +298,15 @@ void wait_cpu_cycle_write (uaecptr addr, int mode, uae_u32 v)
 	x_do_cycles_post(CYCLE_UNIT, v);
 
 #else						/* WINUAE_FOR_HATARI */
+#ifndef WINUAE_FOR_PREVIOUS
 //	fprintf ( stderr , "mem write ce %x %d %lu %lu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
-//	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
-//	{
+	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
+	{
 //		fprintf ( stderr , "mem wait write %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//		x_do_cycles (2*cpucycleunit);
+		x_do_cycles (2*cpucycleunit);
 //		fprintf ( stderr , "mem wait write after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//	}
+	}
+#endif // WINUAE_FOR_PREVIOUS
 
 	if (mode > -2) {
 		if (mode < 0) {
@@ -355,15 +362,17 @@ void wait_cpu_cycle_write_ce020 (uaecptr addr, int mode, uae_u32 v)
 
 #else						/* WINUAE_FOR_HATARI */
 
+#ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "wait read ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-//	int bus_pos = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
-//	if ( ( bus_pos & 2 ) == 2 )
+	int bus_pos = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
+	if ( ( bus_pos & 2 ) == 2 )
 //	if ( bus_pos )
-//	{
+	{
 //		fprintf ( stderr , "mem wait read %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//		x_do_cycles ((4-bus_pos)*cpucycleunit);
+		x_do_cycles ((4-bus_pos)*cpucycleunit);
 //		fprintf ( stderr , "mem wait read after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-//	}
+	}
+#endif // WINUAE_FOR_PREVIOUS
 
 //fprintf ( stderr , "wait read2 ce020 %lu %lu\n" , currcycle / cpucycleunit , currcycle );
 
@@ -401,7 +410,7 @@ void do_cycles_ce (uae_u32 cycles)
 /* [NP] Unlike Amiga, for Hatari in 68000 CE mode, we don't need to update other components */
 /* on every sub cycle, so we can do all cycles in one single call to speed up */
 /* emulation (this gains approx 7%) */
-void do_cycles_ce (uae_u32 cycles)
+void do_cycles_ce (int cycles)
 {
 	cycles += extra_cycle;
 	extra_cycle = cycles & ( CYCLE_UNIT-1 );
@@ -411,7 +420,7 @@ void do_cycles_ce (uae_u32 cycles)
 
 #ifdef WINUAE_FOR_HATARI
 /* Same as do_cycles_ce() with cycle exact blitter support */
-void do_cycles_ce_hatari_blitter (uae_u32 cycles)
+void do_cycles_ce_hatari_blitter (int cycles)
 {
 	cycles += extra_cycle;
 	while (cycles >= CYCLE_UNIT) {
@@ -423,9 +432,11 @@ void do_cycles_ce_hatari_blitter (uae_u32 cycles)
 		if (bltstate != BLT_done)
 			decide_blitter (hpos);
 #endif						/* WINUAE_FOR_HATARI */
-//		if ( Blitter_Check_Simultaneous_CPU() == 0 )
-//			do_cycles (1 * CYCLE_UNIT);
-//		Blitter_HOG_CPU_do_cycles_after ( 2 );
+#ifndef WINUAE_FOR_PREVIOUS
+		if ( Blitter_Check_Simultaneous_CPU() == 0 )
+			do_cycles (1 * CYCLE_UNIT);
+		Blitter_HOG_CPU_do_cycles_after ( 2 );
+#endif // WINUAE_FOR_PREVIOUS
 
 		cycles -= CYCLE_UNIT;
 	}
@@ -434,15 +445,16 @@ void do_cycles_ce_hatari_blitter (uae_u32 cycles)
 #endif
 
 
-void do_cycles_ce020 (uae_u32 cycles)
+void do_cycles_ce020 (int cycles)
 {
-	uae_u32 c;
-	uae_u32 extra;
+	int c;
+	evt_t cc;
+	int extra;
 
 	if (!cycles)
 		return;
-	c = get_cycles ();
-	extra = c & (CYCLE_UNIT - 1);
+	cc = get_cycles ();
+	extra = cc & (CYCLE_UNIT - 1);
 //fprintf ( stderr , "do_cycles_ce020 %d %d %d\n" , cycles , c , extra );
 	if (extra) {
 		extra = CYCLE_UNIT - extra;
@@ -542,11 +554,12 @@ void fixup_cpu (struct uae_prefs *p)
 			p->fpu_model = 68060;
 		break;
 	}
+
 	if (p->cpu_model < 68030 && p->mmu_model) {
-		error_log (_T("MMU emulation requires 68030/040/060."));
+		error_log (_T("MMU emulation requires 68030/040/060 and it is not JIT compatible."));
 		p->mmu_model = 0;
 	}
-	
+
 #ifndef WINUAE_FOR_HATARI
 	/* [NP] In Hatari, don't change m68k_speed in CE mode */
 	if (p->cpu_cycle_exact && p->m68k_speed < 0)

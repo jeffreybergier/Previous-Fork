@@ -5,7 +5,7 @@ set(SOURCES
 	m68000.c main.c mo.c nbic.c NextBus.cpp paths.c printer.c queue.c 
 	ramdac.c reset.c rs.c rtcnvram.c scandir.c scc.c fast_screen.c host.c 
 	scsi.c shortcut.c snd.c statusbar.c str.c sysReg.c tmc.c unzip.c 
-	utils.c video.c zip.c)
+	video.c zip.c)
 
 # When building for OSX, define specific sources for gui and ressources
 if(ENABLE_OSX_BUNDLE)
@@ -24,7 +24,7 @@ if(WIN32)
 endif(WIN32)
 
 include_directories(${CMAKE_BINARY_DIR} includes debug softfloat cpu
-		    dsp dimension slirp ${SDL2_INCLUDE_DIR})
+		    dsp dimension slirp)
 
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
@@ -85,15 +85,11 @@ else()
 	add_executable(Previous ${SOURCES})
 endif(ENABLE_OSX_BUNDLE)
 
-target_link_libraries(Previous Debug GuiSdl UaeCpu DSP Dimension Slirp SoftFloat ${SDL2_LIBRARY})
+target_link_libraries(Previous Debug GuiSdl UaeCpu DSP Dimension Slirp SoftFloat ${SDL2_LIBRARIES})
 
 if(MATH_FOUND AND NOT APPLE)
 	target_link_libraries(Previous ${MATH_LIBRARY})
 endif()
-
-if(SDL2MAIN_LIBRARY)
-	target_link_libraries(Previous ${SDL2MAIN_LIBRARY})
-endif(SDL2MAIN_LIBRARY)
 
 if(READLINE_FOUND)
 	target_link_libraries(Previous ${READLINE_LIBRARY})

@@ -6,6 +6,10 @@
 /* when compiling Hatari */
 #define WINUAE_FOR_HATARI
 
+/* This define disables compilation of Atari specific code in the cpu core. */
+/* This only works when also defining WINUAE_FOR_HATARI */
+#define WINUAE_FOR_PREVIOUS
+
 
 #ifndef WINUAE_FOR_HATARI
 #pragma warning (disable : 4761)
@@ -19,11 +23,16 @@
 
 #define DRIVESOUND
 #define GFXFILTER
+#if defined(_M_ARM64) || defined(_M_ARM64EC)
+#define __arm__
+#define MSVC_LONG_DOUBLE
+#else
 #define X86_MSVC_ASSEMBLY
 //#define OPTIMIZED_FLAGS
 #define MSVC_LONG_DOUBLE
 #ifndef __i386__
 #define __i386__
+#endif
 #endif
 #define WINDOWS
 #define ZLIB_WINAPI
