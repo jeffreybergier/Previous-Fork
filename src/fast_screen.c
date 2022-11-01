@@ -361,19 +361,18 @@ void Screen_Init(void) {
         exit(-1);
     }
 
-    SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
-    if (nWindowWidth > 0) {
-        dpiFactor = (float)width / nWindowWidth;
-        fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
-    } else {
-        fprintf(stderr,"Failed to set screen scale\n");
-        dpiFactor = 1.0;
-    }
-    
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!sdlRenderer) {
         fprintf(stderr,"Failed to create renderer: %s!\n", SDL_GetError());
         exit(-1);
+    }
+    
+    SDL_GetRendererOutputSize(sdlRenderer, &nRendererWidth, &nRendererHeight);
+    if (nRendererWidth>0) {
+        dpiFactor = (float)width / nRendererWidth;
+    } else {
+        fprintf(stderr,"Failed to calculate DPI factor\n");
+        dpiFactor = 1.0;
     }
 
     initLatch     = SDL_CreateSemaphore(0);
