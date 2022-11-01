@@ -27,8 +27,8 @@ const char Screen_fileid[] = "Previous fast_screen.c : " __DATE__ " " __TIME__;
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-int           nWindowWidth;          /* Width of SDL window in physical pixels */
-int           nWindowHeight;         /* Height of SDL window in physical pixels */
+int           nRendererWidth;        /* Width of SDL window in physical pixels */
+int           nRendererHeight;       /* Height of SDL window in physical pixels */
 float         dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
