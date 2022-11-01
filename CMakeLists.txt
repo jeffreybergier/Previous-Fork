@@ -2,14 +2,14 @@ cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
 
 project(Previous)
 
-SET(APP_NAME "Previous")
+set(APP_NAME "Previous")
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include(CheckIncludeFiles)
 include(CheckFunctionExists)
-include(CheckCCompilerFlag)
 include(CheckStructHasMember)
+include(CheckCCompilerFlag)
 include(DistClean)
 
 # Set build type to "Release" if user did not specify any build type yet
@@ -29,7 +29,7 @@ set(ENABLE_TRACING 1
 
 if(APPLE)
 	set(ENABLE_OSX_BUNDLE 1
-	    CACHE BOOL "Built Previous as Mac OS X application bundle")
+	    CACHE BOOL "Built Previous as macOS application bundle")
 	# set(CMAKE_OSX_ARCHITECTURES "i386" CACHE STRING "Target architectures" FORCE)
 	# set(CMAKE_OSX_SYSROOT "/Developer/SDKs/MacOSX10.6.sdk" CACHE STRING "10.6 SDK" FORCE)
 	# set(CMAKE_OSX_DEPLOYMENT_TARGET "10.5" CACHE STRING "Target Min 10.5" FORCE)
@@ -37,7 +37,7 @@ if(APPLE)
 	set_source_files_properties(${FRAMEWORKS} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)
 else()
 	set(ENABLE_OSX_BUNDLE 0
-	    CACHE BOOL "Built Hatari as Mac OS X application bundle")
+	    CACHE BOOL "Built Previous as macOS application bundle")
 endif(APPLE)
 
 # ####################
@@ -59,6 +59,7 @@ endif(Readline_FOUND)
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	set(HAVE_LIBZ 1)
+	set(HAVE_ZLIB_H 1)
 endif(ZLIB_FOUND)
 
 find_package(PNG)
@@ -101,6 +102,7 @@ endif(DETECTED_SDL_CFLAGS)
 # Check for optional headers:
 # ###########################
 
+check_include_files(byteswap.h HAVE_BYTESWAP_H)
 check_include_files(strings.h HAVE_STRINGS_H)
 check_include_files(limits.h HAVE_LIMITS_H)
 check_include_files(sys/syslimits.h HAVE_SYS_SYSLIMITS_H)
@@ -114,6 +116,8 @@ check_include_files(netinet/in.h HAVE_NETINET_IN_H)
 # Check for optional functions:
 # #############################
 
+check_function_exists(bswap_16 HAVE_BSWAP_16)
+check_function_exists(bswap_32 HAVE_BSWAP_32)
 check_function_exists(setenv HAVE_SETENV)
 check_function_exists(select HAVE_SELECT)
 check_function_exists(gettimeofday HAVE_GETTIMEOFDAY)
@@ -123,7 +127,6 @@ check_function_exists(scandir HAVE_SCANDIR)
 check_function_exists(fseeko HAVE_FSEEKO)
 check_function_exists(ftello HAVE_FTELLO)
 check_function_exists(flock HAVE_FLOCK)
-check_function_exists(strlcpy HAVE_LIBC_STRLCPY)
 check_function_exists(strdup HAVE_STRDUP)
 check_function_exists(lsetxattr HAVE_LXETXATTR)
 check_function_exists(posix_memalign HAVE_POSIX_MEMALIGN)

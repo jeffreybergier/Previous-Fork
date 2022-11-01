@@ -17,6 +17,8 @@
 
 #define MORE_ACCURATE_68020_PIPELINE 1
 
+#include <inttypes.h>		/* Needed for PRIX64 */
+
 #include "main.h"
 #include "compat.h"
 
@@ -90,6 +92,7 @@ static int baseclock;
 #endif
 int m68k_pc_indirect;
 bool m68k_interrupt_delay;
+static bool m68k_accurate_ipl;
 static bool m68k_reset_delay;
 static bool ismoves_nommu;
 static bool need_opcode_swap;
@@ -105,7 +108,7 @@ static int cachedsets04060, cachedsets04060mask, cachedtag04060mask;
 
 static int cpu_prefs_changed_flag;
 
-int cpuipldelay;
+int cpuipldelay2, cpuipldelay4;
 int cpucycleunit;
 int cpu_tracer;
 bool cpu_bus_rmw;
@@ -118,6 +121,7 @@ int movem_index2[256];
 int movem_next[256];
 
 cpuop_func *cpufunctbl[65536];
+cpuop_func_noret *cpufunctbl_noret[65536];
 cpuop_func *loop_mode_table[65536];
 
 struct cputbl_data
@@ -1841,11 +1845,15 @@ static uae_u32 opcode_swap(uae_u16 opcode)
 	return do_byteswap_16(opcode);
 }
 
-uae_u32 REGPARAM2 op_illg_1 (uae_u32 opcode)
+uae_u32 REGPARAM2 op_illg_1(uae_u32 opcode)
 {
 	opcode = opcode_swap(opcode);
 	op_illg(opcode);
 	return 4;
+}
+void REGPARAM2 op_illg_1_noret(uae_u32 opcode)
+{
+	op_illg_1(opcode);
 }
 uae_u32 REGPARAM2 op_unimpl_1 (uae_u32 opcode)
 {
@@ -1856,6 +1864,11 @@ uae_u32 REGPARAM2 op_unimpl_1 (uae_u32 opcode)
 		op_unimpl(opcode);
 	return 4;
 }
+void REGPARAM2 op_unimpl_1_noret(uae_u32 opcode)
+{
+	op_unimpl_1(opcode);
+}
+
 
 // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
 static const struct cputbl *cputbls[6][8] =
@@ -1935,11 +1948,14 @@ static void build_cpufunctbl (void)
 		abort ();
 	}
 
-	for (opcode = 0; opcode < 65536; opcode++)
+	for (opcode = 0; opcode < 65536; opcode++) {
 		cpufunctbl[opcode] = op_illg_1;
-	for (i = 0; tbl[i].handler_ff != NULL; i++) {
+		cpufunctbl_noret[opcode] = op_illg_1_noret;
+	}
+	for (i = 0; tbl[i].handler_ff != NULL || tbl[i].handler_ff_noret != NULL; i++) {
 		opcode = tbl[i].opcode;
 		cpufunctbl[opcode] = tbl[i].handler_ff;
+		cpufunctbl_noret[opcode] = tbl[i].handler_ff_noret;
 		cpudatatbl[opcode].length = tbl[i].length;
 		cpudatatbl[opcode].disp020[0] = tbl[i].disp020[0];
 		cpudatatbl[opcode].disp020[1] = tbl[i].disp020[1];
@@ -1950,9 +1966,10 @@ static void build_cpufunctbl (void)
 #ifndef WINUAE_FOR_PREVIOUS
 	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
 		tbl = op_smalltbl_3;
-		for (i = 0; tbl[i].handler_ff != NULL; i++) {
+		for (i = 0; tbl[i].handler_ff != NULL || tbl[i].handler_ff_noret != NULL; i++) {
 			if ((tbl[i].opcode & 0xfe00) == 0xf200) {
 				cpufunctbl[tbl[i].opcode] = tbl[i].handler_ff;
+				cpufunctbl_noret[tbl[i].opcode] = tbl[i].handler_ff_noret;
 				cpudatatbl[tbl[i].opcode].length = tbl[i].length;
 				cpudatatbl[tbl[i].opcode].disp020[0] = tbl[i].disp020[0];
 				cpudatatbl[tbl[i].opcode].disp020[1] = tbl[i].disp020[1];
@@ -1964,7 +1981,6 @@ static void build_cpufunctbl (void)
 
 	opcnt = 0;
 	for (opcode = 0; opcode < 65536; opcode++) {
-		cpuop_func *f;
 		struct instr *table = &table68k[opcode];
 
 		if (table->mnemo == i_ILLG)
@@ -1978,6 +1994,7 @@ static void build_cpufunctbl (void)
 				// generates unimplemented instruction exception.
 				if (currprefs.int_no_unimplemented && table->unimpclev == 5) {
 					cpufunctbl[opcode] = op_unimpl_1;
+					cpufunctbl_noret[opcode] = op_unimpl_1_noret;
 					continue;
 				}
 				// remove unimplemented instruction that were removed in previous models,
@@ -1986,10 +2003,12 @@ static void build_cpufunctbl (void)
 				// clev=4: implemented in 68040 or later. unimpclev=5: not in 68060
 				if (table->unimpclev < 5 || (table->clev == 4 && table->unimpclev == 5)) {
 					cpufunctbl[opcode] = op_illg_1;
+					cpufunctbl_noret[opcode] = op_illg_1_noret;
 					continue;
 				}
 			} else {
 				cpufunctbl[opcode] = op_illg_1;
+				cpufunctbl_noret[opcode] = op_illg_1_noret;
 				continue;
 			}
 		}
@@ -2004,10 +2023,10 @@ static void build_cpufunctbl (void)
 
 		if (table->handler != -1) {
 			int idx = table->handler;
-			f = cpufunctbl[idx];
-			if (f == op_illg_1)
+			if (cpufunctbl[idx] == op_illg_1 || cpufunctbl_noret[idx] == op_illg_1_noret)
 				abort ();
-			cpufunctbl[opcode] = f;
+			cpufunctbl[opcode] = cpufunctbl[idx];
+			cpufunctbl_noret[opcode] = cpufunctbl_noret[idx];
 			memcpy(&cpudatatbl[opcode], &cpudatatbl[idx], sizeof(struct cputbl_data));
 			opcnt++;
 		}
@@ -2057,10 +2076,13 @@ static void build_cpufunctbl (void)
 	/* TODO ? Force address_space_24=0 for 68040 ? */
 #endif
 	m68k_interrupt_delay = false;
+	m68k_accurate_ipl = false;
 #ifndef WINUAE_FOR_PREVIOUS
 	if (currprefs.cpu_cycle_exact) {
 		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21 || tbl == op_smalltbl_23)
 			m68k_interrupt_delay = true;
+		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13)
+			m68k_accurate_ipl = true;
 	} else if (currprefs.cpu_compatible) {
 		if (currprefs.cpu_model <= 68010 && currprefs.m68k_speed == 0) {
 			m68k_interrupt_delay = true;
@@ -2096,11 +2118,8 @@ static void build_cpufunctbl (void)
 	}
 	write_log(_T("\n"));
 
-	if (m68k_interrupt_delay) {
-		cpuipldelay = 4 * cpucycleunit;
-	} else {
-		cpuipldelay = 0;
-	}
+	cpuipldelay2 = 2 * cpucycleunit;
+	cpuipldelay4 = 4 * cpucycleunit;
 
 	set_cpu_caches (true);
 #ifndef WINUAE_FOR_HATARI
@@ -2113,11 +2132,13 @@ static uae_u32 cycles_mult;
 
 static void update_68k_cycles (void)
 {
-	cycles_mult = 0;
 #ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "update cyc speed %d throttle %f clock_mult %d\n", currprefs.m68k_speed, currprefs.m68k_speed_throttle, changed_prefs.cpu_clock_multiplier);
+#endif // WINUAE_FOR_PREVIOUS
+	cycles_mult = CYCLES_DIV;
 #else	/* Don't adjust cycles_mult in Hatari and ignore m68k_speed (forced to 0) */
-
+	cycles_mult = 0;
 	if (currprefs.m68k_speed == 0) { // approximate
 		cycles_mult = CYCLES_DIV;
 		if (currprefs.cpu_model >= 68040) {
@@ -2141,6 +2162,8 @@ static void update_68k_cycles (void)
 				cycles_mult = (uae_u32)((cycles_mult * 1000) / (1000 + currprefs.m68k_speed_throttle));
 			}
 		}
+	} else if (currprefs.m68k_speed < 0) {
+		cycles_mult = CYCLES_DIV / 20;
 	} else {
 		if (currprefs.m68k_speed >= 0 && !currprefs.cpu_cycle_exact && !currprefs.cpu_compatible) {
 			if (currprefs.m68k_speed_throttle < 0) {
@@ -2248,7 +2271,6 @@ static void prefs_changed_cpu (void)
 static int check_prefs_changed_cpu2(void)
 {
 	int changed = 0;
-
 #ifdef JIT
 	changed = check_prefs_changed_comp(true) ? 1 : 0;
 #endif
@@ -2277,7 +2299,7 @@ static int check_prefs_changed_cpu2(void)
 
 void check_prefs_changed_cpu(void)
 {
-#ifndef WINUAE_FOR_HATARI	/* [NP] TODO : handle cpu change on the fly ? */
+#ifndef WINUAE_FOR_PREVIOUS
 	if (!config_changed)
 		return;
 
@@ -2361,13 +2383,16 @@ STATIC_INLINE void wait_memory_cycles (void)
 
 STATIC_INLINE int adjust_cycles (int cycles)
 {
+#ifndef WINUAE_FOR_HATARI
 	int mc = regs.memory_waitstate_cycles;
 	regs.memory_waitstate_cycles = 0;
-	if (currprefs.m68k_speed < 0 || cycles_mult == 0)
-		return cycles + mc;
 	cycles *= cycles_mult;
 	cycles /= CYCLES_DIV;
 	return cycles + mc;
+#else
+	/* Don't adjust cycles in Hatari, return the same value */
+	return cycles;
+#endif
 }
 
 void m68k_cancel_idle(void)
@@ -2412,7 +2437,7 @@ static void activate_trace(void)
 void checkint(void)
 {
 	doint();
-	if (!(regs.spcflags & SPCFLAG_INT) && (regs.spcflags & SPCFLAG_DOINT))
+	if (!m68k_accurate_ipl && !(regs.spcflags & SPCFLAG_INT) && (regs.spcflags & SPCFLAG_DOINT))
 		set_special(SPCFLAG_INT);
 }
 
@@ -2449,22 +2474,32 @@ static void MakeFromSR_x(int t0trace)
 	SET_ZFLG((regs.sr >> 2) & 1);
 	SET_VFLG((regs.sr >> 1) & 1);
 	SET_CFLG(regs.sr & 1);
+
 	if (regs.t1 == ((regs.sr >> 15) & 1) &&
 		regs.t0 == ((regs.sr >> 14) & 1) &&
 		regs.s  == ((regs.sr >> 13) & 1) &&
 		regs.m  == ((regs.sr >> 12) & 1) &&
 		regs.intmask == ((regs.sr >> 8) & 7))
 		return;
+
 	regs.t1 = (regs.sr >> 15) & 1;
 	regs.t0 = (regs.sr >> 14) & 1;
 	regs.s  = (regs.sr >> 13) & 1;
-	regs.m = (regs.sr >> 12) & 1;
+	regs.m  = (regs.sr >> 12) & 1;
 
 	if (regs.intmask != ((regs.sr >> 8) & 7)) {
-		regs.intmask = (regs.sr >> 8) & 7;
-		if (m68k_interrupt_delay && (regs.ipl[0] > 0 || regs.ipl[1] > 0)) {
-			set_special(SPCFLAG_INT);
+		int newimask = (regs.sr >> 8) & 7;
+		if (m68k_accurate_ipl) {
+			// STOP intmask change enabling already active interrupt: delay it by 1 STOP round
+			if (t0trace < 0 && regs.ipl[0] <= regs.intmask && regs.ipl[0] > newimask && regs.ipl[0] < 7) {
+				regs.ipl[0] = 0;
+			}
+		} else {
+			if (regs.ipl[0] <= regs.intmask && regs.ipl_pin > newimask) {
+				set_special(SPCFLAG_INT);
+			}
 		}
+		regs.intmask = newimask;
 	}
 
 	if (currprefs.cpu_model >= 68020) {
@@ -2524,7 +2559,7 @@ static void MakeFromSR_x(int t0trace)
 	}
 	// Stop SR-modification does not generate T0
 	// If this SR modification set Tx bit, no trace until next instruction.
-	if ((oldt0 && t0trace && currprefs.cpu_model >= 68020) || oldt1) {
+	if (!regs.stopped && ((oldt0 && t0trace && currprefs.cpu_model >= 68020) || oldt1)) {
 		// Always trace if Tx bits were already set, even if this SR modification cleared them.
 		activate_trace();
 	}
@@ -2759,12 +2794,11 @@ static int iack_cycle(int nr)
 #ifndef WINUAE_FOR_HATARI
 	if (1) {
 		// non-autovectored
+		// this is basically normal memory access and takes 4 cycles (without wait states).
 		vector = x_get_byte(0x00fffff1 | ((nr - 24) << 1));
-		if (currprefs.cpu_compatible)
-			x_do_cycles(4 * cpucycleunit);
+		x_do_cycles(4 * cpucycleunit);
 	} else {
 		// autovectored
-
 	}
 #else
 	int iack_start = CPU_IACK_CYCLES_START;
@@ -2992,8 +3026,9 @@ static void Exception_ce000 (int nr)
 		exception_in_exception = 1;
 		x_put_word (m68k_areg (regs, 7) + 4, currpc); // write low address
 #ifndef WINUAE_FOR_PREVIOUS
-		if (interrupt)
+		if (interrupt) {
 			vector_nr = iack_cycle(nr);
+		}
 #endif // WINUAE_FOR_PREVIOUS
 		x_put_word (m68k_areg (regs, 7) + 0, regs.sr); // write SR
 		x_put_word (m68k_areg (regs, 7) + 2, currpc >> 16); // write high address
@@ -3008,10 +3043,11 @@ static void Exception_ce000 (int nr)
 		x_put_word (m68k_areg (regs, 7) + 4, currpc); // write low address
 //fprintf ( stderr , "ex iack1 %d %ld\n" , nr , currcycle );
 #ifndef WINUAE_FOR_PREVIOUS
-		if (interrupt)
+		if (interrupt) {
 			vector_nr = iack_cycle(nr);
-#endif // WINUAE_FOR_PREVIOUS
 //fprintf ( stderr , "ex iack2 %d %ld\n" , nr , currcycle );
+		}
+#endif // WINUAE_FOR_PREVIOUS
 		x_put_word (m68k_areg (regs, 7) + 0, regs.sr); // write SR
 		x_put_word (m68k_areg (regs, 7) + 2, currpc >> 16); // write high address
 	}
@@ -3057,9 +3093,9 @@ kludge_me_do:
 		}
 		return;
 	}
-	m68k_setpc (newpc);
+	m68k_setpc(newpc);
 	branch_stack_push(currpc, currpc);
-	regs.ir = x_get_word (m68k_getpc ()); // prefetch 1
+	regs.ir = x_get_word(m68k_getpc()); // prefetch 1
 	if (hardware_bus_error) {
 		if (nr == 2 || nr == 3) {
 			cpu_halt(CPU_HALT_DOUBLE_FAULT);
@@ -3070,6 +3106,7 @@ kludge_me_do:
 	}
 	regs.ird = regs.ir;
 	x_do_cycles (2 * cpucycleunit);
+// TODO : check 2022/10/19, ifdef tjs necessaire ?
 #ifndef WINUAE_FOR_PREVIOUS
 	/* [NP] IPL should be updated just before the last x_get_word for irc */
 	/* (4 cycles before end of exception), so we need to add 2 cycles now */
@@ -3084,9 +3121,10 @@ kludge_me_do:
 // 		CALL_VAR(PendingInterruptFunction);
 	CycInt_Process();
 #endif
-	regs.ipl_pin = intlev();
-	ipl_fetch_now();
-	regs.irc = x_get_word (m68k_getpc () + 2); // prefetch 2
+	if (m68k_accurate_ipl) {
+		ipl_fetch_next();
+	}
+	regs.irc = x_get_word(m68k_getpc() + 2); // prefetch 2
 	if (hardware_bus_error) {
 		if (nr == 2 || nr == 3) {
 			cpu_halt(CPU_HALT_DOUBLE_FAULT);
@@ -3098,7 +3136,7 @@ kludge_me_do:
 #ifdef JIT
 	set_special (SPCFLAG_END_COMPILE);
 #endif
-	exception_check_trace (nr);
+	exception_check_trace(nr);
 
 //fprintf ( stderr , "ex out %d %ld\n" , nr , currcycle );
 #ifndef WINUAE_FOR_PREVIOUS
@@ -4177,6 +4215,10 @@ uae_u32 REGPARAM2 op_illg (uae_u32 opcode)
 	Exception (4);
 	return 4;
 }
+void REGPARAM2 op_illg_noret(uae_u32 opcode)
+{
+	op_illg(opcode);
+}
 
 #ifdef CPUEMU_0
 
@@ -4520,8 +4562,11 @@ void mmu_op (uae_u32 opcode, uae_u32 extra)
 
 #endif
 
-static void do_trace (void)
+static void do_trace(void)
 {
+	if (regs.stopped) {
+		return;
+	}
 	// need to store PC because of branch instructions
 	regs.trace_pc = m68k_getpc();
 	if (regs.t0 && !regs.t1 && currprefs.cpu_model >= 68020) {
@@ -4777,33 +4822,96 @@ static bool uae_ppc_poll_check_halt(void)
 
 
 // check if interrupt active
-STATIC_INLINE bool time_for_interrupt (void)
+static int time_for_interrupt(void)
+ {
+ 	int ipl = get_ipl();
+	if (ipl > regs.intmask || ipl == 7) {
+		return ipl;
+	}
+	return 0;
+}
+
+// ipl check mid next memory cycle
+void ipl_fetch_next_pre(void)
 {
-	int ipl = get_ipl();
-	return ipl > regs.intmask || ipl == 7;
+	ipl_fetch_next();
+	regs.ipl_evt_pre = get_cycles();
+	regs.ipl_evt_pre_mode = 1;
+}
+
+void ipl_fetch_now_pre(void)
+{
+	ipl_fetch_now();
+	regs.ipl_evt_pre = get_cycles();
+	regs.ipl_evt_pre_mode = 0;
 }
 
 // ipl check was early enough, interrupt possible after current instruction
 void ipl_fetch_now(void)
 {
-	if (regs.ipl[0] != regs.ipl_pin) {
-		regs.ipl[0] = regs.ipl_pin;
-		regs.ipl[1] = 0;
-		set_special(SPCFLAG_INT);
-	}
+	evt_t c = get_cycles();
+
+	regs.ipl_evt = c;
+	regs.ipl[0] = regs.ipl_pin;
+	regs.ipl[1] = 0;
 }
-// ipl check was too late, interrupt possible after following instruction
+
+// ipl check max 4 cycles before end of instruction.
+// interrupt starts after current instruction if IPL was changed earlier.
+// if not early enough: interrupt starts after following instruction.
 void ipl_fetch_next(void)
 {
-	if (regs.ipl[1] != regs.ipl_pin) {
+	evt_t c = get_cycles();
+
+	if (c - regs.ipl_pin_change_evt >= cpuipldelay4) {
+		regs.ipl[0] = regs.ipl_pin;
+		regs.ipl[1] = 0;
+	} else if (c - regs.ipl_pin_change_evt_p >= cpuipldelay2) {
+		regs.ipl[0] = regs.ipl_pin_p;
+		regs.ipl[1] = 0;
+	} else {
 		regs.ipl[1] = regs.ipl_pin;
-		set_special(SPCFLAG_INT);
 	}
 }
 
 void intlev_load(void)
 {
+	if (m68k_accurate_ipl) {
+		ipl_fetch_now();
+	}
 	doint();
+}
+
+static void update_ipl(int ipl)
+{
+	evt_t c = get_cycles();
+	regs.ipl_pin_change_evt_p = regs.ipl_pin_change_evt;
+	regs.ipl_pin_p = regs.ipl_pin;
+	regs.ipl_pin_change_evt = c;
+	regs.ipl_pin = ipl;
+	if (m68k_accurate_ipl) {
+		// check if 68000/010 interrupt was detected mid memory access,
+		// 2 cycles from start of memory cycle
+		if (ipl > 0 && c == regs.ipl_evt_pre + cpuipldelay2) {
+			if (regs.ipl_evt_pre_mode) {
+				ipl_fetch_next();
+			} else {
+				ipl_fetch_now();
+			}
+		}
+	}
+#ifndef WINUAE_FOR_HATARI
+#ifdef DEBUGGER
+	if (debug_dma) {
+		record_dma_ipl(current_hpos(), vpos);
+	}
+#endif
+#endif
+}
+
+static void doint_delayed(uae_u32 v)
+{
+	update_ipl(v);
 }
 
 void doint(void)
@@ -4815,19 +4923,29 @@ void doint(void)
 			return;
 	}
 #endif
-	int il = intlev();
-	regs.ipl_pin = il;
-#ifdef DEBUGGER
+	int ipl = intlev();
+
+	if (regs.ipl_pin != ipl) {
 #ifndef WINUAE_FOR_HATARI
-	if (debug_dma) {
-		record_dma_ipl(current_hpos(), vpos);
+		// Paula does low to high IPL changes about 1.5 CPU clocks later than high to low.
+		// -> CPU detects IPL change 1 CCK later if any IPL pin has high to low transition.
+		// (In real world IPL is active low and delay is added if 0 to 1 transition)
+		if (m68k_accurate_ipl && regs.ipl_pin >= 0 && ipl >= 0 && (
+			((regs.ipl_pin & 1) && !(ipl & 1)) ||
+			((regs.ipl_pin & 2) && !(ipl & 2)) ||
+			((regs.ipl_pin & 4) && !(ipl & 4))
+			)) {
+				event2_newevent_xx(-1, CYCLE_UNIT, ipl, doint_delayed);
+				return;
+		}
+#endif
+
+		update_ipl(ipl);
 	}
-#endif
-#endif
 //fprintf ( stderr , "doint1 %d ipl=%x ipl_pin=%x intmask=%x spcflags=%x\n" , m68k_interrupt_delay,regs.ipl, regs.ipl_pin , regs.intmask, regs.spcflags );
 	if (m68k_interrupt_delay) {
 //fprintf ( stderr , "doint2 %d ipl=%x ipl_pin=%x intmask=%x spcflags=%x\n" , m68k_interrupt_delay,regs.ipl, regs.ipl_pin , regs.intmask, regs.spcflags );
-		if (regs.ipl_pin > 0) {
+		if (!m68k_accurate_ipl && regs.ipl_pin > regs.intmask) {
 			set_special(SPCFLAG_INT);
 		}
 		return;
@@ -4939,16 +5057,10 @@ static int do_specialties (int cycles)
 #ifndef WINUAE_FOR_PREVIOUS // Previous: for now this is done inside the run-loops
 //fprintf ( stderr , "dospec1 %d %d spcflags=%x ipl=%x ipl_pin=%x intmask=%x\n" , m68k_interrupt_delay,time_for_interrupt() , regs.spcflags , regs.ipl , regs.ipl_pin, regs.intmask );
 	if (m68k_interrupt_delay) {
-		if (time_for_interrupt()) {
+		int ipl = time_for_interrupt();
+		if (ipl) {
 			unset_special(SPCFLAG_INT);
-			do_interrupt(get_ipl());
-		} else {
-			if (regs.ipl[0] == regs.ipl[1]) {
-				unset_special(SPCFLAG_INT);
-			} else {
-				regs.ipl[0] = regs.ipl[1];
-				regs.ipl[1] = 0;
-			}
+			do_interrupt(ipl);
 		}
 	} else {
 		if (regs.spcflags & SPCFLAG_INT) {
@@ -5097,8 +5209,9 @@ static void m68k_run_1 (void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_1\n");
+	CpuRunFuncNoret = false;
 #endif
 
 	while (!exit) {
@@ -5111,7 +5224,7 @@ static void m68k_run_1 (void)
 
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -5166,7 +5279,7 @@ static void m68k_run_1 (void)
 					MFP_UpdateIRQ_All ( 0 );
 #endif
 
-				if (r->spcflags) {
+				if (r->spcflags || regs.ipl[0] > 0) {
 					if (do_specialties (cpu_cycles))
 						exit = true;
 				}
@@ -5212,6 +5325,7 @@ static void m68k_run_1_ce (void)
 #ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_1_ce\n");
 	CpuRunCycleExact = true;
+	CpuRunFuncNoret = true;
 #endif
 
 	while (!exit) {
@@ -5237,7 +5351,7 @@ static void m68k_run_1_ce (void)
 							Exception (cputrace.state);
 						} else if (cputrace.state == 1) {
 							write_log (_T("CPU TRACE: %04X\n"), cputrace.opcode);
-							(*cpufunctbl[cputrace.opcode])(cputrace.opcode);
+							(*cpufunctbl_noret[cputrace.opcode])(cputrace.opcode);
 						}
 					} else {
 						write_log (_T("CPU TRACE: STOPPED\n"));
@@ -5254,7 +5368,7 @@ static void m68k_run_1_ce (void)
 
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -5313,7 +5427,7 @@ static void m68k_run_1_ce (void)
 				}
 #endif
 
-				(*cpufunctbl[r->opcode])(r->opcode);
+				(*cpufunctbl_noret[r->opcode])(r->opcode);
 				if (!regs.loop_mode)
 					regs.ird = regs.opcode;
 				regs.instruction_cnt++;
@@ -5344,10 +5458,13 @@ cont:
 #endif
 				}
 
-				if (r->spcflags) {
+				if (r->spcflags || regs.ipl[0] > 0) {
 					if (do_specialties (0))
 						exit = true;
 				}
+
+				regs.ipl[0] = regs.ipl[1];
+				regs.ipl[1] = 0;
 
 #ifndef WINUAE_FOR_PREVIOUS
 				if ( savestate_state == STATE_SAVE )
@@ -5831,6 +5948,7 @@ static void m68k_run_jit(void)
 {
 #ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_jit\n");
+	CpuRunFuncNoret = false;
 #endif
 #ifdef WITH_THREADED_CPU
 	if (currprefs.cpu_thread) {
@@ -5846,7 +5964,7 @@ static void m68k_run_jit(void)
 			for (;;) {
 #ifdef WINUAE_FOR_HATARI
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -5973,9 +6091,7 @@ void cpu_halt (int id)
 	}
 	set_special(SPCFLAG_CHECK);
 #else
-	write_log (_T("CPU halted: reason = %d PC=%08x\n"), id, M68K_GETPC);
-	if (!DlgAlert_Query("Fatal error: CPU halted!\n\nPress OK to restart CPU or cancel to quit."))
-		set_special(SPCFLAG_BRK);
+	Dialog_HaltDlg();
 #endif
 }
 
@@ -5988,8 +6104,9 @@ static void m68k_run_mmu060 (void)
 	int halt = 0;
 
 	check_halt();
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG,  "m68k_run_mmu060\n");
+	CpuRunFuncNoret = false;
 #endif
 
 	while (!halt) {
@@ -5998,7 +6115,7 @@ static void m68k_run_mmu060 (void)
 			for (;;) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -6020,7 +6137,7 @@ static void m68k_run_mmu060 (void)
 				count_instr (regs.opcode);
 				cpu_cycles = (*cpufunctbl[regs.opcode])(regs.opcode);
 
-				cpu_cycles = adjust_cycles (cpu_cycles);
+				cpu_cycles = adjust_cycles(cpu_cycles);
 				regs.instruction_cnt++;
 #ifndef WINUAE_FOR_PREVIOUS
 				M68000_AddCycles(cpu_cycles * 2 / CYCLE_UNIT);
@@ -6079,8 +6196,8 @@ static void m68k_run_mmu040 (void)
 {
 	struct flag_struct f;
 	int halt     = 0;
-    int intr     = 0;
-    int lastintr = 0;
+	int intr     = 0;
+	int lastintr = 0;
 
 	check_halt();
 #ifdef WINUAE_FOR_HATARI
@@ -6104,27 +6221,27 @@ static void m68k_run_mmu040 (void)
 				cpu_cycles = (*cpufunctbl[regs.opcode])(regs.opcode);
 
 #ifdef WINUAE_FOR_HATARI
-                M68000_AddCycles(cpu_cycles);
-				
-                run_other_MPUs();
+				M68000_AddCycles(cpu_cycles);
+
+				run_other_MPUs();
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
 				/* and prevent exiting the STOP state when calling do_specialties() after. */
 				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-                while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) ) {
-                    CALL_VAR(PendingInterrupt.pFunction);		/* call the interrupt handler */
-                }
-                
-                /* Previous: for now we poll the interrupt pins with every instruction.
-                 * TODO: only do this when an actual interrupt is active to not
-                 * unneccessarily slow down emulation.
-                 */
-                intr = intlev ();
-                if (intr>regs.intmask || (intr==7 && intr>lastintr))
-                    Exception (intr + 24);
-                lastintr = intr;
+				while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) ) {
+					CALL_VAR(PendingInterrupt.pFunction);		/* call the interrupt handler */
+				}
+
+				/* Previous: for now we poll the interrupt pins with every instruction.
+				 * TODO: only do this when an actual interrupt is active to not
+				 * unneccessarily slow down emulation.
+				 */
+				intr = intlev ();
+				if (intr>regs.intmask || (intr==7 && intr>lastintr))
+					Exception (intr + 24);
+				lastintr = intr;
 #endif
 
 				if (regs.spcflags) {
@@ -6162,8 +6279,8 @@ static void m68k_run_mmu030 (void)
 {
 	struct flag_struct f;
 	int halt     = 0;
-    int intr     = 0;
-    int lastintr = 0;
+	int intr     = 0;
+	int lastintr = 0;
 
 #ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG,  "m68k_run_mmu030\n");
@@ -6218,9 +6335,9 @@ insretry:
 					mmu030_idx = 0;
 
 					mmu030_retry = false;
-					
+
 					cpu_cycles = (*cpufunctbl[regs.opcode])(regs.opcode);
-					
+
 					cnt--; // so that we don't get in infinite loop if things go horribly wrong
 					if (!mmu030_retry)
 						break;
@@ -6236,9 +6353,9 @@ insretry:
 
 #ifdef WINUAE_FOR_HATARI
 				M68000_AddCycles(cpu_cycles);
-				
+
 				run_other_MPUs();
-				
+
 				/* We can have several interrupts at the same time before the next CPU instruction */
 				/* We must check for pending interrupt and call do_specialties_interrupt() only */
 				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
@@ -6306,6 +6423,7 @@ static void m68k_run_3ce (void)
 #ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_3ce\n");
 	CpuRunCycleExact = true;
+	CpuRunFuncNoret = true;
 #endif
 
 	while (!exit) {
@@ -6314,7 +6432,7 @@ static void m68k_run_3ce (void)
 			while (!exit) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -6335,7 +6453,7 @@ static void m68k_run_3ce (void)
 				}
 #endif
 
-				(*cpufunctbl[r->opcode])(r->opcode);
+				(*cpufunctbl_noret[r->opcode])(r->opcode);
 
 #ifndef WINUAE_FOR_PREVIOUS
 //fprintf ( stderr, "cyc_3ce %ld\n" , currcycle );
@@ -6401,8 +6519,9 @@ static void m68k_run_3p(void)
 	bool exit = false;
 	int cycles;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_3p\n");
+	CpuRunFuncNoret = true;
 #endif
 
 	while (!exit)  {
@@ -6411,7 +6530,7 @@ static void m68k_run_3p(void)
 			while (!exit) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -6431,7 +6550,7 @@ static void m68k_run_3p(void)
 				}
 #endif
 
-				(*cpufunctbl[r->opcode])(r->opcode);
+				(*cpufunctbl_noret[r->opcode])(r->opcode);
 
 #ifndef WINUAE_FOR_HATARI
 				cpu_cycles = 1 * CYCLE_UNIT;
@@ -6502,6 +6621,7 @@ static void m68k_run_2ce (void)
 #ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_2ce\n");
 	CpuRunCycleExact = true;
+	CpuRunFuncNoret = true;
 #endif
 
 	while (!exit) {
@@ -6529,12 +6649,12 @@ static void m68k_run_2ce (void)
 					memcpy(&r->prefetch020_valid, &cputrace.prefetch020_valid, CPU_PIPELINE_MAX * sizeof(uae_u8));
 					memcpy(&caches020, &cputrace.caches020, sizeof caches020);
 
-					m68k_setpc (cputrace.pc);
+					m68k_setpc(cputrace.pc);
 					if (!r->stopped) {
 						if (cputrace.state > 1)
 							Exception (cputrace.state);
 						else if (cputrace.state == 1)
-							(*cpufunctbl[cputrace.opcode])(cputrace.opcode);
+							(*cpufunctbl_noret[cputrace.opcode])(cputrace.opcode);
 					}
 					set_cpu_tracer (false);
 					goto cont;
@@ -6549,7 +6669,7 @@ static void m68k_run_2ce (void)
 #endif
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -6636,7 +6756,7 @@ fprintf ( stderr , "cache valid %d tag1 %x lws1 %x ctag %x data %x mem=%x\n" , c
 				}
 #endif
 
-				(*cpufunctbl[r->opcode])(r->opcode);
+				(*cpufunctbl_noret[r->opcode])(r->opcode);
 		
 				wait_memory_cycles();
 				regs.instruction_cnt++;
@@ -6661,11 +6781,11 @@ fprintf ( stderr , "cache valid %d tag1 %x lws1 %x ctag %x data %x mem=%x\n" , c
 #endif
 
 		cont:
-				regs.ipl[0] = regs.ipl_pin;
-				if (r->spcflags || time_for_interrupt ()) {
+				if (r->spcflags || regs.ipl[0] > 0) {
 					if (do_specialties (0))
 						exit = true;
 				}
+				ipl_fetch_now();
 
 #ifndef WINUAE_FOR_PREVIOUS
 				/* Run DSP 56k code if necessary */
@@ -6683,7 +6803,7 @@ fprintf ( stderr , "cache valid %d tag1 %x lws1 %x ctag %x data %x mem=%x\n" , c
 			}
 		} CATCH(prb) {
 			bus_error();
-			regs.ipl[0] = regs.ipl_pin;
+			ipl_fetch_now();
 			if (r->spcflags || time_for_interrupt()) {
 				if (do_specialties(0))
 					exit = true;
@@ -6701,8 +6821,9 @@ static void m68k_run_2p (void)
 	bool exit = false;
 	bool first = true;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_2p\n");
+	CpuRunFuncNoret = false;
 #endif
 
 	while (!exit) {
@@ -6748,7 +6869,7 @@ static void m68k_run_2p (void)
 			while (!exit) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -6858,7 +6979,7 @@ cont:
 					MFP_UpdateIRQ_All ( 0 );
 #endif
 
-				if (r->spcflags) {
+				if (r->spcflags || regs.ipl[0] > 0) {
 					if (do_specialties (cpu_cycles))
 						exit = true;
 				}
@@ -6935,8 +7056,9 @@ static void m68k_run_2_000(void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_2_000\n");
+	CpuRunFuncNoret = false;
 #endif
 
 	while (!exit) {
@@ -6945,7 +7067,7 @@ static void m68k_run_2_000(void)
 			while (!exit) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -7027,8 +7149,9 @@ static void m68k_run_2_020(void)
 	struct regstruct *r = &regs;
 	bool exit = false;
 
-#ifdef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	Log_Printf(LOG_DEBUG, "m68k_run_2_020\n");
+	CpuRunFuncNoret = false;
 #endif
 
 	while (!exit) {
@@ -7037,7 +7160,7 @@ static void m68k_run_2_020(void)
 			while (!exit) {
 #ifndef WINUAE_FOR_PREVIOUS
 				//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-				if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+				if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 				{
 					int FrameCycles, HblCounterVideo, LineCycles;
 					Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -7114,7 +7237,7 @@ static void m68k_run_mmu (void)
 	for (;;) {
 #ifdef WINUAE_FOR_HATARI
 		//m68k_dumpstate_file(stderr, NULL, 0xffffffff);
-		if (LOG_TRACE_LEVEL(TRACE_CPU_DISASM))
+		if ((LOG_TRACE_LEVEL(TRACE_CPU_DISASM)) && (!regs.stopped))
 		{
 			int FrameCycles, HblCounterVideo, LineCycles;
 			Video_GetPosition ( &FrameCycles , &HblCounterVideo , &LineCycles );
@@ -7189,12 +7312,13 @@ void m68k_go (int may_quit)
 		int restored = 0;
 		void (*run_func)(void);
 
+#ifdef WINUAE_FOR_PREVIOUS
+		if (regs.spcflags & SPCFLAG_BRK) {
+			unset_special(SPCFLAG_BRK);
+			break;
+		}
+#endif
 #ifdef WINUAE_FOR_HATARI
-        if (regs.spcflags & SPCFLAG_BRK) {
-            unset_special(SPCFLAG_BRK);
-            break;
-        }
-
 		/* Exit hatari ? */
 		if (bQuitProgram == true)
 			break;
@@ -7822,18 +7946,28 @@ uae_u8 *restore_cpu (uae_u8 *src)
 
 	regs.pipeline_pos = -1;
 	regs.pipeline_stop = 0;
-	if (flags & 0x4000000 && currprefs.cpu_model == 68020) {
+	if ((flags & 0x4000000) && currprefs.cpu_model == 68020) {
 		regs.pipeline_pos = restore_u16();
 		regs.pipeline_r8[0] = restore_u16();
 		regs.pipeline_r8[1] = restore_u16();
 		regs.pipeline_stop = restore_u16();
 	}
 
-	if (flags & 0x2000000 && currprefs.cpu_model <= 68010) {
-		restore_u32();
+	if ((flags & 0x2000000) && currprefs.cpu_model <= 68010) {
+		int v = restore_u32();
 		regs.ird = restore_u16();
 		regs.read_buffer = restore_u16();
 		regs.write_buffer = restore_u16();
+		if (v & 1) {
+			regs.ipl[0] = restore_u8();
+			regs.ipl[1] = restore_u8();
+			regs.ipl_pin = (uae_s32)restore_u8();
+			regs.ipl_pin_p = (uae_s32)restore_u8();
+			regs.ipl_evt = restore_u64();
+			regs.ipl_evt_pre = restore_u64();
+			regs.ipl_pin_change_evt = restore_u64();
+			regs.ipl_pin_change_evt_p = restore_u64();
+		}
 	}
 
 	m68k_reset_sr();
@@ -8265,10 +8399,18 @@ uae_u8 *save_cpu(size_t *len, uae_u8 *dstptr)
 		save_u16(regs.pipeline_stop);
 	}
 	if (currprefs.cpu_model <= 68010) {
-		save_u32(0);
+		save_u32(1);
 		save_u16(regs.ird);
 		save_u16(regs.read_buffer);
 		save_u16(regs.write_buffer);
+		save_u8(regs.ipl[0]);
+		save_u8(regs.ipl[1]);
+		save_u8(regs.ipl_pin);
+		save_u8(regs.ipl_pin_p);
+		save_u64(regs.ipl_evt);
+		save_u64(regs.ipl_evt_pre);
+		save_u64(regs.ipl_pin_change_evt);
+		save_u64(regs.ipl_pin_change_evt_p);
 	}
 	*len = dst - dstbak;
 	return dstbak;
@@ -9433,37 +9575,59 @@ static void fill_icache030(uae_u32 addr)
 //fprintf ( stderr , "fill ica %x -> update %x\n" , addr , data );
 			update_icache030 (c, data, tag, lws);
 		}
-		if ((mmu030_cache_state & CACHE_ENABLE_INS_BURST) && (regs.cacr & 0x11) == 0x11 && (c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1)) {
+
+		// Do burst fetch if enabled, cache is not frozen, all line slots invalid, and 32-bit CPU local bus (no chip ram).
+		//
+		// Burst cycles 2-4 are handled by the 030 bus controller rather than the sequencing unit.
+		// The MMU only translates the first cache fetch (above) and the following 3 fetches increment
+		// address lines A2-A3 (optionally via external hardware).  If a bus error occurs, no exception
+		// is generated and the remaining cache line slots are left invalid.
+		//
+		if ((mmu030_cache_state & CACHE_ENABLE_INS_BURST) && (regs.cacr & 0x11) == 0x11) {
+			if (c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1) {
 //fprintf ( stderr , "fill ica %x -> burst %x\n" , addr , data );
-			// do burst fetch if cache enabled, not frozen, all slots invalid, no chip ram
-			int i;
-			for (i = 0; i < 4; i++) {
-				if (c->valid[i])
-					break;
-			}
-			uaecptr baddr = addr & ~15;
-			if (currprefs.mmu_model) {
-				TRY (prb) {
-					if (currprefs.cpu_cycle_exact)
-						do_cycles_ce020(3 * (CPU020_MEM_CYCLE - 1));
-					for (int j = 0; j < 3; j++) {
-						i++;
-						i &= 3;
-						c->data[i] = icache_fetch(baddr + i * 4);
-						c->valid[i] = true;
-					}
-				} CATCH (prb) {
-					; // abort burst fetch if bus error, do not report it.
-				} ENDTRY
-			} else {
-				for (int j = 0; j < 3; j++) {
-					i++;
-					i &= 3;
-					c->data[i] = icache_fetch(baddr + i * 4);
-					c->valid[i] = true;
+				uaecptr physaddr = addr;
+				if (currprefs.mmu_model) {
+					physaddr = mmu030_translate(addr, regs.s != 0, false, false);
 				}
-				if (currprefs.cpu_cycle_exact)
-					do_cycles_ce020_mem (3 * (CPU020_MEM_CYCLE - 1), c->data[3]);
+
+#ifndef WINUAE_FOR_PREVIOUS
+				if (ce_banktype[physaddr >> 16] == CE_MEMBANK_FAST32) {
+					int i;
+					for (i = 0; i < 4; i++) {
+						if (c->valid[i])
+							break;
+					}
+					uaecptr baddr = physaddr & ~15;
+
+					if (currprefs.mmu_model) {
+						TRY (prb) {
+							// TODO: Need memory functions for burst row and burst column access.
+							for (int j = 0; j < 3; j++) {
+								i++;
+								i &= 3;
+								c->data[i] = get_longi(baddr + i * 4);
+								c->valid[i] = true;
+
+								if (currprefs.cpu_cycle_exact)
+									do_cycles_ce020_mem(1 * (CPU020_MEM_CYCLE - 1), c->data[i]);
+							}
+						} CATCH (prb) {
+							; // abort burst fetch if bus error, do not report it.
+						} ENDTRY
+					} else {
+						for (int j = 0; j < 3; j++) {
+							i++;
+							i &= 3;
+							c->data[i] = get_longi(baddr + i * 4);
+							c->valid[i] = true;
+
+							if (currprefs.cpu_cycle_exact)
+								do_cycles_ce020_mem(1 * (CPU020_MEM_CYCLE - 1), c->data[i]);
+						}
+					}
+				}
+#endif // WINUAE_FOR_PREVIOUS
 			}
 		}
 	}
@@ -9621,37 +9785,51 @@ void write_dcache030_retry(uaecptr addr, uae_u32 v, uae_u32 fc, int size, int fl
 
 static void dcache030_maybe_burst(uaecptr addr, struct cache030 *c, int lws)
 {
-	if ((c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1)/* && ce_banktype[addr >> 16] == CE_MEMBANK_FAST32*/) {
-		// do burst fetch if cache enabled, not frozen, all slots invalid, no chip ram
-		int i;
-		uaecptr baddr = addr & ~15;
-		for (i = 0; i < 4; i++) {
-			if (c->valid[i])
-				break;
-		}
+	// Do burst fetch if enabled, cache not frozen, all line slots invalid, and 32-bit CPU local bus (no chip ram).
+	// (See notes about burst fetches in icache routines)
+	if (c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1) {
+		uaecptr physaddr = addr;
 		if (currprefs.mmu_model) {
-			TRY (prb) {
-				if (currprefs.cpu_cycle_exact)
-					do_cycles_ce020(3 * (CPU020_MEM_CYCLE - 1));
+			physaddr = mmu030_translate(addr, regs.s != 0, false, false);
+		}
+
+#ifndef WINUAE_FOR_PREVIOUS
+		if (ce_banktype[physaddr >> 16] == CE_MEMBANK_FAST32) {
+			int i;
+			for (i = 0; i < 4; i++) {
+				if (c->valid[i])
+					break;
+			}
+			uaecptr baddr = physaddr & ~15;
+
+			if (currprefs.mmu_model) {
+				TRY (prb) {
+					// TODO: Need memory functions for burst row and burst column access.
+					for (int j = 0; j < 3; j++) {
+						i++;
+						i &= 3;
+						c->data[i] = get_long(baddr + i * 4);
+						c->valid[i] = true;
+
+						if (currprefs.cpu_cycle_exact)
+							do_cycles_ce020_mem(1 * (CPU020_MEM_CYCLE - 1), c->data[i]);
+					}
+				} CATCH (prb) {
+					; // abort burst fetch if bus error
+				} ENDTRY
+			} else {
 				for (int j = 0; j < 3; j++) {
 					i++;
 					i &= 3;
-					c->data[i] = dcache_lget (baddr + i * 4);
+					c->data[i] = get_long(baddr + i * 4);
 					c->valid[i] = true;
+
+					if (currprefs.cpu_cycle_exact)
+						do_cycles_ce020_mem(1 * (CPU020_MEM_CYCLE - 1), c->data[i]);
 				}
-			} CATCH (prb) {
-				; // abort burst fetch if bus error
-			} ENDTRY
-		} else {
-			for (int j = 0; j < 3; j++) {
-				i++;
-				i &= 3;
-				c->data[i] = dcache_lget (baddr + i * 4);
-				c->valid[i] = true;
 			}
-			if (currprefs.cpu_cycle_exact)
-				do_cycles_ce020_mem (3 * (CPU020_MEM_CYCLE - 1), c->data[i]);
 		}
+#endif // WINUAE_FOR_PREVIOUS
 #if VALIDATE_68030_DATACACHE
 		validate_dcache030();
 #endif
@@ -10645,7 +10823,7 @@ void put_word_cache_040(uaecptr addr, uae_u32 v)
 }
 void put_byte_cache_040(uaecptr addr, uae_u32 v)
 {
-	return write_dcache040(addr, v, 0, dcache_bput);
+	write_dcache040(addr, v, 0, dcache_bput);
 }
 
 uae_u32 get_long_cache_040(uaecptr addr)

@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.0.18 or later (http://www.libsdl.org)
+  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -161,9 +161,6 @@ input devices.
 Issues in Previous:
   > Un-emulated hardware may cause problems when attempted to being used.
   > NeXTdimension emulation does not work on hosts with big endian byte order.
-  > DSP sound has timing related issues. playscore under NeXTstep 0.9 sometimes 
-    produces bad audio in variable speed mode. ScorePlayer under NeXTstep 2.x 
-    produces distorted sound in normal CPU mode.
   > Shortcuts do not work properly or overlap with host commands on some 
     platforms.
   > CPU timings are not correct. You may experience performance differences 
@@ -313,6 +310,7 @@ Previous v2.6:
 
 Previous v2.7 (unreleased):
   > Adds ability to unlock the mouse cursor with control-click.
+  > Improves behavior of file selection dialog in certain situations.
   > Fixes bug that caused Daydream to hang on start up.
   > Fixes bug that caused NeXTdimension window to start with wrong size.
 

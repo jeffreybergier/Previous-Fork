@@ -1,8 +1,8 @@
 /*
   Hatari - statusbar.c
 
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
   Code to draw statusbar area, floppy leds etc.
 
@@ -15,17 +15,19 @@
     to re-initialize / re-draw the statusbar
   - Call Statusbar_SetFloppyLed() to set floppy drive led ON/OFF,
     or call Statusbar_EnableHDLed() to enabled HD led for a while
-  - Whenever screen is redrawn, call Statusbar_Update() to draw the
-    updated information to the statusbar (outside of screen locking)
-  - If screen redraws may be partial, Statusbar_OverlayRestore()
+  - Whenever screen is redrawn, call Statusbar_Update() to update
+    statusbar contents and find out whether and what screen area
+    needs to be updated (outside of screen locking)
+  - If screen redraws can be partial, Statusbar_OverlayRestore()
     needs to be called before locking the screen for drawing and
     Statusbar_OverlayBackup() needs to be called after screen unlocking,
     but before calling Statusbar_Update().  These are needed for
-    hiding the overlay drive led when drive leds are turned OFF.
+    hiding the overlay drive led (= restoring the area that was below
+    them before LED was shown) when drive leds are turned OFF.
   - If other information shown by Statusbar (TOS version etc) changes,
     call Statusbar_UpdateInfo()
 */
-const char Statusbar_fileid[] = "Hatari statusbar.c : " __DATE__ " " __TIME__;
+const char Statusbar_fileid[] = "Hatari statusbar.c";
 
 #include <assert.h>
 #include "main.h"
@@ -35,6 +37,10 @@ const char Statusbar_fileid[] = "Hatari statusbar.c : " __DATE__ " " __TIME__;
 #include "screen.h"
 #include "video.h"
 #include "dimension.hpp"
+#include "str.h"
+
+#include <SDL.h>
+
 
 #define DEBUG 0
 #if DEBUG
@@ -47,7 +53,7 @@ const char Statusbar_fileid[] = "Hatari statusbar.c : " __DATE__ " " __TIME__;
 static struct {
 	bool state;
 	bool oldstate;
-	Uint32 expire;	/* when to disable led, valid only if >0 && state=TRUE */
+	uint32_t expire;	/* when to disable led, valid only if >0 && state=TRUE */
 	int offset;	/* led x-pos on screen */
 } Led[NUM_DEVICE_LEDS];
 
@@ -76,16 +82,16 @@ static SDL_Rect NdLedRect;
 static int nOldNdLed;
 
 /* led colors */
-static Uint32 LedColorOn, LedColorOnWP, LedColorOff, SysColorOn, SysColorOff, DspColorOn, DspColorOff;
-static Uint32 NdColorOn, NdColorCS8, NdColorOff;
-static Uint32 GrayBg, LedColorBg;
+static uint32_t LedColorOn, LedColorOnWP, LedColorOff, SysColorOn, SysColorOff, DspColorOn, DspColorOff;
+static uint32_t NdColorOn, NdColorCS8, NdColorOff;
+static uint32_t GrayBg, LedColorBg;
 
 #define MAX_MESSAGE_LEN 69
 typedef struct msg_item {
 	struct msg_item *next;
 	char msg[MAX_MESSAGE_LEN+1];
-	Uint32 timeout;	/* msecs, zero=no timeout */
-	Uint32 expire;  /* when to expire message */
+	uint32_t timeout;	/* msecs, zero=no timeout */
+	uint32_t expire;  /* when to expire message */
 	bool shown;
 } msg_item_t;
 
@@ -324,20 +330,21 @@ void Statusbar_Init(SDL_Surface *surf)
 	bOldSystemLed = false;
 
 	/* and blit statusbar on screen */
-	SDL_UpdateRects(surf, 1, &sbarbox);
+	Screen_UpdateRects(surf, 1, &sbarbox);
 	DEBUGPRINT(("Draw statusbar\n"));
 }
 
 
 /*-----------------------------------------------------------------------*/
 /**
- * Qeueue new statusbar message 'msg' to be shown for 'msecs' milliseconds
+ * Queue new statusbar message 'msg' to be shown for 'msecs' milliseconds
  */
-void Statusbar_AddMessage(const char *msg, Uint32 msecs)
+void Statusbar_AddMessage(const char *msg, uint32_t msecs)
 {
 	msg_item_t *item;
 
-	if (!ConfigureParams.Screen.bShowStatusbar) {
+	if (!ConfigureParams.Screen.bShowStatusbar)
+	{
 		/* no sense in queuing messages that aren't shown */
 		return;
 	}
@@ -347,13 +354,15 @@ void Statusbar_AddMessage(const char *msg, Uint32 msecs)
 	item->next = MessageList;
 	MessageList = item;
 
-	strncpy(item->msg, msg, MAX_MESSAGE_LEN);
-	item->msg[MAX_MESSAGE_LEN] = '\0';
+	Str_Copy(item->msg, msg, sizeof(item->msg));
 	DEBUGPRINT(("Add message: '%s'\n", item->msg));
 
-	if (msecs) {
+	if (msecs)
+	{
 		item->timeout = msecs;
-	} else {
+	}
+	else
+	{
 		/* show items by default for 2.5 secs */
 		item->timeout = 2500;
 	}
@@ -366,7 +375,8 @@ void Statusbar_AddMessage(const char *msg, Uint32 msecs)
  */
 static char *Statusbar_AddString(char *buffer, const char *more)
 {
-	while(*more) {
+	while (*more)
+	{
 		*buffer++ = *more++;
 	}
 	return buffer;
@@ -465,7 +475,7 @@ static void Statusbar_DrawMessage(SDL_Surface *surf, const char *msg)
 		offset = (MessageRect.w - strlen(msg) * fontw) / 2;
 		SDLGui_Text(MessageRect.x + offset, MessageRect.y, msg);
 	}
-	SDL_UpdateRects(surf, 1, &MessageRect);
+	Screen_UpdateRects(surf, 1, &MessageRect);
 	DEBUGPRINT(("Draw message: '%s'\n", msg));
 }
 
@@ -474,7 +484,7 @@ static void Statusbar_DrawMessage(SDL_Surface *surf, const char *msg)
  * If message's not shown, show it.  If message's timed out,
  * remove it and show next one.
  */
-static void Statusbar_ShowMessage(SDL_Surface *surf, Uint32 ticks)
+static void Statusbar_ShowMessage(SDL_Surface *surf, uint32_t ticks)
 {
 	msg_item_t *next;
 
@@ -554,7 +564,7 @@ void Statusbar_OverlayRestore(SDL_Surface *surf)
 /**
  * Draw overlay led
  */
-static void Statusbar_OverlayDrawLed(SDL_Surface *surf, Uint32 color)
+static void Statusbar_OverlayDrawLed(SDL_Surface *surf, uint32_t color)
 {
 	SDL_Rect rect;
 	if (bOverlayState == OVERLAY_DRAWN) {
@@ -579,7 +589,7 @@ static void Statusbar_OverlayDrawLed(SDL_Surface *surf, Uint32 color)
  */
 static void Statusbar_OverlayDraw(SDL_Surface *surf)
 {
-	Uint32 currentticks = SDL_GetTicks();
+	uint32_t currentticks = SDL_GetTicks();
 	int i;
 
 	assert(surf);
@@ -601,7 +611,7 @@ static void Statusbar_OverlayDraw(SDL_Surface *surf)
 	case OVERLAY_RESTORED:
 		bOverlayState = OVERLAY_NONE;
 	case OVERLAY_DRAWN:
-		SDL_UpdateRects(surf, 1, &OverlayLedRect);
+		Screen_UpdateRects(surf, 1, &OverlayLedRect);
 		DEBUGPRINT(("Overlay LED = %s\n", bOverlayState==OVERLAY_DRAWN?"ON":"OFF"));
 		break;
 	case OVERLAY_NONE:
@@ -617,7 +627,7 @@ static void Statusbar_OverlayDraw(SDL_Surface *surf)
  * May not be called when screen is locked (SDL limitation).
  */
 void Statusbar_Update(SDL_Surface *surf) {
-	Uint32 color, currentticks;
+	uint32_t color, currentticks;
 	SDL_Rect rect;
 	int i;
 
@@ -649,7 +659,7 @@ void Statusbar_Update(SDL_Surface *surf) {
 		}
 		rect.x = Led[i].offset;
 		SDL_FillRect(surf, &rect, color);
-		SDL_UpdateRects(surf, 1, &rect);
+		Screen_UpdateRects(surf, 1, &rect);
 	}
 
 	Statusbar_ShowMessage(surf, currentticks);
@@ -661,7 +671,7 @@ void Statusbar_Update(SDL_Surface *surf) {
 		color = DspColorOff;
 	}
 	SDL_FillRect(surf, &DspLedRect, color);
-	SDL_UpdateRects(surf, 1, &DspLedRect);
+	Screen_UpdateRects(surf, 1, &DspLedRect);
 
     /* Draw scr2 LED */
     if (bOldSystemLed) {
@@ -670,7 +680,7 @@ void Statusbar_Update(SDL_Surface *surf) {
         color = SysColorOff;
     }
     SDL_FillRect(surf, &SystemLedRect, color);
-    SDL_UpdateRects(surf, 1, &SystemLedRect);
+    Screen_UpdateRects(surf, 1, &SystemLedRect);
     
     /* Draw NeXTdimension LED */
     switch(nOldNdLed) {
@@ -680,5 +690,5 @@ void Statusbar_Update(SDL_Surface *surf) {
 		default: color = NdColorOff; break;
     }
     SDL_FillRect(surf, &NdLedRect, color);
-    SDL_UpdateRects(surf, 1, &NdLedRect);
+    Screen_UpdateRects(surf, 1, &NdLedRect);
 }

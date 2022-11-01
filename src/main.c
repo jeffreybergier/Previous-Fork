@@ -1,16 +1,18 @@
 /*
   Hatari - main.c
 
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
   Main initialization and event handling routines.
 */
-const char Main_fileid[] = "Hatari main.c : " __DATE__ " " __TIME__;
+const char Main_fileid[] = "Hatari main.c";
 
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
+
+#include <SDL.h>
 
 #include "main.h"
 #include "configuration.h"
@@ -52,29 +54,29 @@ static bool bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignore
 
 volatile int mainPauseEmulation;
 
-typedef const char* (*report_func)(Uint64 realTime, Uint64 hostTime);
+typedef const char* (*report_func)(uint64_t realTime, uint64_t hostTime);
 
 typedef struct {
     const char*       label;
     const report_func report;
 } report_t;
 
-static Uint64 lastRT;
-static Uint64 lastCycles;
-static double speedFactor;
-static char   speedMsg[32];
+static uint64_t lastRT;
+static uint64_t lastCycles;
+static double   speedFactor;
+static char     speedMsg[32];
 
-static void Main_Speed(Uint64 realTime, Uint64 hostTime) {
-    Uint64  dRT  = realTime - lastRT;
-    speedFactor  = (nCyclesMainCounter - lastCycles);
-    speedFactor /= ConfigureParams.System.nCpuFreq;
-    speedFactor /= dRT;
-    lastRT       = realTime;
-    lastCycles   = nCyclesMainCounter;
+static void Main_Speed(uint64_t realTime, uint64_t hostTime) {
+    uint64_t dRT  = realTime - lastRT;
+    speedFactor   = (nCyclesMainCounter - lastCycles);
+    speedFactor  /= ConfigureParams.System.nCpuFreq;
+    speedFactor  /= dRT;
+    lastRT        = realTime;
+    lastCycles    = nCyclesMainCounter;
 }
 
 void Main_SpeedReset(void) {
-    Uint64 realTime, hostTime;
+    uint64_t realTime, hostTime;
     host_time(&realTime, &hostTime);
     lastRT     = realTime;
     lastCycles = nCyclesMainCounter;
@@ -179,7 +181,7 @@ void Main_RequestQuit(void) {
 
 	if (bQuitProgram) {
 		/* Assure that CPU core shuts down */
-		M68000_SetSpecial(SPCFLAG_BRK);
+		M68000_Stop();
 	}
 }
 
@@ -284,8 +286,8 @@ void Main_EventHandler(void) {
     int events;
     
     if(++statusBarUpdate > 400) {
-        Uint64 vt;
-        Uint64 rt;
+        uint64_t vt;
+        uint64_t rt;
         host_time(&rt, &vt);
 #if ENABLE_TESTING
         fprintf(stderr, "[reports]");
@@ -317,7 +319,7 @@ void Main_EventHandler(void) {
         }
         
         if (bEmulationActive) {
-            Sint64 time_offset = host_real_time_offset() / 1000;
+            int64_t time_offset = host_real_time_offset() / 1000;
             if(time_offset > 10)
                 events = SDL_WaitEventTimeout(&event, time_offset);
             else
@@ -340,7 +342,7 @@ void Main_EventHandler(void) {
             case SDL_WINDOWEVENT:
                 switch(event.window.event) {
                     case SDL_WINDOWEVENT_CLOSE:
-                        SDL_WaitEventTimeout(&event, 100); // grab SDL_Quit if pending
+                        SDL_FlushEvent(SDL_QUIT); // remove SDL_Quit if pending
                         Main_RequestQuit();
                         break;
                     case SDL_WINDOWEVENT_RESIZED:
@@ -587,29 +589,23 @@ static void Main_SetSignalHandlers(void) {
  * 
  * Note: 'argv' cannot be declared const, MinGW would then fail to link.
  */
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	/* Generate random seed */
 	srand(time(NULL));
-    
+
     /* Set signal handlers */
     Main_SetSignalHandlers();
 
 	/* Initialize directory strings */
 	Paths_Init(argv[0]);
 
-	/* Set default configuration values: */
+	/* Set default configuration values */
 	Configuration_SetDefault();
 
 	/* Now load the values from the configuration file */
 	Main_LoadInitialConfig();
-    
-#if 0 /* FIXME: This sometimes causes exits when starting from application bundles */
-	/* Check for any passed parameters */
-	if (!Opt_ParseParameters(argc, (const char * const *)argv))
-	{
-		return 1;
-	}
-#endif
+
 	/* monitor type option might require "reset" -> true */
 	Configuration_Apply(true);
 
@@ -617,11 +613,13 @@ int main(int argc, char *argv[]) {
 	Win_OpenCon();
 #endif
 
-	/* Needed on maemo but useful also with normal X11 window managers
-	 * for window grouping when you have multiple Hatari SDL windows open
-	 */
 #if HAVE_SETENV
+	/* Needed on maemo but useful also with normal X11 window managers for
+	 * window grouping when you have multiple Previous SDL windows open */
 	setenv("SDL_VIDEO_X11_WMCLASS", "previous", 1);
+
+	/* Needed for proper behavior of Caps Lock on some systems */
+	setenv("SDL_DISABLE_LOCK_KEYS", "1", 1);
 #endif
 
 	/* Init emulator system */
