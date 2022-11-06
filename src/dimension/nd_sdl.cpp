@@ -71,7 +71,7 @@ void NDSDL::init(void) {
             exit(-1);
         }
         
-        sprintf(name, "[ND] Slot %i: Repainter", slot);
+        snprintf(name, sizeof(name), "[ND] Slot %i: Repainter", slot);
         repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
     }
 
