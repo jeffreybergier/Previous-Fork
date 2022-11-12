@@ -57,8 +57,8 @@ volatile int mainPauseEmulation;
 typedef const char* (*report_func)(uint64_t realTime, uint64_t hostTime);
 
 typedef struct {
-    const char*       label;
-    const report_func report;
+	const char*       label;
+	const report_func report;
 } report_t;
 
 static uint64_t lastRT;
@@ -67,42 +67,42 @@ static double   speedFactor;
 static char     speedMsg[32];
 
 static void Main_Speed(uint64_t realTime, uint64_t hostTime) {
-    uint64_t dRT  = realTime - lastRT;
-    speedFactor   = (nCyclesMainCounter - lastCycles);
-    speedFactor  /= ConfigureParams.System.nCpuFreq;
-    speedFactor  /= dRT;
-    lastRT        = realTime;
-    lastCycles    = nCyclesMainCounter;
+	uint64_t dRT  = realTime - lastRT;
+	speedFactor   = (nCyclesMainCounter - lastCycles);
+	speedFactor  /= ConfigureParams.System.nCpuFreq;
+	speedFactor  /= dRT;
+	lastRT        = realTime;
+	lastCycles    = nCyclesMainCounter;
 }
 
 void Main_SpeedReset(void) {
-    uint64_t realTime, hostTime;
-    host_time(&realTime, &hostTime);
-    lastRT     = realTime;
-    lastCycles = nCyclesMainCounter;
-    
-    Log_Printf(LOG_WARN, "Realtime mode %s.\n", ConfigureParams.System.bRealtime ? "enabled" : "disabled");
+	uint64_t realTime, hostTime;
+	host_time(&realTime, &hostTime);
+	lastRT     = realTime;
+	lastCycles = nCyclesMainCounter;
+
+	Log_Printf(LOG_WARN, "Realtime mode %s.\n", ConfigureParams.System.bRealtime ? "enabled" : "disabled");
 }
 
 const char* Main_SpeedMsg() {
-    speedMsg[0] = 0;
-    if(speedFactor > 0) {
-        if(ConfigureParams.System.bRealtime) {
-            snprintf(speedMsg, sizeof(speedMsg), "%dMHz/", (int)(ConfigureParams.System.nCpuFreq * speedFactor + 0.5));
-        } else {
-            if ((speedFactor < 0.9) || (speedFactor > 1.1))
-                snprintf(speedMsg, sizeof(speedMsg), "%.1fx%dMHz/", speedFactor, ConfigureParams.System.nCpuFreq);
-            else
-                snprintf(speedMsg, sizeof(speedMsg), "%dMHz/",                   ConfigureParams.System.nCpuFreq);
-        }
-    }
-    return speedMsg;
+	speedMsg[0] = 0;
+	if(speedFactor > 0) {
+		if(ConfigureParams.System.bRealtime) {
+			snprintf(speedMsg, sizeof(speedMsg), "%dMHz/", (int)(ConfigureParams.System.nCpuFreq * speedFactor + 0.5));
+		} else {
+			if ((speedFactor < 0.9) || (speedFactor > 1.1))
+				snprintf(speedMsg, sizeof(speedMsg), "%.1fx%dMHz/", speedFactor, ConfigureParams.System.nCpuFreq);
+			else
+				snprintf(speedMsg, sizeof(speedMsg), "%dMHz/",                   ConfigureParams.System.nCpuFreq);
+		}
+	}
+	return speedMsg;
 }
 
 #if ENABLE_TESTING
 static const report_t reports[] = {
-    {"ND",    nd_reports},
-    {"Host",  host_report},
+	{"ND",    nd_reports},
+	{"Host",  host_report},
 };
 #endif
 
@@ -262,14 +262,14 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	nb=SDL_PeepEvents(&mymouse[0], 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
 
 	for (i=0;i<nb;i++) {
-        dx += mymouse[i].motion.xrel;
-        dy += mymouse[i].motion.yrel;
+		dx += mymouse[i].motion.xrel;
+		dy += mymouse[i].motion.yrel;
 	}
 
 	if (bGrabMouse) {
-    	Keymap_MouseMove(dx,dy,ConfigureParams.Mouse.fLinSpeedLocked,ConfigureParams.Mouse.fExpSpeedLocked);
+		Keymap_MouseMove(dx,dy,ConfigureParams.Mouse.fLinSpeedLocked,ConfigureParams.Mouse.fExpSpeedLocked);
 	} else {
-    	Keymap_MouseMove(dx,dy,ConfigureParams.Mouse.fLinSpeedNormal,ConfigureParams.Mouse.fLinSpeedNormal);
+		Keymap_MouseMove(dx,dy,ConfigureParams.Mouse.fLinSpeedNormal,ConfigureParams.Mouse.fLinSpeedNormal);
 	}
 }
 
@@ -281,150 +281,149 @@ static int statusBarUpdate;
  * Here we process the SDL events (keyboard, mouse, ...)
  */
 void Main_EventHandler(void) {
-    bool bContinueProcessing;
-    SDL_Event event;
-    int events;
-    
-    if(++statusBarUpdate > 400) {
-        uint64_t vt;
-        uint64_t rt;
-        host_time(&rt, &vt);
-#if ENABLE_TESTING
-        fprintf(stderr, "[reports]");
-        for(int i = 0; i < sizeof(reports)/sizeof(report_t); i++) {
-            const char* msg = reports[i].report(rt, vt);
-            if(msg[0]) fprintf(stderr, " %s:%s", reports[i].label, msg);
-        }
-        fprintf(stderr, "\n");
-        fflush(stderr);
-#endif
-        Main_Speed(rt, vt);
-        Statusbar_UpdateInfo();
-        statusBarUpdate = 0;
-    }
-    
-    do {
-        bContinueProcessing = false;
-        
-        /* check remote process control from different thread (e.g. i860) */
-        switch(mainPauseEmulation) {
-            case PAUSE_EMULATION:
-                mainPauseEmulation = PAUSE_NONE;
-                Main_PauseEmulation(true);
-                break;
-            case UNPAUSE_EMULATION:
-                mainPauseEmulation = PAUSE_NONE;
-                Main_UnPauseEmulation();
-                break;
-        }
-        
-        if (bEmulationActive) {
-            int64_t time_offset = host_real_time_offset() / 1000;
-            if(time_offset > 10)
-                events = SDL_WaitEventTimeout(&event, time_offset);
-            else
-                events = SDL_PollEvent(&event);
-        }
-        else {
-            ShortCut_ActKey();
-            /* last (shortcut) event activated emulation? */
-            if ( bEmulationActive )
-                break;
-            events = SDL_WaitEvent(&event);
-        }
-        if (!events) {
-            /* no events -> if emulation is active or
-             * user is quitting -> return from function.
-             */
-            continue;
-        }
-        switch (event.type) {
-            case SDL_WINDOWEVENT:
-                switch(event.window.event) {
-                    case SDL_WINDOWEVENT_CLOSE:
-                        SDL_FlushEvent(SDL_QUIT); // remove SDL_Quit if pending
-                        Main_RequestQuit();
-                        break;
-                    case SDL_WINDOWEVENT_RESIZED:
-                        Screen_SizeChanged();
-                        break;
-                    default:
-                        break;
-                }
-                continue;
+	bool bContinueProcessing;
+	SDL_Event event;
+	int events;
 
-            case SDL_QUIT:
-                Main_RequestQuit();
-                break;
-                
-            case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
-                Main_HandleMouseMotion(&event);
-                bContinueProcessing = false;
-                break;
-                
-            case SDL_MOUSEBUTTONDOWN:
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    if (bGrabMouse) {
-                        if (SDL_GetModState() & KMOD_CTRL) {
-                            bGrabMouse = false;
-                            Main_SetMouseGrab(bGrabMouse);
-                            break;
-                        }
-                    } else {
-                        if (ConfigureParams.Mouse.bEnableAutoGrab) {
-                            bGrabMouse = true;
-                            Main_SetMouseGrab(bGrabMouse);
-                            break;
-                        }
-                    }
-                    
-                    Keymap_MouseDown(true);
-                }
-                else if (event.button.button == SDL_BUTTON_RIGHT)
-                {
-                    Keymap_MouseDown(false);
-                }
-                break;
-                
-            case SDL_MOUSEBUTTONUP:
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    Keymap_MouseUp(true);
-                }
-                else if (event.button.button == SDL_BUTTON_RIGHT)
-                {
-                    Keymap_MouseUp(false);
-                }
-                break;
-                
-            case SDL_MOUSEWHEEL:
-                Keymap_MouseWheel(&event.wheel);
-                break;
-                
-            case SDL_KEYDOWN:
-                if (event.key.repeat)
-                    break;
-                
-                Keymap_KeyDown(&event.key.keysym);
-                break;
-                
-            case SDL_KEYUP:
-                Keymap_KeyUp(&event.key.keysym);
-                break;
-                
-                
-            default:
-                /* don't let unknown events delay event processing */
-                bContinueProcessing = true;
-                break;
-        }
-    } while (bContinueProcessing || !(bEmulationActive || bQuitProgram));
+	if(++statusBarUpdate > 400) {
+		uint64_t vt;
+		uint64_t rt;
+		host_time(&rt, &vt);
+#if ENABLE_TESTING
+		fprintf(stderr, "[reports]");
+		for(int i = 0; i < sizeof(reports)/sizeof(report_t); i++) {
+			const char* msg = reports[i].report(rt, vt);
+			if(msg[0]) fprintf(stderr, " %s:%s", reports[i].label, msg);
+		}
+		fprintf(stderr, "\n");
+		fflush(stderr);
+#endif
+		Main_Speed(rt, vt);
+		Statusbar_UpdateInfo();
+		statusBarUpdate = 0;
+	}
+
+	do {
+		bContinueProcessing = false;
+		
+		/* check remote process control from different thread (e.g. i860) */
+		switch(mainPauseEmulation) {
+			case PAUSE_EMULATION:
+				mainPauseEmulation = PAUSE_NONE;
+				Main_PauseEmulation(true);
+				break;
+			case UNPAUSE_EMULATION:
+				mainPauseEmulation = PAUSE_NONE;
+				Main_UnPauseEmulation();
+				break;
+		}
+
+		if (bEmulationActive) {
+			int64_t time_offset = host_real_time_offset() / 1000;
+			if(time_offset > 10)
+				events = SDL_WaitEventTimeout(&event, time_offset);
+			else
+				events = SDL_PollEvent(&event);
+		}
+		else {
+			ShortCut_ActKey();
+			/* last (shortcut) event activated emulation? */
+			if ( bEmulationActive )
+				break;
+			events = SDL_WaitEvent(&event);
+		}
+		if (!events) {
+			/* no events -> if emulation is active or
+			 * user is quitting -> return from function.
+			 */
+			continue;
+		}
+		switch (event.type) {
+			case SDL_WINDOWEVENT:
+				switch(event.window.event) {
+					case SDL_WINDOWEVENT_CLOSE:
+						SDL_FlushEvent(SDL_QUIT); // remove SDL_Quit if pending
+						Main_RequestQuit();
+						break;
+					case SDL_WINDOWEVENT_RESIZED:
+						Screen_SizeChanged();
+						break;
+					default:
+						break;
+				}
+				continue;
+
+			case SDL_QUIT:
+				Main_RequestQuit();
+				break;
+
+			case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
+				Main_HandleMouseMotion(&event);
+				bContinueProcessing = false;
+				break;
+
+			case SDL_MOUSEBUTTONDOWN:
+				if (event.button.button == SDL_BUTTON_LEFT) {
+					if (bGrabMouse) {
+						if (SDL_GetModState() & KMOD_CTRL) {
+							bGrabMouse = false;
+							Main_SetMouseGrab(bGrabMouse);
+							break;
+						}
+					} else {
+						if (ConfigureParams.Mouse.bEnableAutoGrab) {
+							bGrabMouse = true;
+							Main_SetMouseGrab(bGrabMouse);
+							break;
+						}
+					}
+
+					Keymap_MouseDown(true);
+				}
+				else if (event.button.button == SDL_BUTTON_RIGHT)
+				{
+					Keymap_MouseDown(false);
+				}
+				break;
+
+			case SDL_MOUSEBUTTONUP:
+				if (event.button.button == SDL_BUTTON_LEFT) {
+					Keymap_MouseUp(true);
+				}
+				else if (event.button.button == SDL_BUTTON_RIGHT)
+				{
+					Keymap_MouseUp(false);
+				}
+				break;
+
+			case SDL_MOUSEWHEEL:
+				Keymap_MouseWheel(&event.wheel);
+				break;
+
+			case SDL_KEYDOWN:
+				if (event.key.repeat)
+					break;
+
+				Keymap_KeyDown(&event.key.keysym);
+				break;
+
+			case SDL_KEYUP:
+				Keymap_KeyUp(&event.key.keysym);
+				break;
+
+			default:
+				/* don't let unknown events delay event processing */
+				bContinueProcessing = true;
+				break;
+		}
+	} while (bContinueProcessing || !(bEmulationActive || bQuitProgram));
 }
 
 
 void Main_EventHandlerInterrupt() {
-    CycInt_AcknowledgeInterrupt();
-    Main_EventHandler();
-    CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
+	CycInt_AcknowledgeInterrupt();
+	Main_EventHandler();
+	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
 }
 
 /*-----------------------------------------------------------------------*/
@@ -432,10 +431,10 @@ void Main_EventHandlerInterrupt() {
  * Set Hatari window title. Use NULL for default
  */
 void Main_SetTitle(const char *title) {
-    if (title)
-        SDL_SetWindowTitle(sdlWindow, title);
-    else
-        SDL_SetWindowTitle(sdlWindow, PROG_NAME);
+	if (title)
+		SDL_SetWindowTitle(sdlWindow, title);
+	else
+		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -464,29 +463,29 @@ static void Main_Init(void) {
 	M68000_Init();                /* Init CPU emulation */
 	Keymap_Init();
 
-    /* call menu at startup */
-    if (!File_Exists(sConfigFileName) || ConfigureParams.ConfigDialog.bShowConfigDialogAtStartup) {
-        Dialog_DoProperty();
-        if (bQuitProgram) {
-            SDL_Quit();
-            exit(-2);
-        }
-    }
+	/* call menu at startup */
+	if (!File_Exists(sConfigFileName) || ConfigureParams.ConfigDialog.bShowConfigDialogAtStartup) {
+		Dialog_DoProperty();
+		if (bQuitProgram) {
+			SDL_Quit();
+			exit(-2);
+		}
+	}
 
-    Dialog_CheckFiles();
-    
-    if (bQuitProgram) {
-        SDL_Quit();
-        exit(-2);
-    }
-    
-    Reset_Cold();
-    
+	Dialog_CheckFiles();
+
+	if (bQuitProgram) {
+		SDL_Quit();
+		exit(-2);
+	}
+
+	Reset_Cold();
+
 	IoMem_Init();
 	
-    /* Start EventHandler */
-    CycInt_AddRelativeInterruptUs(500*1000, 0, INTERRUPT_EVENT_LOOP);
-    
+	/* Start EventHandler */
+	CycInt_AddRelativeInterruptUs(500*1000, 0, INTERRUPT_EVENT_LOOP);
+
 	/* done as last, needs CPU & DSP running... */
 	DebugUI_Init();
 }
@@ -577,9 +576,9 @@ static void Main_StatusbarSetup(void) {
  */
 static void Main_SetSignalHandlers(void) {
 #ifndef _WIN32
-    signal(SIGPIPE, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
 #endif
-    signal(SIGFPE, SIG_IGN);
+	signal(SIGFPE, SIG_IGN);
 }
 
 
@@ -594,8 +593,8 @@ int main(int argc, char *argv[])
 	/* Generate random seed */
 	srand(time(NULL));
 
-    /* Set signal handlers */
-    Main_SetSignalHandlers();
+	/* Set signal handlers */
+	Main_SetSignalHandlers();
 
 	/* Initialize directory strings */
 	Paths_Init(argv[0]);

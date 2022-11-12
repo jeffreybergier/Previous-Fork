@@ -335,6 +335,3 @@ extern "C" {
             return NULL;
     }
 }
-
-
-
