@@ -13,7 +13,6 @@ const char Video_fileid[] = "Previous video.c : " __DATE__ " " __TIME__;
 #include "configuration.h"
 #include "cycInt.h"
 #include "ioMem.h"
-#include "m68000.h"
 #include "screen.h"
 #include "shortcut.h"
 #include "video.h"

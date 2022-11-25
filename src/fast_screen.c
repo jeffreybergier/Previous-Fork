@@ -27,8 +27,8 @@ const char Screen_fileid[] = "Previous fast_screen.c : " __DATE__ " " __TIME__;
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-int           nRendererWidth;        /* Width of SDL window in physical pixels */
-int           nRendererHeight;       /* Height of SDL window in physical pixels */
+int           nWindowWidth;          /* Width of SDL window in physical pixels */
+int           nWindowHeight;         /* Height of SDL window in physical pixels */
 float         dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
@@ -260,8 +260,8 @@ static int repainter(void* unused) {
 	/* Initialization done -> signal */
 	SDL_SemPost(initLatch);
 
-	/* Start with framebuffer blit enabled */
-	SDL_AtomicSet(&blitFB, 1);
+	/* Start with framebuffer blit disabled */
+	SDL_AtomicSet(&blitFB, 0);
 
 	/* Enter repaint loop */
 	while(doRepaint) {
@@ -367,16 +367,17 @@ void Screen_Init(void) {
 		exit(-1);
 	}
 
-	SDL_GetRendererOutputSize(sdlRenderer, &nRendererWidth, &nRendererHeight);
-	if (nRendererWidth>0) {
-		dpiFactor = (float)width / nRendererWidth;
+	SDL_GetRendererOutputSize(sdlRenderer, &nWindowWidth, &nWindowHeight);
+	if (nWindowWidth > 0) {
+		dpiFactor = (float)width / nWindowWidth;
+		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
 	} else {
-		fprintf(stderr,"Failed to calculate DPI factor\n");
 		dpiFactor = 1.0;
+		fprintf(stderr,"Failed to set screen scale\n");
 	}
 
 	initLatch     = SDL_CreateSemaphore(0);
-	repaintThread = SDL_CreateThread(repainter, "[Previous] screen repaint", NULL);
+	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
 	SDL_SemWait(initLatch);
 
 	/* Configure some SDL stuff: */

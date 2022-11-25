@@ -9,10 +9,11 @@
 
  */
 
+#include "main.h"
 #include "host.h"
 #include "ioMem.h"
 #include "ioMemTables.h"
-#include "m68000.h"
+#include "log.h"
 #include "configuration.h"
 #include "dimension.hpp"
 #include "sysReg.h"
@@ -424,7 +425,7 @@ void rtc_put_clock(uint8_t addr, uint8_t val) {
             rtc.intctrl = val;
             if (rtc.intctrl&RTC_POWERDOWN) {
                 Log_Printf(LOG_WARN, "[RTC] Power down!");
-                M68000_Stop();
+                Main_RequestQuit(false);
             }
             break;
             
@@ -679,7 +680,7 @@ void newrtc_put_clock(uint8_t addr, uint8_t val) {
             }
             if (newrtc.control&NRTC_POWERDOWN) {
                 Log_Printf(LOG_WARN, "[newRTC] Power down!");
-                M68000_Stop();
+                Main_RequestQuit(false);
             }
             if (!(newrtc.status&(NRTC_FIRSTUP|NRTC_INT_ALARM|NRTC_INT_PDOWN|NRTC_INT_LBAT))) {
                 newrtc.status&= ~NRTC_INT;

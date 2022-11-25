@@ -59,9 +59,9 @@
 #define SIZE_LONG  4
 
 enum {
-    PAUSE_NONE,
-    PAUSE_EMULATION,
-    UNPAUSE_EMULATION,
+	PAUSE_NONE,
+	PAUSE_EMULATION,
+	UNPAUSE_EMULATION
 };
 
 /* Flag for pausing m68k thread (used by i860 debugger) */
@@ -71,7 +71,7 @@ extern bool bQuitProgram;
 
 extern bool Main_PauseEmulation(bool visualize);
 extern bool Main_UnPauseEmulation(void);
-extern void Main_RequestQuit(void);
+extern void Main_RequestQuit(bool confirm);
 extern void Main_WarpMouse(int x, int y);
 extern void Main_SetMouseGrab(bool grab);
 extern void Main_EventHandler(void);

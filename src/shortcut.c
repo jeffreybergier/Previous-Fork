@@ -184,8 +184,8 @@ void ShortCut_ActKey(void)
 		ShortCut_MouseGrab();          /* Toggle mouse grab */
 		break;
 	 case SHORTCUT_COLDRESET:
-		Main_UnPauseEmulation();
 		Reset_Cold();                  /* Reset emulator with 'cold' (clear all) */
+		Main_UnPauseEmulation();
 		break;
 	 case SHORTCUT_SOUND:
 		ShortCut_SoundOnOff();         /* Enable/disable sound */
@@ -200,7 +200,7 @@ void ShortCut_ActKey(void)
 		ShortCut_Pause();              /* Invoke Pause */
 		break;
 	 case SHORTCUT_QUIT:
-		Main_RequestQuit();
+		Main_RequestQuit(true);
 		break;
 	 case SHORTCUT_DIMENSION:
 		ShortCut_Dimension();

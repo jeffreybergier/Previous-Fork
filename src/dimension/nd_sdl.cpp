@@ -51,7 +51,7 @@ void NDSDL::init(void) {
     int x, y, w, h;
     char title[32], name[32];
 
-    if(!ndWindow) {
+    if (!ndWindow) {
         SDL_GetWindowPosition(sdlWindow, &x, &y);
         SDL_GetWindowSize(sdlWindow, &w, &h);
         h = (w * 832) / 1120;
@@ -59,30 +59,30 @@ void NDSDL::init(void) {
         ndWindow = SDL_CreateWindow(title, x+14*slot, y+14*slot, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI);
         
         if (!ndWindow) {
-            fprintf(stderr,"[ND] Slot %i: Failed to create window!\n", slot);
+            fprintf(stderr,"[ND] Slot %i: Failed to create window! (%s)\n", slot, SDL_GetError());
             exit(-1);
         }
     }
     
-    if (!(repaintThread) && ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-        ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
-            fprintf(stderr,"[ND] Slot %i: Failed to create renderer!\n", slot);
-            exit(-1);
+            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+            
+            if (!ndRenderer) {
+                fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
+                exit(-1);
+            }
+            snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
+            repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
         }
-        
-        snprintf(name, sizeof(name), "[ND] Slot %i: Repainter", slot);
-        repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
-    }
 
-    if(ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         SDL_ShowWindow(ndWindow);
     } else {
         SDL_HideWindow(ndWindow);
     }
 }
 
-void NDSDL::start_interrupts() {
+void NDSDL::start_interrupts(void) {
     CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VBL);
     CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VIDEO_VBL);
 }
