@@ -61,7 +61,8 @@
 enum {
 	PAUSE_NONE,
 	PAUSE_EMULATION,
-	UNPAUSE_EMULATION
+	UNPAUSE_EMULATION,
+	HALT_EMULATION
 };
 
 /* Flag for pausing m68k thread (used by i860 debugger) */

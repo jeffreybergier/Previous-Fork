@@ -40,19 +40,20 @@ static const int NeXT_SCRN_HEIGHT = 832;
 int width;   /* guest framebuffer */
 int height;  /* guest framebuffer */
 
-static SDL_Thread*   repaintThread;
 static SDL_Renderer* sdlRenderer;
-static SDL_sem*      initLatch;
+static SDL_Texture*  uiTexture;
+static SDL_Texture*  fbTexture;
 static SDL_atomic_t  blitFB;
-static SDL_atomic_t  blitUI;           /* When value == 1, the repaint thread will blit the sldscrn surface to the screen on the next redraw */
+static SDL_atomic_t  blitUI;
 static bool          doUIblit;
 static SDL_Rect      saveWindowBounds; /* Window bounds before going fullscreen. Used to restore window size & position. */
 static MONITORTYPE   saveMonitorType;  /* Save monitor type to restore on return from fullscreen */
-static void*         uiBuffer;         /* uiBuffer used for ui texture */
+static uint32_t      mask;             /* green screen mask for transparent UI areas */
+static void*         uiBuffer;         /* uiBuffer used for user interface texture */
 static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
-static uint32_t      mask;             /* green screen mask for transparent UI areas */
 static volatile bool doRepaint = true; /* Repaint thread runs while true */
+static SDL_Thread*   repaintThread;
 static SDL_Rect      statusBar;
 static SDL_Rect      screenRect;
 
@@ -210,55 +211,6 @@ static bool blitScreen(SDL_Texture* tex) {
  */
 static int repainter(void* unused) {
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
-	
-	SDL_Texture*  uiTexture;
-	SDL_Texture*  fbTexture;
-	
-	uint32_t r, g, b, a;
-	
-	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
-	
-	uiTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
-	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
-
-	fbTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
-	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
-
-	uint32_t format;
-	int      d;
-	SDL_QueryTexture(uiTexture, &format, &d, &d, &d);
-	SDL_PixelFormatEnumToMasks(format, &d, &r, &g, &b, &a);
-	mask = g | a;
-	sdlscrn     = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32, r, g, b, a);
-	uiBuffer    = malloc(sdlscrn->h * sdlscrn->pitch);
-	uiBufferTmp = malloc(sdlscrn->h * sdlscrn->pitch);
-	// clear UI with mask
-	SDL_FillRect(sdlscrn, NULL, mask);
-
-	/* Exit if we can not open a screen */
-	if (!sdlscrn) {
-		fprintf(stderr, "Could not set video mode:\n %s\n", SDL_GetError() );
-		SDL_Quit();
-		exit(-2);
-	}
-
-	Statusbar_Init(sdlscrn);
-
-	/* Setup lookup tables */
-	SDL_PixelFormat* pformat = SDL_AllocFormat(format);
-	/* initialize BW lookup table */
-	for(int i = 0; i < 0x100; i++) {
-		BW2RGB[i*4+0] = bw2rgb(pformat, i>>6);
-		BW2RGB[i*4+1] = bw2rgb(pformat, i>>4);
-		BW2RGB[i*4+2] = bw2rgb(pformat, i>>2);
-		BW2RGB[i*4+3] = bw2rgb(pformat, i>>0);
-	}
-	/* initialize color lookup table */
-	for(int i = 0; i < 0x10000; i++)
-		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
-
-	/* Initialization done -> signal */
-	SDL_SemPost(initLatch);
 
 	/* Start with framebuffer blit disabled */
 	SDL_AtomicSet(&blitFB, 0);
@@ -318,6 +270,9 @@ void Screen_Pause(bool pause) {
  * Init Screen, creates window and starts repaint thread
  */
 void Screen_Init(void) {
+	uint32_t format, r, g, b, a;
+	int      d;
+
 	/* Set initial window resolution */
 	width  = NeXT_SCRN_WIDTH;
 	height = NeXT_SCRN_HEIGHT;
@@ -376,9 +331,51 @@ void Screen_Init(void) {
 		fprintf(stderr,"Failed to set screen scale\n");
 	}
 
-	initLatch     = SDL_CreateSemaphore(0);
+	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+
+	uiTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
+
+	fbTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
+
+	SDL_QueryTexture(uiTexture, &format, &d, &d, &d);
+	SDL_PixelFormatEnumToMasks(format, &d, &r, &g, &b, &a);
+
+	sdlscrn = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32, r, g, b, a);
+
+	/* Exit if we can not open a screen */
+	if (!sdlscrn) {
+		fprintf(stderr, "Could not set video mode:\n %s\n", SDL_GetError() );
+		SDL_Quit();
+		exit(-2);
+	}
+
+	/* Clear UI with mask */
+	mask = g | a;
+	SDL_FillRect(sdlscrn, NULL, mask);
+
+	/* Allocate buffers for copy routines */
+	uiBuffer    = malloc(sdlscrn->h * sdlscrn->pitch);
+	uiBufferTmp = malloc(sdlscrn->h * sdlscrn->pitch);
+
+	/* Initialize statusbar */
+	Statusbar_Init(sdlscrn);
+
+	/* Setup lookup tables */
+	SDL_PixelFormat* pformat = SDL_AllocFormat(format);
+	/* initialize BW lookup table */
+	for(int i = 0; i < 0x100; i++) {
+		BW2RGB[i*4+0] = bw2rgb(pformat, i>>6);
+		BW2RGB[i*4+1] = bw2rgb(pformat, i>>4);
+		BW2RGB[i*4+2] = bw2rgb(pformat, i>>2);
+		BW2RGB[i*4+3] = bw2rgb(pformat, i>>0);
+	}
+	/* initialize color lookup table */
+	for(int i = 0; i < 0x10000; i++)
+		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
+
 	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
-	SDL_SemWait(initLatch);
 
 	/* Configure some SDL stuff: */
 	SDL_ShowCursor(SDL_DISABLE);
@@ -398,6 +395,10 @@ void Screen_UnInit(void) {
 	int s;
 	SDL_WaitThread(repaintThread, &s);
 	nd_sdl_destroy();
+	SDL_DestroyTexture(uiTexture);
+	SDL_DestroyTexture(fbTexture);
+	SDL_DestroyRenderer(sdlRenderer);
+	SDL_DestroyWindow(sdlWindow);
 }
 
 /*-----------------------------------------------------------------------*/

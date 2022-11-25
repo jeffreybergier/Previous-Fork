@@ -46,10 +46,10 @@ const char Main_fileid[] = "Hatari main.c";
 
 int nFrameSkips;
 
-bool bQuitProgram = false;                /* Flag to quit program cleanly */
+bool bQuitProgram = false;                   /* Flag to quit program cleanly */
 
-static bool bEmulationActive = false;     /* Do not run emulation during initialization */
-static bool bAccurateDelays;              /* Host system has an accurate SDL_Delay()? */
+static bool bEmulationActive = false;        /* Do not run emulation during initialization */
+static bool bAccurateDelays;                 /* Host system has an accurate SDL_Delay()? */
 static bool bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
 volatile int mainPauseEmulation;
@@ -254,13 +254,9 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 
 	int nEvents;
 
-	static bool  bSavedLeft   = false;
-	static bool  bSavedUp     = false;
 	static float fSavedDeltaX = 0.0;
 	static float fSavedDeltaY = 0.0;
 	
-	bool  bLeft = false;
-	bool  bUp   = false;
 	float fDeltaX;
 	float fDeltaY;
 	int   nDeltaX;
@@ -286,35 +282,28 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	}
 
 	if (nDeltaX || nDeltaY) {
-		/* Remove the sign */
-		if (nDeltaX < 0) {
-			nDeltaX = -nDeltaX;
-			bLeft = true;
-		}
-		if (nDeltaY < 0) {
-			nDeltaY = -nDeltaY;
-			bUp   = true;
-		}
 		/* Exponential adjustmend */
-		fDeltaX = pow(nDeltaX, fExp);
-		fDeltaY = pow(nDeltaY, fExp);
+		if (fExp != 1.0) {
+			fDeltaX = (nDeltaX < 0) ? -pow(-nDeltaX, fExp) : pow(nDeltaX, fExp);
+			fDeltaY = (nDeltaY < 0) ? -pow(-nDeltaY, fExp) : pow(nDeltaY, fExp);
+		}
 
 		/* Linear adjustment */
-		fDeltaX *= fLin;
-		fDeltaY *= fLin;
+		if (fLin != 1.0) {
+			fDeltaX *= fLin;
+			fDeltaY *= fLin;
+		}
 
 		/* Add residuals */
-		if (bLeft == bSavedLeft) {
+		if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
 			fSavedDeltaX += fDeltaX;
 		} else {
 			fSavedDeltaX  = fDeltaX;
-			bSavedLeft    = bLeft;
 		}
-		if (bUp == bSavedUp) {
+		if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
 			fSavedDeltaY += fDeltaY;
 		} else {
 			fSavedDeltaY  = fDeltaY;
-			bSavedUp      = bUp;
 		}
 
 		/* Convert to integer and save residuals */
@@ -323,19 +312,21 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 		nDeltaY = fSavedDeltaY;
 		fSavedDeltaY -= nDeltaY;
 
-		/* Re-add signs */
-		if (bLeft) {
-			nDeltaX = -nDeltaX;
-		}
-		if (bUp) {
-			nDeltaY = -nDeltaY;
-		}
-
 		/* Done */
 		Keymap_MouseMove(nDeltaX, nDeltaY);
 	}
 }
 
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Emulator message handler. Called from emulator.
+ */
+void Main_EventHandlerInterrupt(void) {
+	CycInt_AcknowledgeInterrupt();
+	Main_EventHandler();
+	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
+}
 
 /* ----------------------------------------------------------------------- */
 /**
@@ -348,7 +339,7 @@ void Main_EventHandler(void) {
 	SDL_Event event;
 	int events;
 
-	if(++statusBarUpdate > 400) {
+	if (++statusBarUpdate > 400) {
 		uint64_t vt;
 		uint64_t rt;
 		host_time(&rt, &vt);
@@ -368,7 +359,7 @@ void Main_EventHandler(void) {
 
 	do {
 		bContinueProcessing = false;
-		
+
 		/* check remote process control from different thread (e.g. i860) */
 		switch(mainPauseEmulation) {
 			case PAUSE_EMULATION:
@@ -489,11 +480,16 @@ void Main_EventHandler(void) {
 	} while (bContinueProcessing || !(bEmulationActive || bQuitProgram));
 }
 
-
-void Main_EventHandlerInterrupt(void) {
-	CycInt_AcknowledgeInterrupt();
-	Main_EventHandler();
-	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
+/* ----------------------------------------------------------------------- */
+/**
+ * Main loop. Start emulation with internal loop.
+ */
+static void Main_Loop(void) {
+	/* Start EventHandler */
+	CycInt_AddRelativeInterruptUs(500*1000, 0, INTERRUPT_EVENT_LOOP);
+	/* Start Emulation */
+	Main_UnPauseEmulation();
+	M68000_Start();
 }
 
 /*-----------------------------------------------------------------------*/
@@ -559,9 +555,6 @@ static bool Main_Init(void) {
 	/* Call menu at startup */
 	if (Main_StartMenu()) {
 		Reset_Cold();
-
-		/* Start EventHandler */
-		CycInt_AddRelativeInterruptUs(500*1000, 0, INTERRUPT_EVENT_LOOP);
 		return true;
 	}
 	return false;
@@ -703,8 +696,7 @@ int main(int argc, char *argv[])
 		Main_CheckForAccurateDelays();
 		
 		/* Run emulation */
-		Main_UnPauseEmulation();
-		M68000_Start();                 /* Start emulation */
+		Main_Loop();
 	}
 
 	/* Un-init emulation system */

@@ -9,13 +9,14 @@
 
 class NDSDL {
     int           slot;
-    volatile bool doRepaint;
-    SDL_Thread*   repaintThread;
     SDL_Window*   ndWindow;
     SDL_Renderer* ndRenderer;
+    SDL_Texture*  ndTexture;
     SDL_atomic_t  blitNDFB;
+
     uint32_t*     vram;
-    
+    volatile bool doRepaint;
+    SDL_Thread*   repaintThread;
     static int    repainter(void *_this);
     int           repainter(void);
 public:

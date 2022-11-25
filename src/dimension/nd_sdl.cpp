@@ -13,7 +13,7 @@
 volatile bool NDSDL::ndVBLtoggle;
 volatile bool NDSDL::ndVideoVBLtoggle;
 
-NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), doRepaint(true), repaintThread(NULL), ndWindow(NULL), ndRenderer(NULL), vram(vram) {}
+NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), doRepaint(true), repaintThread(NULL), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL), vram(vram) {}
 
 int NDSDL::repainter(void *_this) {
     return ((NDSDL*)_this)->repainter();
@@ -21,13 +21,6 @@ int NDSDL::repainter(void *_this) {
 
 int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
-    
-    SDL_Texture*  ndTexture  = NULL;
-    
-    SDL_Rect r = {0,0,1120,832};
-    
-    SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
-    ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
     
     SDL_AtomicSet(&blitNDFB, 1);
     
@@ -42,14 +35,13 @@ int NDSDL::repainter(void) {
         }
     }
 
-    SDL_DestroyTexture(ndTexture);
-
     return 0;
 }
 
 void NDSDL::init(void) {
     int x, y, w, h;
     char title[32], name[32];
+    SDL_Rect r = {0,0,1120,832};
 
     if (!ndWindow) {
         SDL_GetWindowPosition(sdlWindow, &x, &y);
@@ -72,6 +64,9 @@ void NDSDL::init(void) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
                 exit(-1);
             }
+            SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
+            ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
+
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
             repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
         }
@@ -174,6 +169,7 @@ void NDSDL::destroy(void) {
     doRepaint = false; // stop repaint thread
     int s;
     SDL_WaitThread(repaintThread, &s);
+    SDL_DestroyTexture(ndTexture);
     SDL_DestroyRenderer(ndRenderer);
     SDL_DestroyWindow(ndWindow);
     uninit();
