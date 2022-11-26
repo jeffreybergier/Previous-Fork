@@ -22,7 +22,7 @@ int NDSDL::repainter(void *_this) {
 int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
     
-    SDL_AtomicSet(&blitNDFB, 1);
+    SDL_AtomicSet(&blitNDFB, 0);
     
     while(doRepaint) {
         if (SDL_AtomicGet(&blitNDFB)) {

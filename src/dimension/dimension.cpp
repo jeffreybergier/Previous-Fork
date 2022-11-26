@@ -327,7 +327,7 @@ extern "C" {
         }
         return "";
     }
-    
+
     uint32_t* nd_vram_for_slot(int slot) {
         IF_NEXT_DIMENSION(slot, nd)
             return (uint32_t*)nd->vram;
