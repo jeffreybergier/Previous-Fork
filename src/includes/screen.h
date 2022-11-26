@@ -27,10 +27,10 @@ extern void Screen_ReturnFromFullScreen(void);
 extern void Screen_SizeChanged(void);
 extern void Screen_ModeChanged(void);
 extern void Screen_StatusbarChanged(void);
-extern bool Update_StatusBar(void);
 extern void Screen_UpdateRects(SDL_Surface *screen, int numrects, SDL_Rect *rects);
 extern void Screen_UpdateRect(SDL_Surface *screen, int32_t x, int32_t y, int32_t w, int32_t h);
-extern void blitDimension(uint32_t* vram, SDL_Texture* tex);
+extern void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex);
+extern bool Screen_UpdateStatusbar(void);
 
 #ifdef __cplusplus
 }

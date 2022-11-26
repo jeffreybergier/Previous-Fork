@@ -35,7 +35,7 @@ char* get_rtc_ram_info(void);
  * DebugInfo_Rtc : display the Videl registers values.
  */
 static void DebugInfo_Rtc(uint32_t dummy) {
-    Update_StatusBar();
+    Screen_UpdateStatusbar();
 	fprintf(stdout,"%s",get_rtc_ram_info());
 }
 

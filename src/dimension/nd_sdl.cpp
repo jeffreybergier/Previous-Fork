@@ -21,12 +21,10 @@ int NDSDL::repainter(void *_this) {
 
 int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
-    
-    SDL_AtomicSet(&blitNDFB, 0);
-    
-    while(doRepaint) {
+
+    while (doRepaint) {
         if (SDL_AtomicGet(&blitNDFB)) {
-            blitDimension(vram, ndTexture);
+            Screen_BlitDimension(vram, ndTexture);
             SDL_RenderClear(ndRenderer);
             SDL_RenderCopy(ndRenderer, ndTexture, NULL, NULL);
             SDL_RenderPresent(ndRenderer);
@@ -59,7 +57,6 @@ void NDSDL::init(void) {
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
             ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-            
             if (!ndRenderer) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
                 exit(-1);
@@ -68,6 +65,7 @@ void NDSDL::init(void) {
             ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
+            SDL_AtomicSet(&blitNDFB, 0);
             repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
         }
 

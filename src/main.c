@@ -46,11 +46,10 @@ const char Main_fileid[] = "Hatari main.c";
 
 int nFrameSkips;
 
-bool bQuitProgram = false;                   /* Flag to quit program cleanly */
-
-static bool bEmulationActive = false;        /* Do not run emulation during initialization */
-static bool bAccurateDelays;                 /* Host system has an accurate SDL_Delay()? */
-static bool bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
+bool          bQuitProgram = false;            /* Flag to quit program cleanly */
+static bool   bEmulationActive = false;        /* Do not run emulation during initialization */
+static bool   bAccurateDelays;                 /* Host system has an accurate SDL_Delay()? */
+static bool   bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
 volatile int mainPauseEmulation;
 
@@ -323,21 +322,9 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
  * Emulator message handler. Called from emulator.
  */
 void Main_EventHandlerInterrupt(void) {
-	CycInt_AcknowledgeInterrupt();
-	Main_EventHandler();
-	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
-}
-
-/* ----------------------------------------------------------------------- */
-/**
- * SDL message handler.
- * Here we process the SDL events (keyboard, mouse, ...)
- */
-void Main_EventHandler(void) {
 	static int statusBarUpdate = 0;
-	bool bContinueProcessing;
-	SDL_Event event;
-	int events;
+
+	CycInt_AcknowledgeInterrupt();
 
 	if (++statusBarUpdate > 400) {
 		uint64_t vt;
@@ -357,6 +344,20 @@ void Main_EventHandler(void) {
 		statusBarUpdate = 0;
 	}
 
+	Main_EventHandler();
+	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * SDL message handler.
+ * Here we process the SDL events (keyboard, mouse, ...)
+ */
+void Main_EventHandler(void) {
+	bool bContinueProcessing;
+	SDL_Event event;
+	int events;
+
 	do {
 		bContinueProcessing = false;
 
@@ -374,7 +375,7 @@ void Main_EventHandler(void) {
 
 		if (bEmulationActive) {
 			int64_t time_offset = host_real_time_offset() / 1000;
-			if(time_offset > 10)
+			if (time_offset > 10)
 				events = SDL_WaitEventTimeout(&event, time_offset);
 			else
 				events = SDL_PollEvent(&event);
@@ -431,7 +432,6 @@ void Main_EventHandler(void) {
 							break;
 						}
 					}
-
 					Keymap_MouseDown(true);
 				}
 				else if (event.button.button == SDL_BUTTON_RIGHT)
@@ -482,7 +482,7 @@ void Main_EventHandler(void) {
 
 /* ----------------------------------------------------------------------- */
 /**
- * Main loop. Start emulation with internal loop.
+ * Main loop. Start emulation and loop.
  */
 static void Main_Loop(void) {
 	/* Start EventHandler */

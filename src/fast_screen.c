@@ -13,7 +13,6 @@ const char Screen_fileid[] = "Previous fast_screen.c : " __DATE__ " " __TIME__;
 #include "host.h"
 #include "configuration.h"
 #include "log.h"
-#include "m68000.h"
 #include "dimension.hpp"
 #include "nd_sdl.hpp"
 #include "nd_mem.hpp"
@@ -21,6 +20,7 @@ const char Screen_fileid[] = "Previous fast_screen.c : " __DATE__ " " __TIME__;
 #include "screen.h"
 #include "statusbar.h"
 #include "video.h"
+#include "m68000.h"
 
 #include <SDL.h>
 
@@ -46,6 +46,8 @@ static SDL_Texture*  fbTexture;
 static SDL_atomic_t  blitFB;
 static SDL_atomic_t  blitUI;
 static bool          doUIblit;
+static SDL_Rect      statusBar;
+static SDL_Rect      screenRect;
 static SDL_Rect      saveWindowBounds; /* Window bounds before going fullscreen. Used to restore window size & position. */
 static MONITORTYPE   saveMonitorType;  /* Save monitor type to restore on return from fullscreen */
 static uint32_t      mask;             /* green screen mask for transparent UI areas */
@@ -54,8 +56,6 @@ static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter *
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
 static volatile bool doRepaint = true; /* Repaint thread runs while true */
 static SDL_Thread*   repaintThread;
-static SDL_Rect      statusBar;
-static SDL_Rect      screenRect;
 
 
 static uint32_t BW2RGB[0x400];
@@ -121,11 +121,11 @@ static void blitColor(SDL_Texture* tex) {
 /*
  Dimension format is 8bit per pixel, big-endian: RRGGBBAA
  */
-void blitDimension(uint32_t* vram, SDL_Texture* tex) {
+void Screen_BlitDimension(uint32_t* fb, SDL_Texture* tex) {
 #if ND_STEP
-	uint32_t* src = &vram[0];
+	uint32_t* src = &fb[0];
 #else
-	uint32_t* src = &vram[16];
+	uint32_t* src = &fb[16];
 #endif
 	int       d;
 	uint32_t  format;
@@ -188,7 +188,7 @@ static bool blitScreen(SDL_Texture* tex) {
 	if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DIMENSION) {
 		uint32_t* vram = nd_vram_for_slot(ND_SLOT(ConfigureParams.Screen.nMonitorNum));
 		if (vram) {
-			blitDimension(vram, tex);
+			Screen_BlitDimension(vram, tex);
 			return true;
 		}
 	} else {
@@ -205,15 +205,10 @@ static bool blitScreen(SDL_Texture* tex) {
 }
 
 /*
- Initializes SDL graphics and then enters repaint loop.
- Loop: Blits the NeXT framebuffer to the fbTexture, blends with the GUI surface and
- shows it.
+ Blits the NeXT framebuffer to the fbTexture, blends with the GUI surface and shows it.
  */
 static int repainter(void* unused) {
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
-
-	/* Start with framebuffer blit disabled */
-	SDL_AtomicSet(&blitFB, 0);
 
 	/* Enter repaint loop */
 	while(doRepaint) {
@@ -267,7 +262,7 @@ void Screen_Pause(bool pause) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * Init Screen, creates window and starts repaint thread
+ * Init Screen, creates window, renderer and textures
  */
 void Screen_Init(void) {
 	uint32_t format, r, g, b, a;
@@ -356,7 +351,7 @@ void Screen_Init(void) {
 	SDL_FillRect(sdlscrn, NULL, mask);
 
 	/* Allocate buffers for copy routines */
-	uiBuffer    = malloc(sdlscrn->h * sdlscrn->pitch);
+	uiBuffer = malloc(sdlscrn->h * sdlscrn->pitch);
 	uiBufferTmp = malloc(sdlscrn->h * sdlscrn->pitch);
 
 	/* Initialize statusbar */
@@ -375,6 +370,8 @@ void Screen_Init(void) {
 	for(int i = 0; i < 0x10000; i++)
 		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
 
+	/* Start repaint thread with framebuffer blit disabled */
+	SDL_AtomicSet(&blitFB, 0);
 	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
 
 	/* Configure some SDL stuff: */
@@ -564,7 +561,7 @@ static void statusBarUpdate(void) {
 	SDL_UnlockSurface(sdlscrn);
 }
 
-bool Update_StatusBar(void) {
+bool Screen_UpdateStatusbar(void) {
 	shieldStatusBarUpdate = true;
 	Statusbar_OverlayBackup(sdlscrn);
 	Statusbar_Update(sdlscrn);
