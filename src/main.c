@@ -345,6 +345,7 @@ void Main_EventHandlerInterrupt(void) {
 	}
 
 	Main_EventHandler();
+
 	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
 }
 
@@ -490,6 +491,19 @@ static void Main_Loop(void) {
 	/* Start Emulation */
 	Main_UnPauseEmulation();
 	M68000_Start();
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Statusbar update with reduced update frequency to save CPU cycles.
+ * Call this on emulated machine VBL.
+ */
+void Main_UpdateStatusbar(void) {
+	static int i = 0;
+	if (++i > 9) {
+		Statusbar_Update(sdlscrn);
+		i = 0;
+	}
 }
 
 /*-----------------------------------------------------------------------*/

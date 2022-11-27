@@ -121,11 +121,11 @@ static void blitColor(SDL_Texture* tex) {
 /*
  Dimension format is 8bit per pixel, big-endian: RRGGBBAA
  */
-void Screen_BlitDimension(uint32_t* fb, SDL_Texture* tex) {
+void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 #if ND_STEP
-	uint32_t* src = &fb[0];
+	uint32_t* src = &vram[0];
 #else
-	uint32_t* src = &fb[16];
+	uint32_t* src = &vram[16];
 #endif
 	int       d;
 	uint32_t  format;

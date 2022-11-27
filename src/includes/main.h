@@ -77,6 +77,7 @@ extern void Main_WarpMouse(int x, int y);
 extern void Main_SetMouseGrab(bool grab);
 extern void Main_EventHandler(void);
 extern void Main_EventHandlerInterrupt(void);
+extern void Main_UpdateStatusbar(void);
 extern void Main_SetTitle(const char *title);
 extern void Main_SpeedReset(void);
 extern const char* Main_SpeedMsg(void);
