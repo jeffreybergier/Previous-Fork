@@ -52,8 +52,8 @@ static SDL_Rect      saveWindowBounds; /* Window bounds before going fullscreen.
 static MONITORTYPE   saveMonitorType;  /* Save monitor type to restore on return from fullscreen */
 static uint32_t      mask;             /* green screen mask for transparent UI areas */
 static void*         uiBuffer;         /* uiBuffer used for user interface texture */
-static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
+static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static volatile bool doRepaint = true; /* Repaint thread runs while true */
 static SDL_Thread*   repaintThread;
 
