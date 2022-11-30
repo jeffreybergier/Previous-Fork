@@ -265,7 +265,7 @@ void Main_SetMouseGrab(bool grab) {
 
 /* ----------------------------------------------------------------------- */
 /**
- * Send blank event. Called from emulator thread.
+ * Send special events. Called from emulator threads.
  **/
 void Main_SendSpecialEvent(int type) {
 	SDL_Event event;
