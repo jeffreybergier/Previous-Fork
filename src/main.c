@@ -279,7 +279,7 @@ void Main_SendSpecialEvent(int type) {
  * Handle mouse motion event.
  */
 static void Main_HandleMouseMotion(SDL_Event *pEvent) {
-	SDL_Event mouse_event[100];
+	static SDL_Event mouse_event[100];
 
 	int nEvents;
 
@@ -302,7 +302,7 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	nDeltaX = pEvent->motion.xrel;
 	nDeltaY = pEvent->motion.yrel;
 
-	/* get all mouse event to clean the queue and sum them */
+	/* Get all mouse event to clean the queue and sum them */
 	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
 
 	for (int i = 0; i < nEvents; i++) {
@@ -311,35 +311,42 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	}
 
 	if (nDeltaX || nDeltaY) {
-		/* Exponential adjustmend */
-		if (fExp != 1.0) {
-			fDeltaX = (nDeltaX < 0) ? -pow(-nDeltaX, fExp) : pow(nDeltaX, fExp);
-			fDeltaY = (nDeltaY < 0) ? -pow(-nDeltaY, fExp) : pow(nDeltaY, fExp);
-		}
+		/* Adjust values only if necessary */
+		if ((fExp != 1.0) || (fLin != 0)) {
+			/* Initialize float values from integers */
+			fDeltaX = (float)nDeltaX;
+			fDeltaY = (float)nDeltaY;
 
-		/* Linear adjustment */
-		if (fLin != 1.0) {
-			fDeltaX *= fLin;
-			fDeltaY *= fLin;
-		}
+			/* Exponential adjustmend */
+			if (fExp != 1.0) {
+				fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
+				fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
+			}
 
-		/* Add residuals */
-		if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
-			fSavedDeltaX += fDeltaX;
-		} else {
-			fSavedDeltaX  = fDeltaX;
-		}
-		if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
-			fSavedDeltaY += fDeltaY;
-		} else {
-			fSavedDeltaY  = fDeltaY;
-		}
+			/* Linear adjustment */
+			if (fLin != 1.0) {
+				fDeltaX *= fLin;
+				fDeltaY *= fLin;
+			}
 
-		/* Convert to integer and save residuals */
-		nDeltaX = fSavedDeltaX;
-		fSavedDeltaX -= nDeltaX;
-		nDeltaY = fSavedDeltaY;
-		fSavedDeltaY -= nDeltaY;
+			/* Add residuals */
+			if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
+				fSavedDeltaX += fDeltaX;
+			} else {
+				fSavedDeltaX  = fDeltaX;
+			}
+			if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
+				fSavedDeltaY += fDeltaY;
+			} else {
+				fSavedDeltaY  = fDeltaY;
+			}
+
+			/* Convert to integer and save residuals */
+			nDeltaX = (int)fSavedDeltaX;
+			nDeltaY = (int)fSavedDeltaY;
+			fSavedDeltaX -= (float)nDeltaX;
+			fSavedDeltaY -= (float)nDeltaY;
+		}
 
 		/* Done */
 		Keymap_MouseMove(nDeltaX, nDeltaY);
@@ -521,6 +528,7 @@ static void Main_Loop(void) {
 
 	/* Run emulation */
 	Main_UnPauseEmulation();
+
 	M68000_Start();
 }
 
