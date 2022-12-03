@@ -10,9 +10,6 @@
 #include <SDL.h>
 
 
-volatile bool NDSDL::ndVBLtoggle;
-volatile bool NDSDL::ndVideoVBLtoggle;
-
 NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), doRepaint(true), repaintThread(NULL), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL), vram(vram) {}
 
 int NDSDL::repainter(void *_this) {
@@ -75,45 +72,18 @@ void NDSDL::init(void) {
     }
 }
 
-void NDSDL::start_interrupts(void) {
-    CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VBL);
-    CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VIDEO_VBL);
-}
-
-// called from m68k thread
-void nd_vbl_handler(void)       {
-    CycInt_AcknowledgeInterrupt();
-
-    FOR_EACH_SLOT(slot) {
-        IF_NEXT_DIMENSION(slot, nd) {
-            host_blank(nd->slot, ND_DISPLAY, NDSDL::ndVBLtoggle);
-            nd->i860.i860cycles = (1000*1000*33)/136;
-        }
-    }
-    NDSDL::ndVBLtoggle = !NDSDL::ndVBLtoggle;
-
-    // 136Hz with toggle gives 68Hz, blank time is 1/2 frame time
-    CycInt_AddRelativeInterruptUs((1000*1000)/136, 0, INTERRUPT_ND_VBL);
-}
-
-// called from m68k thread
-void nd_video_vbl_handler(void) {
-    CycInt_AcknowledgeInterrupt();
-
-    FOR_EACH_SLOT(slot) {
-        IF_NEXT_DIMENSION(slot, nd) {
-            host_blank(slot, ND_VIDEO, NDSDL::ndVideoVBLtoggle);
-            nd->i860.i860cycles = nd->i860.i860cycles; // make compiler happy
-        }
-    }
-    NDSDL::ndVideoVBLtoggle = !NDSDL::ndVideoVBLtoggle;
-
-    // 120Hz with toggle gives 60Hz NTSC, blank time is 1/2 frame time
-    CycInt_AddRelativeInterruptUs((1000*1000)/120, 0, INTERRUPT_ND_VIDEO_VBL);
-}
-
 void NDSDL::uninit(void) {
     SDL_HideWindow(ndWindow);
+}
+
+void NDSDL::destroy(void) {
+    doRepaint = false; // stop repaint thread
+    int s;
+    SDL_WaitThread(repaintThread, &s);
+    SDL_DestroyTexture(ndTexture);
+    SDL_DestroyRenderer(ndRenderer);
+    SDL_DestroyWindow(ndWindow);
+    uninit();
 }
 
 void NDSDL::pause(bool pause) {
@@ -129,6 +99,7 @@ void NDSDL::resize(float scale) {
         SDL_SetWindowSize(ndWindow, 1120*scale, 832*scale);
     }
 }
+
 
 void nd_sdl_resize(float scale) {
     FOR_EACH_SLOT(slot) {
@@ -161,14 +132,4 @@ void nd_sdl_destroy(void) {
             nd->sdl.destroy();
         }
     }
-}
-
-void NDSDL::destroy(void) {
-    doRepaint = false; // stop repaint thread
-    int s;
-    SDL_WaitThread(repaintThread, &s);
-    SDL_DestroyTexture(ndTexture);
-    SDL_DestroyRenderer(ndRenderer);
-    SDL_DestroyWindow(ndWindow);
-    uninit();
 }

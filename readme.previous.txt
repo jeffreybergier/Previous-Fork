@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.0.18 or later (http://www.libsdl.org)
+  > The SDL2 library v2.24.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:

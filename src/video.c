@@ -51,7 +51,7 @@ static void Video_Interrupt(void) {
  */
 void Video_InterruptHandler(void) {
 	CycInt_AcknowledgeInterrupt();
-	host_blank(0, MAIN_DISPLAY, true);
+	host_blank_count(MAIN_DISPLAY, true);
 	Main_CheckStatusbarUpdate();
 	Video_Interrupt();
 	CycInt_AddRelativeInterruptUs((1000*1000)/NEXT_VBL_FREQ, 0, INTERRUPT_VIDEO_VBL);

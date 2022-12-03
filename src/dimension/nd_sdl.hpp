@@ -20,26 +20,16 @@ class NDSDL {
     static int    repainter(void *_this);
     int           repainter(void);
 public:
-    static volatile bool ndVBLtoggle;
-    static volatile bool ndVideoVBLtoggle;
-
     NDSDL(int slot, uint32_t* vram);
     void    init(void);
     void    uninit(void);
+    void    destroy(void);
     void    pause(bool pause);
     void    resize(float scale);
-    void    destroy(void);
-    void    start_interrupts();
 };
 
 extern "C" {
 #endif
-    extern const int DISPLAY_VBL_MS;
-    extern const int VIDEO_VBL_MS;
-    extern const int BLANK_MS;
-    
-    void nd_vbl_handler(void);
-    void nd_video_vbl_handler(void);
     void nd_sdl_resize(float scale);
     void nd_sdl_show(void);
     void nd_sdl_hide(void);
