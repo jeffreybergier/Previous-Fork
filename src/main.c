@@ -155,6 +155,7 @@ bool Main_UnPauseEmulation(void) {
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
 	SDL_ShowCursor(SDL_DISABLE);
 
+	Main_ResetKeys();
 	Main_SetMouseGrab(bGrabMouse);
 
 	bEmulationActive = true;
@@ -353,6 +354,13 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	}
 }
 
+/* ----------------------------------------------------------------------- */
+/**
+ * Sends key up events for all currently pressed keys.
+ */
+void Main_ResetKeys(void) {
+	SDL_ResetKeyboard();
+}
 
 /* ----------------------------------------------------------------------- */
 /**
