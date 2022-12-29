@@ -1,19 +1,27 @@
 /*
  * Hatari - symbols.h
  * 
- * This file is distributed under the GNU Public License, version 2 or at
- * your option any later version. Read the file gpl.txt for details.
+ * This file is distributed under the GNU General Public License, version 2
+ * or at your option any later version. Read the file gpl.txt for details.
  */
 
 #ifndef HATARI_SYMBOLS_H
 #define HATARI_SYMBOLS_H
 
 typedef enum {
-	SYMTYPE_TEXT = 1,
+	SYMTYPE_TEXT = 1,  /* Needs to be smallest number for sorting! */
 	SYMTYPE_DATA = 2,
 	SYMTYPE_BSS  = 4,
-	SYMTYPE_ALL  = SYMTYPE_TEXT|SYMTYPE_DATA|SYMTYPE_BSS
+	SYMTYPE_ABS  = 8,
+	SYMTYPE_ALL  = SYMTYPE_TEXT|SYMTYPE_DATA|SYMTYPE_BSS|SYMTYPE_ABS
 } symtype_t;
+
+typedef struct {
+	char *name;
+	uint32_t address;
+	symtype_t type;
+	bool name_allocated;
+} symbol_t;
 
 extern const char Symbols_Description[];
 
@@ -26,11 +34,11 @@ extern char* Symbols_MatchDspAddress(const char *text, int state);
 extern char* Symbols_MatchDspCodeAddress(const char *text, int state);
 extern char* Symbols_MatchDspDataAddress(const char *text, int state);
 /* symbol name -> address search */
-extern bool Symbols_GetCpuAddress(symtype_t symtype, const char *name, Uint32 *addr);
-extern bool Symbols_GetDspAddress(symtype_t symtype, const char *name, Uint32 *addr);
+extern bool Symbols_GetCpuAddress(symtype_t symtype, const char *name, uint32_t *addr);
+extern bool Symbols_GetDspAddress(symtype_t symtype, const char *name, uint32_t *addr);
 /* symbol address -> name search */
-extern const char* Symbols_GetByCpuAddress(Uint32 addr);
-extern const char* Symbols_GetByDspAddress(Uint32 addr);
+extern const char* Symbols_GetByCpuAddress(uint32_t addr, symtype_t symtype);
+extern const char* Symbols_GetByDspAddress(uint32_t addr, symtype_t symtype);
 /* symbols/dspsymbols command parsing */
 extern int Symbols_Command(int nArgc, char *psArgs[]);
 /* how many symbols are loaded */

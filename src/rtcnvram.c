@@ -9,9 +9,11 @@
 
  */
 
+#include "main.h"
+#include "host.h"
 #include "ioMem.h"
 #include "ioMemTables.h"
-#include "m68000.h"
+#include "log.h"
 #include "configuration.h"
 #include "dimension.hpp"
 #include "sysReg.h"
@@ -27,15 +29,15 @@
 #define RTC_ADDR_WRITE  0x80
 #define RTC_ADDR_CLOCK  0x20
 #define RTC_ADDR_MASK   0x7F
-Uint8 rtc_addr = 0;
-Uint8 rtc_val  = 0;
-Uint8 rtc_data = 0;
+uint8_t rtc_addr = 0;
+uint8_t rtc_val  = 0;
+uint8_t rtc_data = 0;
 int phase = 0;
 
-int oldrtc_interface_io(Uint8 rtdatabit);
-int newrtc_interface_io(Uint8 rtdatabit);
+int oldrtc_interface_io(uint8_t rtdatabit);
+int newrtc_interface_io(uint8_t rtdatabit);
 
-void rtc_interface_write(Uint8 rtdatabit) {
+void rtc_interface_write(uint8_t rtdatabit) {
     switch (ConfigureParams.System.nRTC) {
         case MC68HC68T1: rtc_data = oldrtc_interface_io(rtdatabit); break;
         case MCCS1850:   rtc_data = newrtc_interface_io(rtdatabit); break;
@@ -46,7 +48,7 @@ void rtc_interface_write(Uint8 rtdatabit) {
     }
 }
 
-Uint8 rtc_interface_read(void) {
+uint8_t rtc_interface_read(void) {
     return rtc_data;
 }
 
@@ -98,7 +100,7 @@ void rtc_stop_pdown_request(void) {
 void oldrtc_check_time(void);
 void newrtc_check_time(void);
 
-void rtc_check_time(void) {
+static void rtc_check_time(void) {
     switch (ConfigureParams.System.nRTC) {
         case MC68HC68T1: oldrtc_check_time(); return;
         case MCCS1850:   newrtc_check_time(); return;
@@ -125,8 +127,8 @@ void RTC_Reset(void) {
  * registers are located at address 0x20 to 0x32.
  */
 
-Uint8 rtc_get_clock(Uint8 addr);
-void rtc_put_clock(Uint8 addr, Uint8 val);
+uint8_t rtc_get_clock(uint8_t addr);
+void rtc_put_clock(uint8_t addr, uint8_t val);
 
 /* All time values in RTC clock are in packed decimal format */
 static char rtc_treg_name[8][8] = {
@@ -141,21 +143,21 @@ static char rtc_treg_name[8][8] = {
 };
 
 typedef struct {
-    Uint8 sec;      /* 00 - 59 */
-    Uint8 min;      /* 00 - 59 */
-    Uint8 hour;     /* 01 - 12 or 00 - 24; bit 7: 1 = 12 hr, 0 = 24 hr; bit 5: 1 = pm, 0 = am */
-    Uint8 wday;     /* 01 - 07; 1 = sunday */
-    Uint8 mday;     /* 01 - 31 */
-    Uint8 month;    /* 01 - 12; 1 = january */
-    Uint8 year;     /* 00 - 99 */
+    uint8_t sec;      /* 00 - 59 */
+    uint8_t min;      /* 00 - 59 */
+    uint8_t hour;     /* 01 - 12 or 00 - 24; bit 7: 1 = 12 hr, 0 = 24 hr; bit 5: 1 = pm, 0 = am */
+    uint8_t wday;     /* 01 - 07; 1 = sunday */
+    uint8_t mday;     /* 01 - 31 */
+    uint8_t month;    /* 01 - 12; 1 = january */
+    uint8_t year;     /* 00 - 99 */
 } RTC_TIME;
 
 RTC_TIME get_rtc_time(void);
 
 typedef struct {
-    Uint8 sec;      /* 00 - 59 */
-    Uint8 min;      /* 00 - 59 */
-    Uint8 hour;     /* 01 - 12 or 00 - 24; bit 5: 1 = pm, 0 = am in 24 hr mode */
+    uint8_t sec;      /* 00 - 59 */
+    uint8_t min;      /* 00 - 59 */
+    uint8_t hour;     /* 01 - 12 or 00 - 24; bit 5: 1 = pm, 0 = am in 24 hr mode */
 } RTC_ALARM;
 
 
@@ -230,16 +232,16 @@ typedef struct {
 #define RTC_PERIODIC    0x0F
 
 struct {
-    Uint8 ram[32];      /* 0x00 - 0x1F (r), 0x80 - 0x9F (w) */
+    uint8_t ram[32];      /* 0x00 - 0x1F (r), 0x80 - 0x9F (w) */
     RTC_TIME time;      /* 0x20 - 0x26 (r), 0xA0 - 0xA6 (w) */
     RTC_ALARM alarm;    /* 0xA8 - 0xAA (w) */
-    Uint8 status;       /* 0x30 (r) */
-    Uint8 clkctrl;      /* 0x31 (r), 0xB1 (w) */
-    Uint8 intctrl;      /* 0x32 (r), 0xB2 (w) */
+    uint8_t status;       /* 0x30 (r) */
+    uint8_t clkctrl;      /* 0x31 (r), 0xB1 (w) */
+    uint8_t intctrl;      /* 0x32 (r), 0xB2 (w) */
 } rtc;
 
 
-int oldrtc_interface_io(Uint8 rtdatabit) {
+int oldrtc_interface_io(uint8_t rtdatabit) {
     
     phase++;
     
@@ -293,16 +295,16 @@ int oldrtc_interface_io(Uint8 rtdatabit) {
     return rtdatabit;
 }
 
-static Uint8 toBCD(int val) {
+static uint8_t toBCD(int val) {
     return (((val/10)%10)<<4)|(val%10);
 }
 
 /* Year is supported up to 2050 through overflow of decimal decade */
-static Uint8 toBCDyr(int val) {
+static uint8_t toBCDyr(int val) {
     return (((val/10)&0xF)<<4)|(val%10);
 }
 
-static int fromBCD(Uint8 bcd) {
+static int fromBCD(uint8_t bcd) {
     return ((bcd&0xF0)>>4)*10+(bcd&0xF);
 }
 
@@ -333,7 +335,7 @@ static void my_set_rtc_time(void) {
 }
 
 void oldrtc_check_time(void) {
-    Uint8 year;
+    uint8_t year;
     
     my_get_rtc_time();
     year = fromBCD(rtc.time.year);
@@ -344,8 +346,8 @@ void oldrtc_check_time(void) {
     }
 }
 
-Uint8 rtc_get_clock(Uint8 addr) {
-    Uint8 val = 0x00;
+uint8_t rtc_get_clock(uint8_t addr) {
+    uint8_t val = 0x00;
     
     my_get_rtc_time();
     
@@ -379,7 +381,7 @@ Uint8 rtc_get_clock(Uint8 addr) {
     return val;
 }
 
-void rtc_put_clock(Uint8 addr, Uint8 val) {
+void rtc_put_clock(uint8_t addr, uint8_t val) {
     switch (addr&RTC_ADDR_MASK) {
         case 0x20: /* seconds */
             rtc.time.sec=val;
@@ -423,7 +425,7 @@ void rtc_put_clock(Uint8 addr, Uint8 val) {
             rtc.intctrl = val;
             if (rtc.intctrl&RTC_POWERDOWN) {
                 Log_Printf(LOG_WARN, "[RTC] Power down!");
-                M68000_Stop();
+                Main_RequestQuit(false);
             }
             break;
             
@@ -450,8 +452,8 @@ void oldrtc_stop_pdown_request(void) {
  * control/status registers are located at address 0x20 to 0x31.
  */
 
-Uint8 newrtc_get_clock(Uint8 addr);
-void newrtc_put_clock(Uint8 addr, Uint8 val);
+uint8_t newrtc_get_clock(uint8_t addr);
+void newrtc_put_clock(uint8_t addr, uint8_t val);
 
 /* New RTC has two 32 bit counters, one for time and one for alarm */
 
@@ -507,16 +509,16 @@ void newrtc_put_clock(Uint8 addr, Uint8 val);
 
 struct {
     /* --> see old chip  * 0x00 - 0x1F (r), 0x80 - 0x9F (w) */
-    Uint32 timecntr;    /* 0x20 - 0x23 (r), 0xA0 - 0xA3 (w) */
-    Uint32 alarmcntr;   /* 0x24 - 0x27 (r), 0xA4 - 0xA7 (w) */
-    Uint8 status;       /* 0x30 (r) */
-    Uint8 control;      /* 0x31 (r), 0xB1 (w) */
-    Uint8 ram2[32];     /* 0x40 - 0x5F (r), 0xC0 - 0xDF (w) */
+    uint32_t timecntr;    /* 0x20 - 0x23 (r), 0xA0 - 0xA3 (w) */
+    uint32_t alarmcntr;   /* 0x24 - 0x27 (r), 0xA4 - 0xA7 (w) */
+    uint8_t status;       /* 0x30 (r) */
+    uint8_t control;      /* 0x31 (r), 0xB1 (w) */
+    uint8_t ram2[32];     /* 0x40 - 0x5F (r), 0xC0 - 0xDF (w) */
 } newrtc;
 
 #define RTC_ADDR_NEWRAM 0x40
 
-int newrtc_interface_io(Uint8 rtdatabit) {
+int newrtc_interface_io(uint8_t rtdatabit) {
     
     phase++;
     
@@ -577,8 +579,8 @@ int newrtc_interface_io(Uint8 rtdatabit) {
 }
 
 
-Uint8 newrtc_get_clock(Uint8 addr) {
-    Uint8 val = 0x00;
+uint8_t newrtc_get_clock(uint8_t addr) {
+    uint8_t val = 0x00;
     
     newrtc.timecntr = host_unix_time();
     
@@ -623,7 +625,7 @@ Uint8 newrtc_get_clock(Uint8 addr) {
     return val;
 }
 
-void newrtc_put_clock(Uint8 addr, Uint8 val) {
+void newrtc_put_clock(uint8_t addr, uint8_t val) {
     switch (rtc_addr&RTC_ADDR_MASK) {
         case 0x20:
             newrtc.timecntr &= 0x00FFFFFF;
@@ -678,7 +680,7 @@ void newrtc_put_clock(Uint8 addr, Uint8 val) {
             }
             if (newrtc.control&NRTC_POWERDOWN) {
                 Log_Printf(LOG_WARN, "[newRTC] Power down!");
-                M68000_Stop();
+                Main_RequestQuit(false);
             }
             if (!(newrtc.status&(NRTC_FIRSTUP|NRTC_INT_ALARM|NRTC_INT_PDOWN|NRTC_INT_LBAT))) {
                 newrtc.status&= ~NRTC_INT;
@@ -809,7 +811,7 @@ void newrtc_stop_pdown_request(void) {}
  */
 
 /* RTC RAM */
-Uint8 nvram_default[32]={
+uint8_t nvram_default[32]={
     0x94,0x0f,0x40,0x00, // byte 0 - 3: volume, brightness, ...
     0x00,0x00,0x00,0x00,0x00,0x00, // byte 4 - 9: hardware password, ethernet address (?)
     0x00,0x00, // byte 10, 11: simm type and size (4 simms, 4 bits per simm), see bits in ni_simm above
@@ -825,7 +827,7 @@ void nvram_init(void) {
     memset(rtc.ram, 0, 32);
     
     /* Build configuration bytes */
-    Uint32 config = 0x94000000; /* reset = 9, allow eject = 1 */
+    uint32_t config = 0x94000000; /* reset = 9, allow eject = 1 */
     config |= 0x3D<<14; /* brightness */
     
     rtc.ram[0] = config>>24;
@@ -866,9 +868,9 @@ void nvram_init(void) {
     }
     
     /* Build SIMM bytes */
-    Uint16 SIMMconfig = 0x0000;
-    Uint8 simm[4];
-    Uint8 parity = 0xF0;
+    uint16_t SIMMconfig = 0x0000;
+    uint8_t simm[4];
+    uint8_t parity = 0xF0;
     if (ConfigureParams.System.bTurbo) {
         parity = 0x00;
         for (i = 0; i<4; i++) {
@@ -971,123 +973,40 @@ void nvram_checksum(int force) {
 }
 
 
-#if 1
-static char rtc_ram_info[1024];
-char * get_rtc_ram_info(void) {
-    char buf[256];
-    int sum;
-    int i;
-    int ni_vol_l,ni_vol_r,ni_brightness;
-    int ni_hw_pwd;
-    sprintf(buf,"Rtc info:\n");
-    strcpy(rtc_ram_info,buf);
-    
-    // struct nvram_info {
-    // #define	NI_RESET	9
-    // 	u_int	ni_reset : 4,
-    
-    sprintf(buf,"RTC RESET:x%1X ",rtc.ram[0]>>4);
-    strcat(rtc_ram_info,buf);
-    
-    // #define	SCC_ALT_CONS	0x08000000
-    // 		ni_alt_cons : 1,
-    if (rtc.ram[0]&0x08) strcat(rtc_ram_info,"ALT_CONS ");
-    // #define	ALLOW_EJECT	0x04000000
-    // 		ni_allow_eject : 1,
-    if (rtc.ram[0]&0x04) strcat(rtc_ram_info,"ALLOW_EJECT ");
-    // 		ni_vol_r : 6,
-    // 		ni_brightness : 6,
-    // #define	HW_PWD	0x6
-    // 		ni_hw_pwd : 4,
-    // 		ni_vol_l : 6,
-    // 		ni_spkren : 1,
-    // 		ni_lowpass : 1,
-    // #define	BOOT_ANY	0x00000002
-    // 		ni_boot_any : 1,
-    // #define	ANY_CMD		0x00000001
-    // 		ni_any_cmd : 1;
-    
-    ni_vol_r=(((rtc.ram[0]&0x3)<<4)|((rtc.ram[1]&0xF0)>>4));
-    ni_brightness=(((rtc.ram[1]&0xF)<<2)|((rtc.ram[2]&0xC0)>>6));
-    ni_vol_l=((rtc.ram[2]&0x3F)<<2);
-    ni_hw_pwd=(rtc.ram[3]&0xF0)>>4;
-    sprintf(buf,"VOL_R:x%1X BRIGHT:x%1X HWPWD:x%1X VOL_L:x%1X",ni_vol_r,ni_brightness,ni_vol_l,ni_hw_pwd);
-    strcat(rtc_ram_info,buf);
-    
-    if (rtc.ram[3]&0x08) strcat(rtc_ram_info,"SPK_ENABLE ");
-    if (rtc.ram[3]&0x04) strcat(rtc_ram_info,"LOW_PASS ");
-    if (rtc.ram[3]&0x02) strcat(rtc_ram_info,"BOOT_ANY ");
-    if (rtc.ram[3]&0x01) strcat(rtc_ram_info,"ANY_CMD ");
-    
-    
-    
-    // #define	NVRAM_HW_PASSWD	6
-    // 	u_char ni_ep[NVRAM_HW_PASSWD];
-    
-    sprintf(buf,"NVRAM_HW_PASSWD:%2X %2X %2X %2X %2X %2X ",rtc.ram[4],rtc.ram[5],rtc.ram[6],rtc.ram[7],rtc.ram[8],rtc.ram[9]);
-    strcat(rtc_ram_info,buf);
-    // #define	ni_enetaddr	ni_ep
-    // #define	ni_hw_passwd	ni_ep
-    // 	u_short ni_simm;		/* 4 SIMMs, 4 bits per SIMM */
-    sprintf(buf,"SIMM:%1X %1X %1X %1X ",rtc.ram[10]>>4,rtc.ram[10]&0x0F,rtc.ram[11]>>4,rtc.ram[11]&0x0F);
-    strcat(rtc_ram_info,buf);
-    
-    
-    // 	char ni_adobe[2];
-    sprintf(buf,"ADOBE:%2X %2X ",rtc.ram[12],rtc.ram[13]);
-    strcat(rtc_ram_info,buf);
-    
-    // 	u_char ni_pot[3];
-    sprintf(buf,"POT:%2X %2X %2X ",rtc.ram[14],rtc.ram[15],rtc.ram[16]);
-    strcat(rtc_ram_info,buf);
-    
-    // 	u_char	ni_new_clock_chip : 1,
-    // 		ni_auto_poweron : 1,
-    // 		ni_use_console_slot : 1,	/* Console slot was set by user. */
-    // 		ni_console_slot : 2,		/* Preferred console dev slot>>1 */
-    // 		ni_use_parity_mem : 1,	/* Use parity RAM if available? */
-    // 		: 2;
-    if (rtc.ram[17]&0x80) strcat(rtc_ram_info,"NEW_CLOCK_CHIP ");
-    if (rtc.ram[17]&0x40) strcat(rtc_ram_info,"AUTO_POWERON ");
-    if (rtc.ram[17]&0x20) strcat(rtc_ram_info,"CONSOLE_SLOT ");
-    
-    sprintf(buf,"console_slot:%X ",(rtc.ram[17]&0x18)>>3);
-    strcat(rtc_ram_info,buf);
-    
-    if (rtc.ram[17]&0x04) strcat(rtc_ram_info,"USE_PARITY ");
-    
-    
-    strcat(rtc_ram_info,"boot_command:");
-    for (i=0;i<12;i++) {
-        if ((rtc.ram[18+i]>=0x20) && (rtc.ram[18+i]<=0x7F)) {
-            sprintf(buf,"%c",rtc.ram[18+i]);
-            strcat(rtc_ram_info,buf);
-        }
-    }
-    
-    strcat(rtc_ram_info," ");
-    sprintf(buf,"CKSUM:%2X %2X ",rtc.ram[30],rtc.ram[31]);
-    strcat(rtc_ram_info,buf);
-    
-    
-    sum=0;
-    for (i=0;i<30;i+=2) {
-        sum+=(rtc.ram[i]<<8)|(rtc.ram[i+1]);
-        if (sum>=0x10000) { sum-=0x10000;
-            sum+=1;
-        }
-    }
-    
-    sum=0xFFFF-sum;
-    
-    sprintf(buf,"CALC_CKSUM:%04X ",sum&0xFFFF);
-    strcat(rtc_ram_info,buf);
-    
-    // #define	NVRAM_BOOTCMD	12
-    // 	char ni_bootcmd[NVRAM_BOOTCMD];
-    // 	u_short ni_cksum;
-    // };
-    
-    return rtc_ram_info;
+/* Print parameters stored in NVRAM (for debugger) */
+void NVRAM_Info(FILE *fp, uint32_t dummy) {
+	fprintf(fp, "Parameters stored in NVRAM\n");
+	fprintf(fp, "Reset:             %x\n", (rtc.ram[0]>>4)&0xF);
+	fprintf(fp, "Alternate console: %d\n", (rtc.ram[0]>>3)&0x1);
+	fprintf(fp, "Allow eject:       %d\n", (rtc.ram[0]>>2)&0x1);
+	fprintf(fp, "Enable HW PWD:     %x\n", (rtc.ram[2]>>2)&0xF);
+	fprintf(fp, "Brightness:        %d\n", ((rtc.ram[1]&0xF)<<2)|((rtc.ram[2]>>6)&0x3));
+	fprintf(fp, "Volume right:      %d\n", ((rtc.ram[0]&0x3)<<4)|((rtc.ram[1]>>4)&0xF));
+	fprintf(fp, "Volume left:       %d\n", ((rtc.ram[2]&0x3)<<4)|((rtc.ram[3]>>4)&0xF));
+	fprintf(fp, "Speaker enabled:   %d\n", (rtc.ram[3]>>3)&0x1);
+	fprintf(fp, "Lowpass enabled:   %d\n", (rtc.ram[3]>>2)&0x1);
+	fprintf(fp, "Any boot:          %d\n", (rtc.ram[3]>>1)&0x1);
+	fprintf(fp, "Any command:       %d\n", (rtc.ram[3])&0x1);
+	fprintf(fp, "Ethernet address:  %02x:%02x:%02x:%02x:%02x:%02x\n",
+	        rtc.ram[4], rtc.ram[5], rtc.ram[6], rtc.ram[7], rtc.ram[8], rtc.ram[9]);
+	fprintf(fp, "SIMM config:       %02x%02x\n", rtc.ram[10], rtc.ram[11]);
+	fprintf(fp, "Adobe:             %c%c\n", rtc.ram[12], rtc.ram[13]);
+	fprintf(fp, "Enable POT:        %d\n", (rtc.ram[14])&0x1);
+	fprintf(fp, "Sound test:        %d\n", (rtc.ram[14]>>6)&0x1);
+	fprintf(fp, "Boot diagnostics:  %d\n", (rtc.ram[14]>>5)&0x1);
+	fprintf(fp, "DRAM test:         %d\n", (rtc.ram[14]>>4)&0x1);
+	fprintf(fp, "Verbose test:      %d\n", (rtc.ram[14]>>3)&0x1);
+	fprintf(fp, "Loop test:         %d\n", (rtc.ram[14]>>2)&0x1);
+	fprintf(fp, "SCSI test:         %d\n", (rtc.ram[14]>>1)&0x1);
+	fprintf(fp, "Old POT error:     %X\n", rtc.ram[15]);
+	fprintf(fp, "Recent POT error:  %X\n", rtc.ram[16]);
+	fprintf(fp, "New clock chip:    %d\n", (rtc.ram[17]>>7)&0x1);
+	fprintf(fp, "Auto power-on:     %d\n", (rtc.ram[17]>>6)&0x1);
+	fprintf(fp, "Use console slot:  %d\n", (rtc.ram[17]>>5)&0x1);
+	fprintf(fp, "Console slot:      %d\n", ((rtc.ram[17]>>3)&0x3)<<1);
+	fprintf(fp, "Use parity memory: %d\n", (rtc.ram[17]>>2)&0x1);
+	fprintf(fp, "Boot command:      %c%c%c%c%c%c%c%c%c%c%c%c\n",
+	        rtc.ram[18], rtc.ram[19], rtc.ram[20], rtc.ram[21], rtc.ram[22], rtc.ram[23],
+	        rtc.ram[24], rtc.ram[25], rtc.ram[26], rtc.ram[27], rtc.ram[28], rtc.ram[29]);
+	fprintf(fp, "Checksum:          %02x%02x\n\n", rtc.ram[30], rtc.ram[31]);
 }
-#endif

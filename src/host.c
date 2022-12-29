@@ -17,40 +17,36 @@
 #include "memory.h"
 #include "newcpu.h"
 
-/* NeXTdimension blank handling, see nd_sdl.c */
-void nd_display_blank(int num);
-void nd_video_blank(int num);
 
 #define NUM_BLANKS 3
+static SDL_atomic_t vblCounter[NUM_BLANKS];
 static const char* BLANKS[] = {
   "main","nd_main","nd_video"  
 };
 
-static volatile Uint32 blank[NUM_BLANKS];
-static Uint32       vblCounter[NUM_BLANKS];
-static Sint64       cycleCounterStart;
-static Sint64       cycleDivisor;
-static Uint64       perfCounterStart;
-static Uint64       perfFrequency;
+static int64_t      cycleCounterStart;
+static int64_t      cycleDivisor;
+static uint64_t     perfCounterStart;
+static uint64_t     perfFrequency;
 static bool         perfCounterFreqInt;
-static Uint64       perfDivisor;
+static uint64_t     perfDivisor;
 static double       perfMultiplicator;
-static Uint64       pauseTimeStamp;
+static uint64_t     pauseTimeStamp;
 static bool         enableRealtime;
 static bool         osDarkmatter;
 static bool         currentIsRealtime;
-static Uint64       hardClockExpected;
-static Uint64       hardClockActual;
+static uint64_t     hardClockExpected;
+static uint64_t     hardClockActual;
 static time_t       unixTimeStart;
 static lock_t       timeLock;
-static Uint64       saveTime;
+static uint64_t     saveTime;
 
 // external
-extern Sint64       nCyclesMainCounter;
+extern int64_t      nCyclesMainCounter;
 extern struct regstruct regs;
 
-static inline Uint64 real_time(void) {
-    Uint64 rt = (SDL_GetPerformanceCounter() - perfCounterStart);
+static inline uint64_t real_time(void) {
+    uint64_t rt = (SDL_GetPerformanceCounter() - perfCounterStart);
     if (perfCounterFreqInt) {
         rt /= perfDivisor;
     } else {
@@ -62,8 +58,8 @@ static inline Uint64 real_time(void) {
 #define DAY_TO_US (1000000ULL * 60 * 60 * 24)
 
 // Report counter capacity
-void host_report_limits(void) {
-    Uint64 cycleCounterLimit, perfCounterLimit, perfCounter;
+static void host_report_limits(void) {
+    uint64_t cycleCounterLimit, perfCounterLimit, perfCounter;
     
     Log_Printf(LOG_WARN, "[Hosttime] Timing system reset:");
     
@@ -101,7 +97,7 @@ void host_report_limits(void) {
 // Check NeXT specific UNIX time limits and adjust time if needed
 #define TIME_LIMIT_SECONDS 0
 
-void host_check_unix_time(void) {
+static void host_check_unix_time(void) {
     struct tm* t = gmtime(&unixTimeStart);
     char* s = asctime(t);
     bool b = false;
@@ -145,8 +141,7 @@ void host_reset(void) {
     saveTime          = 0;
     
     for(int i = NUM_BLANKS; --i >= 0;) {
-        vblCounter[i] = 0;
-        blank[i]      = 0;
+        host_reset_blank_counter(i);
     }
     
     cycleDivisor = ConfigureParams.System.nCpuFreq;
@@ -157,32 +152,21 @@ void host_reset(void) {
     
     host_report_limits();
     host_check_unix_time();
-
-    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 }
 
-const char DARKMATTER[] = "darkmatter";
+static char DARKMATTER[] = "darkmatter";
 
-void host_blank(int slot, int src, bool state) {
-    int bit = 1 << slot;
-    if(state) {
-        blank[src] |=  bit;
-        vblCounter[src]++;
-    }
-    else
-        blank[src] &= ~bit;
-    switch (src) {
-        case ND_DISPLAY:   nd_display_blank(slot); break;
-        case ND_VIDEO:     nd_video_blank(slot);   break;
+void host_blank_count(int src, bool state) {
+    if (state) {
+        SDL_AtomicAdd(&vblCounter[src], 1);
     }
     
     // check first 4 bytes of version string in darkmatter/daydream kernel
-    osDarkmatter = get_long(0x04000246) == do_get_mem_long((Uint8*)DARKMATTER);
+    osDarkmatter = get_long(0x04000246) == do_get_mem_long((uint8_t*)DARKMATTER);
 }
 
-bool host_blank_state(int slot, int src) {
-    int bit = 1 << slot;
-    return blank[src] & bit;
+int host_reset_blank_counter(int src) {
+    return SDL_AtomicSet(&vblCounter[src], 0);
 }
 
 void host_hardclock(int expected, int actual) {
@@ -195,8 +179,8 @@ void host_hardclock(int expected, int actual) {
 }
 
 // this can be used by other threads to read hostTime
-Uint64 host_get_save_time() {
-    Uint64 hostTime;
+uint64_t host_get_save_time() {
+    uint64_t hostTime;
     host_lock(&timeLock);
     hostTime = saveTime;
     host_unlock(&timeLock);
@@ -204,8 +188,8 @@ Uint64 host_get_save_time() {
 }
 
 // Return current time as microseconds
-Uint64 host_time_us() {
-    Uint64 hostTime;
+uint64_t host_time_us() {
+    uint64_t hostTime;
     
     host_lock(&timeLock);
     
@@ -224,14 +208,14 @@ Uint64 host_time_us() {
     // 2) ...either we are running darkmatter or the m68k CPU is in user mode
     bool state = (osDarkmatter || !(regs.s)) && enableRealtime;
     if(currentIsRealtime != state) {
-        Uint64 realTime  = real_time();
+        uint64_t realTime  = real_time();
         
         if(currentIsRealtime) {
             // switching from real-time to cycle-time
             cycleCounterStart = nCyclesMainCounter - realTime * cycleDivisor;
         } else {
             // switching from cycle-time to real-time
-            Sint64 realTimeOffset = (Sint64)hostTime - realTime;
+            int64_t realTimeOffset = (int64_t)hostTime - realTime;
             if(realTimeOffset > 0) {
                 // if hostTime is in the future, wait until realTime is there as well
                 if(realTimeOffset > 10000LL)
@@ -248,18 +232,18 @@ Uint64 host_time_us() {
     return hostTime;
 }
 
-void host_time(Uint64* realTime, Uint64* hostTime) {
+void host_time(uint64_t* realTime, uint64_t* hostTime) {
     *hostTime = host_time_us();
     *realTime = real_time();
 }
 
 // Return current time as seconds
-Uint64 host_time_sec() {
+uint64_t host_time_sec() {
     return host_time_us() / 1000000ULL;
 }
 
 // Return current time as milliseconds
-Uint64 host_time_ms() {
+uint64_t host_time_ms() {
     return host_time_us() / 1000ULL;
 }
 
@@ -281,10 +265,10 @@ void host_set_unix_tm(struct tm* now) {
     host_set_unix_time(tmp);
 }
 
-Sint64 host_real_time_offset() {
-    Uint64 rt, vt;
+int64_t host_real_time_offset() {
+    uint64_t rt, vt;
     host_time(&rt, &vt);
-    return (Sint64)vt-rt;
+    return (int64_t)vt-rt;
 }
 
 void host_pause_time(bool pausing) {
@@ -299,7 +283,7 @@ void host_pause_time(bool pausing) {
 /**
  * Sleep for a given number of micro seconds.
  */
-void host_sleep_us(Uint64 us) {
+void host_sleep_us(uint64_t us) {
 #if HAVE_NANOSLEEP
     struct timespec	ts;
     int		ret;
@@ -311,14 +295,14 @@ void host_sleep_us(Uint64 us) {
         ret = nanosleep(&ts, &ts);
     } while ( ret && ( errno == EINTR ) );		/* keep on sleeping if we were interrupted */
 #else
-    Uint64 timeout = us;
+    uint64_t timeout = us;
     timeout += real_time();
-    host_sleep_ms( (Uint32)(us / 1000ULL) );
+    host_sleep_ms( (uint32_t)(us / 1000ULL) );
     while(real_time() < timeout) {}
 #endif
 }
 
-void host_sleep_ms(Uint32 ms) {
+void host_sleep_ms(uint32_t ms) {
     SDL_Delay(ms);
 }
 
@@ -340,6 +324,10 @@ int host_atomic_set(atomic_int* a, int newValue) {
 
 int host_atomic_get(atomic_int* a) {
     return SDL_AtomicGet(a);
+}
+
+int host_atomic_add(atomic_int* a, int value) {
+    return SDL_AtomicAdd(a, value);
 }
 
 bool host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
@@ -376,10 +364,10 @@ int host_num_cpus() {
   return  SDL_GetCPUCount();
 }
 
-static Uint64 lastVT;
+static uint64_t lastVT;
 static char   report[512];
 
-const char* host_report(Uint64 realTime, Uint64 hostTime) {
+const char* host_report(uint64_t realTime, uint64_t hostTime) {
     double dVT = hostTime - lastVT;
     dVT       /= 1000000.0;
 
@@ -390,25 +378,10 @@ const char* host_report(Uint64 realTime, Uint64 hostTime) {
     r += sprintf(r, "[%s] hostTime:%llu hardClock:%.3fMHz", enableRealtime ? "Variable" : "CycleTime", hostTime, hardClock);
 
     for(int i = NUM_BLANKS; --i >= 0;) {
-        r += sprintf(r, " %s:%.1fHz", BLANKS[i], (double)vblCounter[i]/dVT);
-        vblCounter[i] = 0;
+        r += sprintf(r, " %s:%.1fHz", BLANKS[i], (double)(host_reset_blank_counter(i))/dVT);
     }
     
     lastVT = hostTime;
 
     return report;
-}
-
-Uint8* host_malloc_aligned(size_t size) {
-#if defined(HAVE_POSIX_MEMALIGN)
-    void* result = NULL;
-    posix_memalign(&result, 0x10000, size);
-    return (Uint8*)result;
-#elif defined(HAVE_ALIGNED_ALLOC)
-    return (Uint8*)aligned_alloc(0x10000, size);
-#elif defined(HAVE__ALIGNED_ALLOC)
-    return (Uint8*)_aligned_alloc(0x10000, size);
-#else
-    return (Uint8*)malloc(size);
-#endif
 }

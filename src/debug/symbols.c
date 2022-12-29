@@ -1,10 +1,10 @@
 /*
  * Hatari - symbols.c
  * 
- * Copyright (C) 2010 by Eero Tamminen
+ * Copyright (C) 2010-2019 by Eero Tamminen
  * 
- * This file is distributed under the GNU Public License, version 2 or at
- * your option any later version. Read the file gpl.txt for details.
+ * This file is distributed under the GNU General Public License, version 2
+ * or at your option any later version. Read the file gpl.txt for details.
  * 
  * symbols.c - Hatari debugger symbol/address handling; parsing, sorting,
  * matching, TAB completion support etc.
@@ -14,24 +14,17 @@
  * type (T = text/code, D = data, B = BSS), space and the symbol name.
  * Empty lines and lines starting with '#' are ignored.
  */
-const char Symbols_fileid[] = "Hatari symbols.c : " __DATE__ " " __TIME__;
+const char Symbols_fileid[] = "Hatari symbols.c";
 
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <SDL_types.h>
 #include "main.h"
 #include "symbols.h"
 #include "debugui.h"
 #include "debug_priv.h"
 #include "evaluate.h"
-
-typedef struct {
-	char *name;
-	Uint32 address;
-	symtype_t type;
-} symbol_t;
 
 typedef struct {
 	unsigned int count;
@@ -45,7 +38,6 @@ typedef struct {
  */
 #define MAX_SYM_SIZE 32
 
-
 /* TODO: add symbol name/address file names to configuration? */
 static symbol_list_t *CpuSymbolsList;
 static symbol_list_t *DspSymbolsList;
@@ -58,8 +50,8 @@ static symbol_list_t *DspSymbolsList;
  */
 static int symbols_by_address(const void *s1, const void *s2)
 {
-	Uint32 addr1 = ((const symbol_t*)s1)->address;
-	Uint32 addr2 = ((const symbol_t*)s2)->address;
+	uint32_t addr1 = ((const symbol_t*)s1)->address;
+	uint32_t addr2 = ((const symbol_t*)s2)->address;
 
 	if (addr1 < addr2) {
 		return -1;
@@ -94,13 +86,13 @@ static int symbols_by_name(const void *s1, const void *s2)
  * the given file and add given offset to the addresses.
  * Return symbols list or NULL for failure.
  */
-static symbol_list_t* Symbols_Load(const char *filename, Uint32 offset, Uint32 maxaddr, symtype_t gettype)
+static symbol_list_t* Symbols_Load(const char *filename, uint32_t offset, uint32_t maxaddr, symtype_t gettype)
 {
 	symbol_list_t *list;
 	char symchar, buffer[80], name[MAX_SYM_SIZE+1], *buf;
 	int count, line, symbols;
 	symtype_t symtype;
-	Uint32 address;
+	uint32_t address;
 	FILE *fp;
 	
 	if (!(fp = fopen(filename, "r"))) {
@@ -116,7 +108,7 @@ static symbol_list_t* Symbols_Load(const char *filename, Uint32 offset, Uint32 m
 			continue;
 		}
 		/* skip empty lines */
-		for (buf = buffer; isspace(*buf); buf++);
+		for (buf = buffer; isspace((unsigned char)*buf); buf++);
 		if (!*buf) {
 			continue;
 		}
@@ -144,7 +136,7 @@ static symbol_list_t* Symbols_Load(const char *filename, Uint32 offset, Uint32 m
 			continue;
 		}
 		/* skip empty lines */
-		for (buf = buffer; isspace(*buf); buf++);
+		for (buf = buffer; isspace((unsigned char)*buf); buf++);
 		if (!*buf) {
 			continue;
 		}
@@ -336,7 +328,7 @@ static const symbol_t* Symbols_SearchByName(symbol_list_t* list, symtype_t symty
 /**
  * Set given CPU symbol's address to variable and return TRUE if one was found.
  */
-bool Symbols_GetCpuAddress(symtype_t symtype, const char *name, Uint32 *addr)
+bool Symbols_GetCpuAddress(symtype_t symtype, const char *name, uint32_t *addr)
 {
 	const symbol_t *entry;
 	entry = Symbols_SearchByName(CpuSymbolsList, symtype, name);
@@ -350,7 +342,7 @@ bool Symbols_GetCpuAddress(symtype_t symtype, const char *name, Uint32 *addr)
 /**
  * Set given DSP symbol's address to variable and return TRUE if one was found.
  */
-bool Symbols_GetDspAddress(symtype_t symtype, const char *name, Uint32 *addr)
+bool Symbols_GetDspAddress(symtype_t symtype, const char *name, uint32_t *addr)
 {
 	const symbol_t *entry;
 	entry = Symbols_SearchByName(DspSymbolsList, symtype, name);
@@ -368,12 +360,12 @@ bool Symbols_GetDspAddress(symtype_t symtype, const char *name, Uint32 *addr)
  * Search symbol by address.
  * Return symbol name if address matches, NULL otherwise.
  */
-static const char* Symbols_SearchByAddress(symbol_list_t* list, Uint32 addr)
+static const char* Symbols_SearchByAddress(symbol_list_t* list, uint32_t addr)
 {
 	symbol_t *entries;
 	/* left, right, middle */
         int l, r, m;
-	Uint32 curr;
+	uint32_t curr;
 
 	if (!list) {
 		return NULL;
@@ -403,7 +395,7 @@ static const char* Symbols_SearchByAddress(symbol_list_t* list, Uint32 addr)
  * Return symbol name if address matches, NULL otherwise.
  * Returned name is valid only until next Symbols_* function call.
  */
-const char* Symbols_GetByCpuAddress(Uint32 addr)
+const char* Symbols_GetByCpuAddress(uint32_t addr, symtype_t type)
 {
 	return Symbols_SearchByAddress(CpuSymbolsList, addr);
 }
@@ -412,7 +404,7 @@ const char* Symbols_GetByCpuAddress(Uint32 addr)
  * Return symbol name if address matches, NULL otherwise.
  * Returned name is valid only until next Symbols_* function call.
  */
-const char* Symbols_GetByDspAddress(Uint32 addr)
+const char* Symbols_GetByDspAddress(uint32_t addr, symtype_t type)
 {
 	return Symbols_SearchByAddress(DspSymbolsList, addr);
 }
@@ -481,7 +473,7 @@ const char Symbols_Description[] =
 int Symbols_Command(int nArgc, char *psArgs[])
 {
 	enum { TYPE_NONE, TYPE_CPU, TYPE_DSP } listtype;
-	Uint32 offset, maxaddr;
+	uint32_t offset, maxaddr;
 	symbol_list_t *list;
 	const char *file;
 

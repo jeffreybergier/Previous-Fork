@@ -1,12 +1,12 @@
 /*
   Hatari - dialog.c
 
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
   Code to handle our options dialog.
 */
-const char Dialog_fileid[] = "Hatari dialog.c : " __DATE__ " " __TIME__;
+const char Dialog_fileid[] = "Hatari dialog.c";
 
 #include "main.h"
 #include "configuration.h"
@@ -33,11 +33,12 @@ const char Dialog_fileid[] = "Hatari dialog.c : " __DATE__ " " __TIME__;
 bool Dialog_DoProperty(void)
 {
 	bool bOKDialog;  /* Did user 'OK' dialog? */
+	bool bWasActive;
 	bool bForceReset;
 	bool bLoadedSnapshot;
 	CNF_PARAMS current;
 
-	Main_PauseEmulation(true);
+	bWasActive = Main_PauseEmulation(true);
 	bForceReset = false;
 
 	/* Copy details (this is so can restore if 'Cancel' dialog) */
@@ -61,6 +62,9 @@ bool Dialog_DoProperty(void)
 		                           "the emulator?");
 	}
 
+	if (bQuitProgram)
+		Main_RequestQuit(true);
+
 	/* Copy details to configuration */
 	if (bOKDialog) {
 		Change_CopyChangedParamsToConfiguration(&current, &ConfigureParams, bForceReset);
@@ -68,10 +72,11 @@ bool Dialog_DoProperty(void)
 		ConfigureParams = current;
 	}
 
-	Main_UnPauseEmulation();
-    
 	if (bQuitProgram)
-		Main_RequestQuit();
+		Main_RequestQuit(false);
+
+	if (bWasActive)
+		Main_UnPauseEmulation();
  
 	return bOKDialog;
 }
@@ -82,114 +87,97 @@ bool Dialog_DoProperty(void)
  */
 
 void Dialog_CheckFiles(void) {
-    int i;
-    
-    char *szMissingFile = strdup("");
-    char szDefault[FILENAME_MAX];
-    char szMachine[64];
-    bool bEnable = false;
-    
-    /* Check if ROM file exists. If it is missing present a dialog to select a new ROM file. */
-    switch (ConfigureParams.System.nMachineType) {
-        case NEXT_CUBE030:
-            szMissingFile = ConfigureParams.Rom.szRom030FileName;
-            sprintf(szMachine, "NeXT Computer");
-            sprintf(szDefault, "%s%cRev_1.0_v41.BIN", Paths_GetWorkingDir(), PATHSEP);
-            break;
-        case NEXT_CUBE040:
-        case NEXT_STATION:
-            if (ConfigureParams.System.bTurbo) {
-                szMissingFile = ConfigureParams.Rom.szRomTurboFileName;
-                sprintf(szMachine, "%s Turbo %s",
-                        (ConfigureParams.System.nMachineType==NEXT_CUBE040)?"NeXTcube":"NeXTstation",
-                        (ConfigureParams.System.bColor)?"Color":"");
-                sprintf(szDefault, "%s%cRev_3.3_v74.BIN", Paths_GetWorkingDir(), PATHSEP);
-            } else {
-                szMissingFile = ConfigureParams.Rom.szRom040FileName;
-                sprintf(szMachine, "%s %s",
-                        (ConfigureParams.System.nMachineType==NEXT_CUBE040)?"NeXTcube":"NeXTstation",
-                        (ConfigureParams.System.bColor)?"Color":"");
-                sprintf(szDefault, "%s%cRev_2.5_v66.BIN", Paths_GetWorkingDir(), PATHSEP);
-            }
-            break;
-            
-        default:
-            break;
-    }
-    while (!File_Exists(szMissingFile)) {
-        DlgMissing_Rom(szMachine, szMissingFile, szDefault, &bEnable);
-        if (bQuitProgram) {
-            Main_RequestQuit();
-            if (bQuitProgram)
-                return;
-        }
-    }
-    for (i = 0; i < ND_MAX_BOARDS; i++) {
-        while (ConfigureParams.Dimension.board[i].bEnabled && !File_Exists(ConfigureParams.Dimension.board[i].szRomFileName)) {
-            sprintf(szMachine, "NeXTdimension at slot %i", i*2+2);
-            sprintf(szDefault, "%s%cdimension_eeprom.bin", Paths_GetWorkingDir(), PATHSEP);
-            DlgMissing_Rom(szMachine, ConfigureParams.Dimension.board[i].szRomFileName,
-                           szDefault, &ConfigureParams.Dimension.board[i].bEnabled);
-            if (bQuitProgram) {
-                Main_RequestQuit();
-                if (bQuitProgram)
-                    return;
-            }
-        }
-    }
-    
-    /* Check if SCSI disk images exist. Present a dialog to select missing files. */
-    for (i = 0; i < ESP_MAX_DEVS; i++) {
-        while ((ConfigureParams.SCSI.target[i].nDeviceType!=DEVTYPE_NONE) &&
-               ConfigureParams.SCSI.target[i].bDiskInserted &&
-               !File_Exists(ConfigureParams.SCSI.target[i].szImageName)) {
-            DlgMissing_Disk("SCSI disk", i,
-                            ConfigureParams.SCSI.target[i].szImageName,
-                            &ConfigureParams.SCSI.target[i].bDiskInserted,
-                            &ConfigureParams.SCSI.target[i].bWriteProtected);
-            if (ConfigureParams.SCSI.target[i].nDeviceType==DEVTYPE_HARDDISK &&
-                !ConfigureParams.SCSI.target[i].bDiskInserted) {
-                ConfigureParams.SCSI.target[i].nDeviceType=DEVTYPE_NONE;
-            }
-            if (bQuitProgram) {
-                Main_RequestQuit();
-                if (bQuitProgram)
-                    return;
-            }
-        }
-    }
-    
-    /* Check if MO disk images exist. Present a dialog to select missing files. */
-    for (i = 0; i < MO_MAX_DRIVES; i++) {
-        while (ConfigureParams.MO.drive[i].bDriveConnected &&
-               ConfigureParams.MO.drive[i].bDiskInserted &&
-               !File_Exists(ConfigureParams.MO.drive[i].szImageName)) {
-            DlgMissing_Disk("MO disk", i,
-                            ConfigureParams.MO.drive[i].szImageName,
-                            &ConfigureParams.MO.drive[i].bDiskInserted,
-                            &ConfigureParams.MO.drive[i].bWriteProtected);
-            if (bQuitProgram) {
-                Main_RequestQuit();
-                if (bQuitProgram)
-                    return;
-            }
-        }
-    }
+	int i;
 
-    /* Check if Floppy disk images exist. Present a dialog to select missing files. */
-    for (i = 0; i < FLP_MAX_DRIVES; i++) {
-        while (ConfigureParams.Floppy.drive[i].bDriveConnected &&
-               ConfigureParams.Floppy.drive[i].bDiskInserted &&
-               !File_Exists(ConfigureParams.Floppy.drive[i].szImageName)) {
-            DlgMissing_Disk("Floppy", i,
-                            ConfigureParams.Floppy.drive[i].szImageName,
-                            &ConfigureParams.Floppy.drive[i].bDiskInserted,
-                            &ConfigureParams.Floppy.drive[i].bWriteProtected);
-            if (bQuitProgram) {
-                Main_RequestQuit();
-                if (bQuitProgram)
-                    return;
-            }
-        }
-    }
+	char *szMissingFile = NULL;
+	char szDefault[FILENAME_MAX];
+	char szMachine[64];
+	bool bEnable = false;
+
+	/* Check if ROM file exists. If it is missing present a dialog to select a new ROM file. */
+	if (ConfigureParams.System.nMachineType == NEXT_CUBE030) {
+		szMissingFile = ConfigureParams.Rom.szRom030FileName;
+		snprintf(szMachine, sizeof(szMachine), "NeXT Computer");
+		File_MakePathBuf(szDefault, sizeof(szDefault), Paths_GetDataDir(), "Rev_1.0_v41", "BIN");
+	} else {
+		if (ConfigureParams.System.bTurbo) {
+			szMissingFile = ConfigureParams.Rom.szRomTurboFileName;
+			snprintf(szMachine, sizeof(szMachine), "%s Turbo %s",
+			         (ConfigureParams.System.nMachineType==NEXT_CUBE040)?"NeXTcube":"NeXTstation",
+			         (ConfigureParams.System.bColor)?"Color":"");
+			File_MakePathBuf(szDefault, sizeof(szDefault), Paths_GetDataDir(), "Rev_3.3_v74", "BIN");
+		} else {
+			szMissingFile = ConfigureParams.Rom.szRom040FileName;
+			snprintf(szMachine, sizeof(szMachine), "%s %s",
+			         (ConfigureParams.System.nMachineType==NEXT_CUBE040)?"NeXTcube":"NeXTstation",
+			         (ConfigureParams.System.bColor)?"Color":"");
+			File_MakePathBuf(szDefault, sizeof(szDefault), Paths_GetDataDir(), "Rev_2.5_v66", "BIN");
+		}
+	}
+	while (!File_Exists(szMissingFile)) {
+		DlgMissing_Rom(szMachine, szMissingFile, szDefault, &bEnable);
+		if (bQuitProgram) {
+			return;
+		}
+	}
+	for (i = 0; i < ND_MAX_BOARDS; i++) {
+		while (ConfigureParams.Dimension.board[i].bEnabled && !File_Exists(ConfigureParams.Dimension.board[i].szRomFileName)) {
+			snprintf(szMachine, sizeof(szMachine), "NeXTdimension at slot %i", i*2+2);
+			File_MakePathBuf(szDefault, sizeof(szDefault), Paths_GetDataDir(), "ND_step1_v43", "BIN");
+			DlgMissing_Rom(szMachine, ConfigureParams.Dimension.board[i].szRomFileName,
+			               szDefault, &ConfigureParams.Dimension.board[i].bEnabled);
+			if (bQuitProgram) {
+				return;
+			}
+		}
+	}
+
+	/* Check if SCSI disk images exist. Present a dialog to select missing files. */
+	for (i = 0; i < ESP_MAX_DEVS; i++) {
+		while ((ConfigureParams.SCSI.target[i].nDeviceType!=DEVTYPE_NONE) &&
+		       ConfigureParams.SCSI.target[i].bDiskInserted &&
+		       !File_Exists(ConfigureParams.SCSI.target[i].szImageName)) {
+			DlgMissing_Disk("SCSI disk", i,
+			                ConfigureParams.SCSI.target[i].szImageName,
+			                &ConfigureParams.SCSI.target[i].bDiskInserted,
+			                &ConfigureParams.SCSI.target[i].bWriteProtected);
+			if (bQuitProgram) {
+				return;
+			}
+			if (ConfigureParams.SCSI.target[i].nDeviceType==DEVTYPE_HARDDISK &&
+			    !ConfigureParams.SCSI.target[i].bDiskInserted) {
+				ConfigureParams.SCSI.target[i].nDeviceType=DEVTYPE_NONE;
+			}
+		}
+	}
+
+	/* Check if MO disk images exist. Present a dialog to select missing files. */
+	for (i = 0; i < MO_MAX_DRIVES; i++) {
+		while (ConfigureParams.MO.drive[i].bDriveConnected &&
+		       ConfigureParams.MO.drive[i].bDiskInserted &&
+		       !File_Exists(ConfigureParams.MO.drive[i].szImageName)) {
+			DlgMissing_Disk("MO disk", i,
+			                ConfigureParams.MO.drive[i].szImageName,
+			                &ConfigureParams.MO.drive[i].bDiskInserted,
+			                &ConfigureParams.MO.drive[i].bWriteProtected);
+			if (bQuitProgram) {
+				return;
+			}
+		}
+	}
+
+	/* Check if Floppy disk images exist. Present a dialog to select missing files. */
+	for (i = 0; i < FLP_MAX_DRIVES; i++) {
+		while (ConfigureParams.Floppy.drive[i].bDriveConnected &&
+		       ConfigureParams.Floppy.drive[i].bDiskInserted &&
+		       !File_Exists(ConfigureParams.Floppy.drive[i].szImageName)) {
+			DlgMissing_Disk("Floppy", i,
+			                ConfigureParams.Floppy.drive[i].szImageName,
+			                &ConfigureParams.Floppy.drive[i].bDiskInserted,
+			                &ConfigureParams.Floppy.drive[i].bWriteProtected);
+			if (bQuitProgram) {
+				return;
+			}
+		}
+	}
 }

@@ -12,6 +12,9 @@
 /* Define to 1 if you have the `z' library (-lz). */
 #cmakedefine HAVE_LIBZ 1
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#cmakedefine HAVE_ZLIB_H 1
+
 /* Define to 1 if you have the <strings.h> header file. */
 #cmakedefine HAVE_STRINGS_H 1
 
@@ -36,6 +39,15 @@
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #cmakedefine HAVE_NETINET_IN_H 1
 
+/* Define to 1 if you have the <byteswap.h> header file. */
+#cmakedefine HAVE_BYTESWAP_H 1
+
+/* Define to 1 if you have the 'bswap_16' function. */
+#cmakedefine HAVE_BSWAP_16 1
+
+/* Define to 1 if you have the 'bswap_32' function. */
+#cmakedefine HAVE_BSWAP_32 1
+
 /* Define to 1 if you have the 'setenv' function. */
 #cmakedefine HAVE_SETENV 1
 
@@ -53,6 +65,15 @@
 
 /* Define to 1 if you have the 'scandir' function. */
 #cmakedefine HAVE_SCANDIR 1
+
+/* Define to 1 if you have the 'fseeko' function. */
+#cmakedefine HAVE_FSEEKO 1
+
+/* Define to 1 if you have the 'ftello' function. */
+#cmakedefine HAVE_FTELLO 1
+
+/* Define to 1 if you have the 'flock' function. */
+#cmakedefine HAVE_FLOCK 1
 
 /* Define to 1 if you have the 'strdup' function */
 #cmakedefine HAVE_STRDUP 1
@@ -72,8 +93,14 @@
 /* Relative path from bindir to datadir */
 #define BIN2DATADIR "@BIN2DATADIR@"
 
+/* Define to 1 to enable DSP 56k emulation */
+#cmakedefine ENABLE_DSP_EMU 1
+
 /* Define to 1 to enable trace logs - undefine to slightly increase speed */
 #cmakedefine ENABLE_TRACING 1
+
+/* Define to 1 to enable rendering threads for higher efficiency */
+#cmakedefine ENABLE_RENDERING_THREAD 1
 
 /* Define to 1 if you have the 'posix_memalign' function */
 #cmakedefine HAVE_POSIX_MEMALIGN 1

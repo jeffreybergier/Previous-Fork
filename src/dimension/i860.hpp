@@ -32,16 +32,16 @@
 #include "nd_sdl.hpp"
 
 typedef uint64_t UINT64;
-typedef int64_t INT64;
+typedef int64_t  INT64;
 
 typedef uint32_t UINT32;
-typedef int32_t INT32;
+typedef int32_t  INT32;
 
 typedef uint16_t UINT16;
-typedef int16_t INT16;
+typedef int16_t  INT16;
 
 typedef uint8_t  UINT8;
-typedef int8_t  INT8;
+typedef int8_t   INT8;
 
 typedef int64_t offs_t;
 
@@ -448,17 +448,17 @@ public:
     inline bool is_halted(void) {return m_halt;};
 
     /* i860 cycle counter */
-    int i860cycles;
+    atomic_int i860cycles;
     /* Run one i860 cycle */
-    void    run_cycle(void);
+    void run_cycle(void);
     /* Run the i860 thread */
     void run();
     /* i860 thread message handler */
-    bool   handle_msgs(int msg);
+    bool handle_msgs(int msg);
     
     static int thread(void* data);
     
-    const char* reports(Uint64 realTime, Uint64 hostTIme);
+    const char* reports(uint64_t realTime, uint64_t hostTIme);
 private:
     // debugger
     void debugger(char cmd, const char* format, ...);
@@ -738,6 +738,7 @@ private:
 };
 
 /* disassembler */
+#define DISASM_BUF_SIZE 256
 int i860_disassembler(UINT32 pc, UINT32 insn, char* buffer);
 
 #endif /* __I860_H__ */

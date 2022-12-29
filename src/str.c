@@ -1,18 +1,18 @@
 /*
   Hatari - str.c
 
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
   String functions.
 */
-const char Str_fileid[] = "Hatari str.c : " __DATE__ " " __TIME__;
+const char Str_fileid[] = "Hatari str.c";
 
 #include <stdio.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <SDL_types.h>
 #include "configuration.h"
 #include "str.h"
 
@@ -33,7 +33,7 @@ char *Str_Trim(char *buffer)
 
 	for (i = 0; i < linelen; i++)
 	{
-		if (!isspace(buffer[i]))
+		if (!isspace((unsigned char)buffer[i]))
 			break;
 	}
 
@@ -45,7 +45,7 @@ char *Str_Trim(char *buffer)
 
 	for (i = linelen; i > 0; i--)
 	{
-		if (!isspace(buffer[i-1]))
+		if (!isspace((unsigned char)buffer[i-1]))
 			break;
 	}
 
@@ -63,7 +63,7 @@ char *Str_ToUpper(char *pString)
 	char *str = pString;
 	while (*str)
 	{
-		*str = toupper(*str);
+		*str = toupper((unsigned char)*str);
 		str++;
 	}
 	return pString;
@@ -78,44 +78,86 @@ char *Str_ToLower(char *pString)
 	char *str = pString;
 	while (*str)
 	{
-		*str = tolower(*str);
+		*str = tolower((unsigned char)*str);
 		str++;
 	}
 	return pString;
 }
 
-
 /**
- * truncate string at first unprintable char (e.g. newline).
+ * Allocate memory for a string and check for out-of memory (and exit the
+ * program in that case, since there is likely nothing we can do if we even
+ * can not allocate small strings anymore).
+ *
+ * @len  Length of the string (without the trailing NUL character)
  */
-char *Str_Trunc(char *pString)
+char *Str_Alloc(int len)
 {
-	int i = 0;
-	char *str = pString;
-	while (str[i] != '\0')
+	char *newstr = malloc(len + 1);
+
+	if (!newstr)
 	{
-		if (!isprint((unsigned)str[i]))
-		{
-			str[i] = '\0';
-			break;
-		}
-		i++;
+		perror("string allocation failed");
+		exit(1);
 	}
-	return pString;
+
+	newstr[0] = newstr[len] = 0;
+
+	return newstr;
 }
 
+/**
+ * This function is like strdup, but also checks for out-of memory and exits
+ * the program in that case (there is likely nothing we can do if we even can
+ * not allocate small strings anymore).
+ */
+char *Str_Dup(const char *str)
+{
+	char *newstr;
+
+	if (!str)
+		return NULL;
+
+	newstr = strdup(str);
+	if (!newstr)
+	{
+		perror("string duplication failed");
+		exit(1);
+	}
+
+	return newstr;
+}
 
 /**
- * check if string is valid hex number.
+ * Copy string from pSrc to pDest, taking the destination buffer size
+ * into account.
+ * This function is similar to strscpy() in the Linux-kernel, it
+ * is a replacement for strlcpy() (which cannot be used on untrusted
+ * source strings since it tries to find out its length). Our
+ * function here returns -E2BIG instead if the string does not
+ * fit the destination buffer.
  */
-bool Str_IsHex(const char *str)
+long Str_Copy(char *pDest, const char *pSrc, long nBufLen)
 {
-	int i = 0;
-	while (str[i] != '\0' && str[i] != ' ')
-	{
-		if (!isxdigit((unsigned)str[i]))
-			return false;
-		i++;
+	long nCount = 0;
+
+	if (nBufLen == 0)
+		return -E2BIG;
+
+	while (nBufLen) {
+		char c;
+
+		c = pSrc[nCount];
+		pDest[nCount] = c;
+		if (!c)
+			return nCount;
+		nCount++;
+		nBufLen--;
 	}
-	return true;
+
+	/* Hit buffer length without finding a NUL; force NUL-termination. */
+	if (nCount > 0)
+		pDest[nCount - 1] = '\0';
+
+	return -E2BIG;
 }

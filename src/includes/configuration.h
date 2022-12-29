@@ -1,8 +1,8 @@
 /*
   Hatari - configuration.h
 
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 */
 
 #pragma once
@@ -34,6 +34,7 @@ typedef struct
   int nTextLogLevel;
   int nAlertDlgLogLevel;
   bool bConfirmQuit;
+  bool bConsoleWindow;
 } CNF_LOG;
 
 
@@ -41,19 +42,24 @@ typedef struct
 typedef struct
 {
   int nNumberBase;
-  int nDisasmLines;
+  int nSymbolLines;
   int nMemdumpLines;
+  int nDisasmLines;
+  int nBacktraceLines;
+  int nExceptionDebugMask;
+  int nDisasmOptions;
+  bool bDisasmUAE;
 } CNF_DEBUGGER;
 
 
 /* ROM configuration */
 typedef struct
 {
-    char szRom030FileName[FILENAME_MAX];
-    char szRom040FileName[FILENAME_MAX];
-    char szRomTurboFileName[FILENAME_MAX];
-    bool bUseCustomMac;
-    int nRomCustomMac[6];
+  char szRom030FileName[FILENAME_MAX];
+  char szRom040FileName[FILENAME_MAX];
+  char szRomTurboFileName[FILENAME_MAX];
+  bool bUseCustomMac;
+  int nRomCustomMac[6];
 } CNF_ROM;
 
 
@@ -112,11 +118,11 @@ typedef struct
 #define MOUSE_EXP_MAX   1.0
 typedef struct
 {
-    bool bEnableAutoGrab;
-    float fLinSpeedNormal;
-    float fLinSpeedLocked;
-    float fExpSpeedNormal;
-    float fExpSpeedLocked;
+  bool bEnableAutoGrab;
+  float fLinSpeedNormal;
+  float fLinSpeedLocked;
+  float fExpSpeedNormal;
+  float fExpSpeedLocked;
 } CNF_MOUSE;
 
 
@@ -141,97 +147,97 @@ typedef struct
 
 typedef enum
 {
-    BOOT_ROM,
-    BOOT_SCSI,
-    BOOT_ETHERNET,
-    BOOT_MO,
-    BOOT_FLOPPY
+  BOOT_ROM,
+  BOOT_SCSI,
+  BOOT_ETHERNET,
+  BOOT_MO,
+  BOOT_FLOPPY
 } BOOT_DEVICE;
 
 typedef struct
 {
-    BOOT_DEVICE nBootDevice;
-    bool bEnableDRAMTest;
-    bool bEnablePot;
-    bool bExtendedPot;
-    bool bEnableSoundTest;
-    bool bEnableSCSITest;
-    bool bLoopPot;
-    bool bVerbose;
+  BOOT_DEVICE nBootDevice;
+  bool bEnableDRAMTest;
+  bool bEnablePot;
+  bool bExtendedPot;
+  bool bEnableSoundTest;
+  bool bEnableSCSITest;
+  bool bLoopPot;
+  bool bVerbose;
 } CNF_BOOT;
 
 
 /* Hard drives configuration */
 #define ESP_MAX_DEVS 7
 typedef enum {
-    DEVTYPE_NONE,
-    DEVTYPE_HARDDISK,
-    DEVTYPE_CD,
-    DEVTYPE_FLOPPY,
-    NUM_DEVTYPES
+  DEVTYPE_NONE,
+  DEVTYPE_HARDDISK,
+  DEVTYPE_CD,
+  DEVTYPE_FLOPPY,
+  NUM_DEVTYPES
 } SCSI_DEVTYPE;
 
 typedef struct {
-    char szImageName[FILENAME_MAX];
-    SCSI_DEVTYPE nDeviceType;
-    bool bDiskInserted;
-    bool bWriteProtected;
+  char szImageName[FILENAME_MAX];
+  SCSI_DEVTYPE nDeviceType;
+  bool bDiskInserted;
+  bool bWriteProtected;
 } SCSIDISK;
 
 typedef enum
 {
-    WRITEPROT_OFF,
-    WRITEPROT_ON,
-    WRITEPROT_AUTO
+  WRITEPROT_OFF,
+  WRITEPROT_ON,
+  WRITEPROT_AUTO
 } WRITEPROTECTION;
 
 typedef struct {
-    SCSIDISK target[ESP_MAX_DEVS];
-    int nWriteProtection;
+  SCSIDISK target[ESP_MAX_DEVS];
+  int nWriteProtection;
 } CNF_SCSI;
 
 
 /* Magneto-optical drives configuration */
 #define MO_MAX_DRIVES   2
 typedef struct {
-    char szImageName[FILENAME_MAX];
-    bool bDriveConnected;
-    bool bDiskInserted;
-    bool bWriteProtected;
+  char szImageName[FILENAME_MAX];
+  bool bDriveConnected;
+  bool bDiskInserted;
+  bool bWriteProtected;
 } MODISK;
 
 typedef struct {
-    MODISK drive[MO_MAX_DRIVES];
+  MODISK drive[MO_MAX_DRIVES];
 } CNF_MO;
 
 
 /* Floppy disk drives configuration */
 #define FLP_MAX_DRIVES   2
 typedef struct {
-    char szImageName[FILENAME_MAX];
-    bool bDriveConnected;
-    bool bDiskInserted;
-    bool bWriteProtected;
+  char szImageName[FILENAME_MAX];
+  bool bDriveConnected;
+  bool bDiskInserted;
+  bool bWriteProtected;
 } FLPDISK;
 
 typedef struct {
-    FLPDISK drive[FLP_MAX_DRIVES];
+  FLPDISK drive[FLP_MAX_DRIVES];
 } CNF_FLOPPY;
 
 
 /* Ethernet configuration */
 typedef enum
 {
-    ENET_SLIRP,
-    ENET_PCAP
+  ENET_SLIRP,
+  ENET_PCAP
 } ENET_INTERFACE;
 
 typedef struct {
-    bool bEthernetConnected;
-    bool bTwistedPair;
-    ENET_INTERFACE nHostInterface;
-    char szInterfaceName[FILENAME_MAX];
-    char szNFSroot[FILENAME_MAX];
+  bool bEthernetConnected;
+  bool bTwistedPair;
+  ENET_INTERFACE nHostInterface;
+  char szInterfaceName[FILENAME_MAX];
+  char szNFSroot[FILENAME_MAX];
 } CNF_ENET;
 
 typedef enum
@@ -255,10 +261,10 @@ typedef struct
 /* Printer configuration */
 typedef enum
 {
-    PAPER_A4,
-    PAPER_LETTER,
-    PAPER_B5,
-    PAPER_LEGAL
+  PAPER_A4,
+  PAPER_LETTER,
+  PAPER_B5,
+  PAPER_LEGAL
 } PAPER_SIZE;
 
 typedef struct
@@ -335,16 +341,16 @@ typedef struct
 #define ND_MAX_BOARDS   3
 typedef struct
 {
-    bool bEnabled;
-    int  nMemoryBankSize[4];
-    char szRomFileName[FILENAME_MAX];
+  bool bEnabled;
+  int  nMemoryBankSize[4];
+  char szRomFileName[FILENAME_MAX];
 } NDBOARD;
 
 typedef struct {
-    bool bI860Thread;
-    bool bMainDisplay;
-    int nMainDisplay;
-    NDBOARD board[ND_MAX_BOARDS];
+  bool bI860Thread;
+  bool bMainDisplay;
+  int nMainDisplay;
+  NDBOARD board[ND_MAX_BOARDS];
 } CNF_ND;
 
 /* State of system is stored in this structure */
@@ -376,16 +382,16 @@ typedef struct
 extern CNF_PARAMS ConfigureParams;
 extern char sConfigFileName[FILENAME_MAX];
 
-void Configuration_SetDefault(void);
-void Configuration_SetSystemDefaults(void);
-void Configuration_Apply(bool bReset);
-int Configuration_CheckMemory(int *banksize);
-int  Configuration_CheckDimensionMemory(int *banksize);
-void Configuration_CheckDimensionSettings(void);
-void Configuration_CheckEthernetSettings(void);
-void Configuration_Load(const char *psFileName);
-void Configuration_Save(void);
-void Configuration_MemorySnapShot_Capture(bool bSave);
+extern void Configuration_SetDefault(void);
+extern void Configuration_SetSystemDefaults(void);
+extern void Configuration_Apply(bool bReset);
+extern int  Configuration_CheckMemory(int *banksize);
+extern int  Configuration_CheckDimensionMemory(int *banksize);
+extern void Configuration_CheckDimensionSettings(void);
+extern void Configuration_CheckEthernetSettings(void);
+extern void Configuration_Load(const char *psFileName);
+extern void Configuration_Save(void);
+extern void Configuration_MemorySnapShot_Capture(bool bSave);
 
 #ifdef __cplusplus
 }

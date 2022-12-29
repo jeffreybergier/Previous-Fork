@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.5
+                                  Previous 2.6
 
 
 
@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.0.18 or later (http://www.libsdl.org)
+  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -117,6 +117,10 @@ Previous with:
 
 If all works fine, you should get the executable "Previous" in the src/ sub-
 directory of the build tree. 
+
+Some systems do not support rendering from secondary threads. In case you get a 
+black window try compiling with rendering threads disabled. In the instructions 
+above replace "cmake .." with "../configure --disable-rendering-thread".
 
 For more detailed building instructions read the file building.previous.txt.
 
@@ -161,9 +165,6 @@ input devices.
 Issues in Previous:
   > Un-emulated hardware may cause problems when attempted to being used.
   > NeXTdimension emulation does not work on hosts with big endian byte order.
-  > DSP sound has timing related issues. playscore under NeXTstep 0.9 sometimes 
-    produces bad audio in variable speed mode. ScorePlayer under NeXTstep 2.x 
-    produces distorted sound in normal CPU mode.
   > Shortcuts do not work properly or overlap with host commands on some 
     platforms.
   > CPU timings are not correct. You may experience performance differences 
@@ -306,6 +307,24 @@ Previous v2.5:
   > Fixes bug that caused sporadic failures of the NeXTdimension board.
   > Fixes bug that caused display errors when using NeXTdimension board.
 
+Previous v2.6:
+  > Improves system control and status register access for booting Plan 9.
+  > Improves window resizing.
+  > Fixes bug that caused problems when changing statusbar visibility.
+
+Previous v2.7 (unreleased):
+  > Adds ability to unlock the mouse cursor with control-click.
+  > Adds compile-time option to do all rendering from the main thread.
+  > Improves accuracy of Ethernet controller on Turbo systems.
+  > Improves handling of caps lock and modifier keys when using shortcuts.
+  > Improves behavior of file selection dialog in certain situations.
+  > Improves behavior of user interface in some edge cases.
+  > Fixes bug that caused Daydream to hang on start up.
+  > Fixes bug that caused errors when formatting floppy disks.
+  > Fixes bug that prevented sound recording on newer versions of macOS.
+  > Fixes bug that caused NeXTdimension window to start with wrong size.
+  > Fixes bug in low-pass filter that could cause audible noise.
+
 
  7) Running Previous
  -------------------
@@ -326,8 +345,8 @@ Previous was written by Andreas Grabher, Simon Schubiger and Gilles Fetis.
 Many thanks go to the members of the NeXT International Forums for their help. 
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
-L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner and
-Frank Wegmann!
+L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
+Frank Wegmann, Grzegorz Szwoch and Michael Engel!
 
 This emulator would not exist without their help.
 

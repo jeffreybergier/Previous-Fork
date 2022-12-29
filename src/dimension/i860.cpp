@@ -23,6 +23,7 @@
 
 #include "i860.hpp"
 #include "dimension.hpp"
+#include "main.h"
 #include "log.h"
 
 extern "C" {
@@ -59,7 +60,7 @@ i860_cpu_device::i860_cpu_device(NextDimension* nd) : nd(nd) {
     m_thread = NULL;
     m_halt   = true;
     
-    sprintf(m_thread_name, "[ND] Slot %d: i860", nd->slot);
+    snprintf(m_thread_name, sizeof(m_thread_name), "[Previous] i860 at slot %d", nd->slot);
     
     for(int i = 0; i < 8192; i++) {
         int upper6 = i >> 7;
@@ -581,34 +582,35 @@ void i860_cpu_device::run() {
             continue;
         }
         
-        if (i860cycles > 0) {
+        if (host_atomic_get(&i860cycles) > 0) {
             /* Run some i860 cycles before re-checking messages */
             for(int i = 16; --i >= 0;)
                 run_cycle();
             
-            i860cycles -= 16;
+            host_atomic_add(&i860cycles, -16);
         } else {
             host_sleep_ms(1);
         }
     }
 }
 
-const char* i860_cpu_device::reports(Uint64 realTime, Uint64 hostTime) {
+const char* i860_cpu_device::reports(uint64_t realTime, uint64_t hostTime) {
     double dVT = (hostTime - m_last_vt) / 1000000.0;
     
     if(is_halted()) {
         m_report[0] = 0;
     } else {
         if(dVT == 0) dVT = 0.0001;
-        sprintf(m_report, "i860:{MIPS=%.1f icache_hit=%lld%% tlb_hit=%lld%% tlb_search=%lld%% icach_inval/s=%.0f tlb_inval/s=%.0f intr/s=%0.f}",
-                               (float) (m_insn_decoded / (dVT*1000*1000)),
-                               m_icache_hit+m_icache_miss == 0 ? 0LL : (100LL * m_icache_hit) / (m_icache_hit+m_icache_miss) ,
-                               m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_hit)    / (m_tlb_hit+m_tlb_miss),
-                               m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_search) / (m_tlb_hit+m_tlb_miss),
-                               (float) (m_icache_inval)/dVT,
-                               (float) (m_tlb_inval)/dVT,
-                               (float) (m_intrs)/dVT
-                               );
+        snprintf(m_report, sizeof(m_report),
+                 "i860:{MIPS=%.1f icache_hit=%lld%% tlb_hit=%lld%% tlb_search=%lld%% icach_inval/s=%.0f tlb_inval/s=%.0f intr/s=%0.f}",
+                 (float) (m_insn_decoded / (dVT*1000*1000)),
+                 m_icache_hit+m_icache_miss == 0 ? 0LL : (100LL * m_icache_hit) / (m_icache_hit+m_icache_miss),
+                 m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_hit)    / (m_tlb_hit+m_tlb_miss),
+                 m_tlb_hit+m_tlb_miss       == 0 ? 0LL : (100LL * m_tlb_search) / (m_tlb_hit+m_tlb_miss),
+                 (float) (m_icache_inval)/dVT,
+                 (float) (m_tlb_inval)/dVT,
+                 (float) (m_intrs)/dVT
+                 );
         
         m_insn_decoded  = 0;
         m_icache_hit    = 0;

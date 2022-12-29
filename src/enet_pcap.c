@@ -81,7 +81,7 @@ void enet_pcap_queue_poll(void)
     }
 }
 
-void enet_pcap_input(Uint8 *pkt, int pkt_len) {
+void enet_pcap_input(uint8_t *pkt, int pkt_len) {
     if (pcap_started) {
         Log_Printf(LOG_EN_PCAP_LEVEL, "[PCAP] Input packet with %i bytes",enet_tx_buffer.size);
         SDL_LockMutex(pcap_mutex);
@@ -105,7 +105,7 @@ void enet_pcap_stop(void) {
     }
 }
 
-void enet_pcap_start(Uint8 *mac) {
+void enet_pcap_start(uint8_t *mac) {
     char errbuf[PCAP_ERRBUF_SIZE];
     char *dev;
     struct bpf_program fp;
@@ -146,8 +146,9 @@ void enet_pcap_start(Uint8 *mac) {
         }
         
 #if 1 // TODO: Check if we need to take care of RXMODE_ADDR_SIZE and RX_PROMISCUOUS/RX_ANY
-        sprintf(filter_exp,"(((ether dst ff:ff:ff:ff:ff:ff) or (ether dst %02x:%02x:%02x:%02x:%02x:%02x) or (ether[0] & 0x01 = 0x01)))",
-                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        snprintf(filter_exp, sizeof(filter_exp),
+                 "(((ether dst ff:ff:ff:ff:ff:ff) or (ether dst %02x:%02x:%02x:%02x:%02x:%02x) or (ether[0] & 0x01 = 0x01)))",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
         if (pcap_compile(pcap_handle, &fp, filter_exp, 0, net) == -1) {
             Log_Printf(LOG_WARN, "[PCAP] Warning: Couldn't parse filter %s: %s", filter_exp, pcap_geterr(pcap_handle));

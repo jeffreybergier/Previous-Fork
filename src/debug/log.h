@@ -1,8 +1,8 @@
 /*
   Hatari - log.h
   
-  This file is distributed under the GNU Public License, version 2 or at
-  your option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 */
 #ifndef HATARI_LOG_H
 #define HATARI_LOG_H
@@ -12,7 +12,40 @@ extern "C" {
 #endif /* __cplusplus */
     
 #include <stdbool.h>
-#include <SDL_types.h>
+#include <stdint.h>
+
+/* Exception debugging
+ * -------------------
+ */
+
+/* CPU exception flags
+ * is catching needed also for: traps 0, 3-12, 15? (MonST catches them)
+ */
+#define	EXCEPT_BUS	 (1<<0)
+#define	EXCEPT_ADDRESS 	 (1<<1)
+#define	EXCEPT_ILLEGAL	 (1<<2)
+#define	EXCEPT_ZERODIV	 (1<<3)
+#define	EXCEPT_CHK	 (1<<4)
+#define	EXCEPT_TRAPV	 (1<<5)
+#define	EXCEPT_PRIVILEGE (1<<6)
+#define	EXCEPT_TRACE     (1<<7)
+#define	EXCEPT_NOHANDLER (1<<8)
+
+/* DSP exception flags */
+#define EXCEPT_DSP	 (1<<9)
+
+/* whether to enable exception debugging on autostart */
+#define EXCEPT_AUTOSTART (1<<10)
+
+/* general flags */
+#define	EXCEPT_NONE	 (0)
+#define	EXCEPT_ALL	 (~EXCEPT_AUTOSTART)
+
+/* defaults are same as with earlier -D option */
+#define DEFAULT_EXCEPTIONS (EXCEPT_BUS|EXCEPT_ADDRESS|EXCEPT_DSP)
+
+extern int ExceptionDebugMask;
+extern const char* Log_SetExceptionDebugMask(const char *OptionsStr);
 
 
 /* Logging
@@ -22,7 +55,6 @@ extern "C" {
  */
 typedef enum
 {
-    LOG_NONE,   /* invalid LOG level */
 /* these present user with a dialog and log the issue */
 	LOG_FATAL,	/* Hatari can't continue unless user resolves issue */
 	LOG_ERROR,	/* something user did directly failed (e.g. save) */
@@ -31,31 +63,41 @@ typedef enum
 	LOG_INFO,	/* user action success (e.g. TOS file load) */
 	LOG_TODO,	/* functionality not yet being emulated */
 	LOG_DEBUG,	/* information about internal Hatari working */
+	LOG_NONE	/* invalid LOG level */
 } LOGTYPE;
+
+#define LOG_NAMES {"FATAL", "ERROR", "WARN ", "INFO ", "TODO ", "DEBUG"}
+
 
 #ifndef __GNUC__
 /* assuming attributes work only for GCC */
 #define __attribute__(foo)
 #endif
 
+extern void Log_Default(void);
+extern void Log_SetLevels(void);
 extern int Log_Init(void);
 extern int Log_SetAlertLevel(int level);
 extern void Log_UnInit(void);
-extern void _Log_Printf(LOGTYPE nType, const char *psFormat, ...)
+extern void Log_PrintfInt(LOGTYPE nType, const char *psFormat, ...)
 	__attribute__ ((format (printf, 2, 3)));
 extern void Log_AlertDlg(LOGTYPE nType, const char *psFormat, ...)
 	__attribute__ ((format (printf, 2, 3)));
 extern LOGTYPE Log_ParseOptions(const char *OptionStr);
 extern const char* Log_SetTraceOptions(const char *OptionsStr);
 extern char *Log_MatchTrace(const char *text, int state);
-    
+extern void Log_ToggleMsgRepeat(void);
+extern void Log_ResetMsgRepeat(void);
+extern void Log_Trace(const char *format, ...)
+	__attribute__ ((format (printf, 1, 2)));
+
 #ifndef __GNUC__
 #undef __attribute__
 #endif
 
-#define _Log_LOG_FATAL(nType, psFormat, ...) _Log_Printf(nType, psFormat, ## __VA_ARGS__)
-#define _Log_LOG_ERROR(nType, psFormat, ...) _Log_Printf(nType, psFormat, ## __VA_ARGS__)
-#define _Log_LOG_WARN(nType, psFormat, ...)  _Log_Printf(nType, psFormat, ## __VA_ARGS__)
+#define _Log_LOG_FATAL(nType, psFormat, ...) Log_PrintfInt(nType, psFormat, ## __VA_ARGS__)
+#define _Log_LOG_ERROR(nType, psFormat, ...) Log_PrintfInt(nType, psFormat, ## __VA_ARGS__)
+#define _Log_LOG_WARN(nType, psFormat, ...)  Log_PrintfInt(nType, psFormat, ## __VA_ARGS__)
 #define _Log_LOG_INFO(nType, psFormat, ...)
 #define _Log_LOG_TODO(nType, psFormat, ...)
 #define _Log_LOG_DEBUG(nType, psFormat, ...)
@@ -76,73 +118,72 @@ extern char *Log_MatchTrace(const char *text, int state);
  */
 #include "config.h"
 
-/* Up to 64 levels when using Uint32 for HatariTraceFlags */
+/* Up to 64 levels when using uint64_t for HatariTraceFlags */
+enum {
+	TRACE_BIT_CPU_DISASM,
+	TRACE_BIT_CPU_EXCEPTION,
+	TRACE_BIT_CPU_PAIRING,
+	TRACE_BIT_CPU_REGS,
+	TRACE_BIT_CPU_SYMBOLS,
 
-#define	TRACE_MFP_EXCEPTION	 (1<<9)
-#define	TRACE_MFP_START 	 (1<<10)
-#define	TRACE_MFP_READ  	 (1<<11)
-#define	TRACE_MFP_WRITE 	 (1<<12)
+	TRACE_BIT_DSP_DISASM,
+	TRACE_BIT_DSP_DISASM_MEM,
+	TRACE_BIT_DSP_DISASM_REG,
+	TRACE_BIT_DSP_HOST_COMMAND,
+	TRACE_BIT_DSP_HOST_INTERFACE,
+	TRACE_BIT_DSP_HOST_SSI,
+	TRACE_BIT_DSP_INTERRUPT,
+	TRACE_BIT_DSP_STATE,
+	TRACE_BIT_DSP_SYMBOLS,
 
-#define	TRACE_PSG_READ  	 (1<<13)
-#define	TRACE_PSG_WRITE 	 (1<<14)
+	TRACE_BIT_IOMEM_RD,
+	TRACE_BIT_IOMEM_WR,
+};
 
-#define	TRACE_CPU_PAIRING	 (1<<15)
-#define	TRACE_CPU_DISASM	 (1<<16)
-#define	TRACE_CPU_EXCEPTION	 (1<<17)
+#define TRACE_CPU_DISASM         (1ll<<TRACE_BIT_CPU_DISASM)
+#define TRACE_CPU_EXCEPTION      (1ll<<TRACE_BIT_CPU_EXCEPTION)
+#define TRACE_CPU_PAIRING        (1ll<<TRACE_BIT_CPU_PAIRING)
+#define TRACE_CPU_REGS           (1ll<<TRACE_BIT_CPU_REGS)
+#define TRACE_CPU_SYMBOLS        (1ll<<TRACE_BIT_CPU_SYMBOLS)
 
-#define	TRACE_INT		 (1<<18)
+#define TRACE_DSP_DISASM         (1ll<<TRACE_BIT_DSP_DISASM)
+#define TRACE_DSP_DISASM_MEM     (1ll<<TRACE_BIT_DSP_DISASM_MEM)
+#define TRACE_DSP_DISASM_REG     (1ll<<TRACE_BIT_DSP_DISASM_REG)
+#define TRACE_DSP_HOST_COMMAND   (1ll<<TRACE_BIT_DSP_HOST_COMMAND)
+#define TRACE_DSP_HOST_INTERFACE (1ll<<TRACE_BIT_DSP_HOST_INTERFACE)
+#define TRACE_DSP_HOST_SSI       (1ll<<TRACE_BIT_DSP_HOST_SSI)
+#define TRACE_DSP_INTERRUPT      (1ll<<TRACE_BIT_DSP_INTERRUPT)
+#define TRACE_DSP_STATE          (1ll<<TRACE_BIT_DSP_STATE)
+#define TRACE_DSP_SYMBOLS        (1ll<<TRACE_BIT_DSP_SYMBOLS)
 
-#define	TRACE_FDC		 (1<<19)
-
-#define	TRACE_IKBD_CMDS 	 (1<<20)
-#define	TRACE_IKBD_ACIA 	 (1<<21)
-#define	TRACE_IKBD_EXEC 	 (1<<22)
-
-#define TRACE_IOMEM_RD  	 (1<<29)
-#define TRACE_IOMEM_WR  	 (1<<30)
-
-#define TRACE_DSP_HOST_INTERFACE (1ll<<34)
-#define TRACE_DSP_HOST_COMMAND	 (1ll<<35)
-#define TRACE_DSP_HOST_SSI	 (1ll<<36)
-#define TRACE_DSP_DISASM	 (1ll<<37)
-#define TRACE_DSP_DISASM_REG	 (1ll<<38)
-#define TRACE_DSP_DISASM_MEM	 (1ll<<39)
-#define TRACE_DSP_STATE		 (1ll<<40)
-#define TRACE_DSP_INTERRUPT	 (1ll<<41)
+#define TRACE_IOMEM_RD           (1ll<<TRACE_BIT_IOMEM_RD)
+#define TRACE_IOMEM_WR           (1ll<<TRACE_BIT_IOMEM_WR)
 
 #define	TRACE_NONE		 (0)
-#define	TRACE_ALL		 (~0)
+#define	TRACE_ALL		 (~0ll)
 
-#define	TRACE_PSG_ALL		( TRACE_PSG_READ | TRACE_PSG_WRITE )
 
 #define	TRACE_CPU_ALL		( TRACE_CPU_PAIRING | TRACE_CPU_DISASM | TRACE_CPU_EXCEPTION )
 
 #define	TRACE_IOMEM_ALL		( TRACE_IOMEM_RD | TRACE_IOMEM_WR )
 
 #define TRACE_DSP_ALL		( TRACE_DSP_HOST_INTERFACE | TRACE_DSP_HOST_COMMAND | TRACE_DSP_HOST_SSI | TRACE_DSP_DISASM \
-    | TRACE_DSP_DISASM_REG | TRACE_DSP_DISASM_MEM | TRACE_DSP_STATE | TRACE_DSP_INTERRUPT )
-
-/* Dummy for DSP */
-#define ExceptionDebugMask 0
-#define EXCEPT_DSP 0
-
+		| TRACE_DSP_DISASM_REG | TRACE_DSP_DISASM_MEM | TRACE_DSP_STATE | TRACE_DSP_INTERRUPT )
 
 extern FILE *TraceFile;
-extern Uint64 LogTraceFlags;
+extern uint64_t LogTraceFlags;
 
 #if ENABLE_TRACING
 
-#ifndef _VCWIN_
-#define	LOG_TRACE(level, args...) \
-	if (unlikely(LogTraceFlags & level)) fprintf(TraceFile, args)
-#endif
-#define LOG_TRACE_LEVEL( level )	(unlikely(LogTraceFlags & level))
+#define LOG_TRACE_LEVEL( level )	(unlikely(LogTraceFlags & (level)))
+
+#define	LOG_TRACE(level, ...) \
+	if (LOG_TRACE_LEVEL(level))	{ Log_Trace(__VA_ARGS__); }
 
 #else		/* ENABLE_TRACING */
 
-#ifndef _VCWIN_
-#define LOG_TRACE(level, args...)	{}
-#endif
+#define LOG_TRACE(level, ...)	{}
+
 #define LOG_TRACE_LEVEL( level )	(0)
 
 #endif		/* ENABLE_TRACING */
@@ -151,9 +192,17 @@ extern Uint64 LogTraceFlags;
  * In code it's used in such a way that it will be optimized away when tracing
  * is disabled.
  */
-#ifndef _VCWIN_
-#define LOG_TRACE_PRINT(args...)	fprintf(TraceFile , args)
-#endif
+#define LOG_TRACE_PRINT(...)	Log_Trace(__VA_ARGS__)
+
+/* Skip message repeat suppression on multi-line output.
+ * LOG_TRACE_DIRECT_INIT() should called before doing them and
+ * LOG_TRACE_DIRECT_FLUSH() can be called after them
+ */
+#define LOG_TRACE_DIRECT(...)	    fprintf(TraceFile, __VA_ARGS__)
+#define	LOG_TRACE_DIRECT_LEVEL(level, ...) \
+	if (LOG_TRACE_LEVEL(level)) { fprintf(TraceFile, __VA_ARGS__); }
+#define LOG_TRACE_DIRECT_INIT()	    Log_ResetMsgRepeat()
+#define LOG_TRACE_DIRECT_FLUSH()    fflush(TraceFile)
 
 #ifdef __cplusplus
 }

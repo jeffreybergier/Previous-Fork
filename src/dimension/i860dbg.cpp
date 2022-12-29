@@ -22,8 +22,6 @@ void i860_cpu_device::debugger() {
     debugger(0, "");
 }
 
-extern volatile int mainPauseEmulation;
-
 void i860_cpu_device::debugger(char cmd, const char* format, ...) {
     if(!(isatty(fileno(stdin)))) return;
     
@@ -38,7 +36,7 @@ void i860_cpu_device::debugger(char cmd, const char* format, ...) {
     if (m_single_stepping > 1 && m_single_stepping != m_pc)
         return;
     
-    mainPauseEmulation = 1;
+    Main_SendSpecialEvent(MAIN_PAUSE);
     
     if(format) {
         va_list ap;
@@ -199,7 +197,7 @@ void i860_cpu_device::debugger(char cmd, const char* format, ...) {
         if(m_single_stepping == 2) m_single_stepping = 0;
     }
 
-    mainPauseEmulation = 2;
+    Main_SendSpecialEvent(MAIN_UNPAUSE);
 }
 
 /* Disassemble `len' instructions starting at `addr'.  */
@@ -208,7 +206,7 @@ UINT32 i860_cpu_device::disasm (UINT32 addr, int len)
 	UINT32 insn;
 	int j;
 	for (j = 0; j < len; j++) {
-		char buf[256];
+		char buf[DISASM_BUF_SIZE];
 		/* Note that we print the incoming (possibly virtual) address as the
 		   PC rather than the translated address.  */
 		fprintf (stderr, " [i860] %08X: ", addr);

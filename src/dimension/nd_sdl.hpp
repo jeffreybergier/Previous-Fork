@@ -4,42 +4,43 @@
 #define __ND_SDL_H__
 
 #include <SDL.h>
-#include <SDL_thread.h>
-#include "cycInt.h"
+
+#include "config.h"
 
 #ifdef __cplusplus
 
 class NDSDL {
     int           slot;
-    volatile bool doRepaint;
-    SDL_Thread*   repaintThread;
+    uint32_t*     vram;
     SDL_Window*   ndWindow;
     SDL_Renderer* ndRenderer;
+    SDL_Texture*  ndTexture;
     SDL_atomic_t  blitNDFB;
-    Uint32*       vram;
-    
+
+#ifdef ENABLE_RENDERING_THREAD
+    volatile bool doRepaint;
+    SDL_Thread*   repaintThread;
     static int    repainter(void *_this);
     int           repainter(void);
+#endif
 public:
-    static volatile bool ndVBLtoggle;
-    static volatile bool ndVideoVBLtoggle;
-
-    NDSDL(int slot, Uint32* vram);
+    NDSDL(int slot, uint32_t* vram);
+#ifndef ENABLE_RENDERING_THREAD
+    void    repaint(void);
+#endif
     void    init(void);
     void    uninit(void);
-    void    pause(bool pause);
     void    destroy(void);
-    void    start_interrupts();
+    void    pause(bool pause);
+    void    resize(float scale);
 };
 
 extern "C" {
 #endif
-    extern const int DISPLAY_VBL_MS;
-    extern const int VIDEO_VBL_MS;
-    extern const int BLANK_MS;
-    
-    void nd_vbl_handler(void);
-    void nd_video_vbl_handler(void);
+#ifndef ENABLE_RENDERING_THREAD
+    void nd_sdl_repaint(void);
+#endif
+    void nd_sdl_resize(float scale);
     void nd_sdl_show(void);
     void nd_sdl_hide(void);
     void nd_sdl_destroy(void);
