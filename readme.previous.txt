@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.6
+                                  Previous 2.7
 
 
 
@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
+  > The SDL2 library v2.24.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -312,7 +312,7 @@ Previous v2.6:
   > Improves window resizing.
   > Fixes bug that caused problems when changing statusbar visibility.
 
-Previous v2.7 (unreleased):
+Previous v2.7:
   > Adds ability to unlock the mouse cursor with control-click.
   > Adds compile-time option to do all rendering from the main thread.
   > Improves accuracy of Ethernet controller on Turbo systems.
