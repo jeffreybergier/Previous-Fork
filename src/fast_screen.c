@@ -351,7 +351,7 @@ void Screen_Init(void) {
 		exit(-1);
 	}
 
-	SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
+	SDL_GetRendererOutputSize(sdlRenderer, &nWindowWidth, &nWindowHeight);
 	if (nWindowWidth > 0) {
 		dpiFactor = (float)width / nWindowWidth;
 		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
