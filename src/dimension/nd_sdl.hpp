@@ -5,22 +5,29 @@
 
 #include <SDL.h>
 
+#include "config.h"
+
 #ifdef __cplusplus
 
 class NDSDL {
     int           slot;
+    uint32_t*     vram;
     SDL_Window*   ndWindow;
     SDL_Renderer* ndRenderer;
     SDL_Texture*  ndTexture;
     SDL_atomic_t  blitNDFB;
 
-    uint32_t*     vram;
+#ifdef ENABLE_RENDERING_THREAD
     volatile bool doRepaint;
     SDL_Thread*   repaintThread;
     static int    repainter(void *_this);
     int           repainter(void);
+#endif
 public:
     NDSDL(int slot, uint32_t* vram);
+#ifndef ENABLE_RENDERING_THREAD
+    void    repaint(void);
+#endif
     void    init(void);
     void    uninit(void);
     void    destroy(void);
@@ -29,6 +36,9 @@ public:
 };
 
 extern "C" {
+#endif
+#ifndef ENABLE_RENDERING_THREAD
+    void nd_sdl_repaint(void);
 #endif
     void nd_sdl_resize(float scale);
     void nd_sdl_show(void);

@@ -10,7 +10,8 @@
 #include <SDL.h>
 
 
-NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), doRepaint(true), repaintThread(NULL), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL), vram(vram) {}
+#ifdef ENABLE_RENDERING_THREAD
+NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), vram(vram), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL), doRepaint(true), repaintThread(NULL) {}
 
 int NDSDL::repainter(void *_this) {
     return ((NDSDL*)_this)->repainter();
@@ -32,6 +33,16 @@ int NDSDL::repainter(void) {
 
     return 0;
 }
+#else // !ENABLE_RENDERING_THREAD
+NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), vram(vram), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL) {}
+
+void NDSDL::repaint(void) {
+    Screen_BlitDimension(vram, ndTexture);
+    SDL_RenderClear(ndRenderer);
+    SDL_RenderCopy(ndRenderer, ndTexture, NULL, NULL);
+    SDL_RenderPresent(ndRenderer);
+}
+#endif // !ENABLE_RENDERING_THREAD
 
 void NDSDL::init(void) {
     int x, y, w, h;
@@ -53,17 +64,23 @@ void NDSDL::init(void) {
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
+#ifdef ENABLE_RENDERING_THREAD
             ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+#else
+            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED);
+#endif
             if (!ndRenderer) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
                 exit(-1);
             }
             SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
             ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
+#ifdef ENABLE_RENDERING_THREAD
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
             SDL_AtomicSet(&blitNDFB, 0);
             repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
+#endif
         }
 
         SDL_ShowWindow(ndWindow);
@@ -77,9 +94,11 @@ void NDSDL::uninit(void) {
 }
 
 void NDSDL::destroy(void) {
+#ifdef ENABLE_RENDERING_THREAD
     doRepaint = false; // stop repaint thread
     int s;
     SDL_WaitThread(repaintThread, &s);
+#endif
     SDL_DestroyTexture(ndTexture);
     SDL_DestroyRenderer(ndRenderer);
     SDL_DestroyWindow(ndWindow);
@@ -87,11 +106,13 @@ void NDSDL::destroy(void) {
 }
 
 void NDSDL::pause(bool pause) {
+#ifdef ENABLE_RENDERING_THREAD
     if (!pause && ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         SDL_AtomicSet(&blitNDFB, 1);
     } else {
         SDL_AtomicSet(&blitNDFB, 0);
     }
+#endif
 }
 
 void NDSDL::resize(float scale) {
@@ -100,6 +121,15 @@ void NDSDL::resize(float scale) {
     }
 }
 
+#ifndef ENABLE_RENDERING_THREAD
+void nd_sdl_repaint(void) {
+    FOR_EACH_SLOT(slot) {
+        IF_NEXT_DIMENSION(slot, nd) {
+            nd->sdl.repaint();
+        }
+    }
+}
+#endif
 
 void nd_sdl_resize(float scale) {
     FOR_EACH_SLOT(slot) {

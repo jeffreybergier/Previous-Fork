@@ -49,6 +49,11 @@ volatile bool bEmulationActive = false;        /* Do not run emulation during in
 static bool   bAccurateDelays;                 /* Host system has an accurate SDL_Delay()? */
 static bool   bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
+#ifndef ENABLE_RENDERING_THREAD
+static SDL_Thread* nextThread;
+static SDL_sem*    pauseFlag;
+#endif
+
 static uint32_t SPECIAL_EVENT;
 
 typedef const char* (*report_func)(uint64_t realTime, uint64_t hostTime);
@@ -115,6 +120,11 @@ bool Main_PauseEmulation(bool visualize) {
 		return false;
 
 	bEmulationActive = false;
+#ifndef ENABLE_RENDERING_THREAD
+	/* Wait until 68k thread is paused */
+	if (SDL_SemWaitTimeout(pauseFlag, 1000))
+		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
+#endif
 	host_pause_time(true);
 	Screen_Pause(true);
 	Sound_Pause(true);
@@ -181,7 +191,11 @@ static void Main_HaltDialog(void) {
 	Main_UnPauseEmulation();
 }
 void Main_Halt(void) {
+#ifdef ENABLE_RENDERING_THREAD
 	Main_HaltDialog();
+#else
+	Main_SendSpecialEvent(MAIN_HALT);
+#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -263,6 +277,72 @@ void Main_SetMouseGrab(bool grab) {
 		Main_SetTitle(NULL);
 	}
 }
+
+
+#ifndef ENABLE_RENDERING_THREAD
+/* ----------------------------------------------------------------------- */
+/**
+ * Save an event and make it available to the emulator thread.
+ **/
+#define MAX_EVENTS  16
+static SDL_Event    mainEvent[MAX_EVENTS];
+static SDL_SpinLock mainEventLock;
+static int          mainEventWrite;
+static int          mainEventRead;
+static int          mainEventNext;
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Initialize event queue.
+ **/
+static void Main_InitEvents(void) {
+	mainEventRead = mainEventWrite = 0;
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Save an event. Called from main loop.
+ **/
+static void Main_PutEvent(SDL_Event* event) {
+	if (!bEmulationActive)
+		return;
+
+	SDL_AtomicLock(&mainEventLock);
+	mainEventNext = mainEventWrite + 1;
+	if (mainEventNext >= MAX_EVENTS) {
+		mainEventNext = 0;
+	}
+	if (mainEventNext == mainEventRead) {
+		Log_Printf(LOG_WARN, "Events queue overflow!");
+	} else {
+		mainEvent[mainEventWrite] = *event;
+		mainEventWrite = mainEventNext;
+	}
+	SDL_AtomicUnlock(&mainEventLock);
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Get saved event. Called from emulator thread.
+ **/
+static bool Main_GetEvent(SDL_Event* event) {
+	bool valid = false;
+
+	SDL_AtomicLock(&mainEventLock);
+	if (mainEventWrite != mainEventRead) {
+		mainEventNext = mainEventRead + 1;
+		if (mainEventNext >= MAX_EVENTS) {
+			mainEventNext = 0;
+		}
+		*event = mainEvent[mainEventRead];
+		valid = true;
+		mainEventRead = mainEventNext;
+	}
+	SDL_AtomicUnlock(&mainEventLock);
+
+	return valid;
+}
+#endif // !ENABLE_RENDERING_THREAD
 
 /* ----------------------------------------------------------------------- */
 /**
@@ -350,7 +430,14 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 		}
 
 		/* Done */
+#ifdef ENABLE_RENDERING_THREAD
 		Keymap_MouseMove(nDeltaX, nDeltaY);
+#else
+		pEvent->motion.xrel = nDeltaX;
+		pEvent->motion.yrel = nDeltaY;
+
+		Main_PutEvent(pEvent);
+#endif
 	}
 }
 
@@ -368,9 +455,21 @@ void Main_ResetKeys(void) {
  */
 void Main_EventHandlerInterrupt(void) {
 	static int statusBarUpdate = 0;
+#ifndef ENABLE_RENDERING_THREAD
+	SDL_Event event;
+	int64_t time_offset;
+#endif
 
 	CycInt_AcknowledgeInterrupt();
 
+#ifndef ENABLE_RENDERING_THREAD
+	if (!bEmulationActive) {
+		SDL_SemPost(pauseFlag);
+		do {
+			host_sleep_ms(20);
+		} while(!bEmulationActive);
+	}
+#endif
 	if (++statusBarUpdate > 400) {
 		uint64_t vt;
 		uint64_t rt;
@@ -389,10 +488,65 @@ void Main_EventHandlerInterrupt(void) {
 		statusBarUpdate = 0;
 	}
 
+#ifdef ENABLE_RENDERING_THREAD
 	Main_EventHandler();
+#else
+	if (Main_GetEvent(&event)) {
+		switch (event.type) {
+			case SDL_MOUSEMOTION:
+				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
+				break;
+			case SDL_MOUSEBUTTONDOWN:
+				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_MOUSEBUTTONUP:
+				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_MOUSEWHEEL:
+				Keymap_MouseWheel(&event.wheel);
+				break;
+			case SDL_KEYDOWN:
+				Keymap_KeyDown(&event.key.keysym);
+				break;
+			case SDL_KEYUP:
+				Keymap_KeyUp(&event.key.keysym);
+				break;
+			default:
+				break;
+		}
+	}
+
+	time_offset = host_real_time_offset();
+	if (time_offset > 0) {
+		host_sleep_us(time_offset);
+	}
+#endif // !ENABLE_RENDERING_THREAD
 
 	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
 }
+
+#ifndef ENABLE_RENDERING_THREAD
+/* ----------------------------------------------------------------------- */
+/**
+ * Emulator thread. Start emulation and keep it running.
+ */
+static int Main_Thread(void* unused) {
+	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
+
+	while (!bQuitProgram) {
+		/* Start EventHandler */
+		CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+
+		/* Start emulation */
+		M68000_Start();
+	}
+
+	bEmulationActive = false;
+
+	return 0;
+}
+#endif // !ENABLE_RENDERING_THREAD
+
 
 /* ----------------------------------------------------------------------- */
 /**
@@ -407,6 +561,7 @@ void Main_EventHandler(void) {
 	do {
 		bContinueProcessing = false;
 
+#ifdef ENABLE_RENDERING_THREAD
 		if (bEmulationActive) {
 			int64_t time_offset = host_real_time_offset() / 1000;
 			if (time_offset > 10)
@@ -416,6 +571,9 @@ void Main_EventHandler(void) {
 		} else {
 			events = SDL_WaitEvent(&event);
 		}
+#else
+		events = SDL_WaitEventTimeout(&event, 100);
+#endif
 		if (!events) {
 			/* no events -> if emulation is active or
 			 * user is quitting -> return from function.
@@ -461,26 +619,46 @@ void Main_EventHandler(void) {
 							break;
 						}
 					}
+#ifdef ENABLE_RENDERING_THREAD
 					Keymap_MouseDown(true);
+#else
+					Main_PutEvent(&event);
+#endif
 				}
 				else if (event.button.button == SDL_BUTTON_RIGHT)
 				{
+#ifdef ENABLE_RENDERING_THREAD
 					Keymap_MouseDown(false);
+#else
+					Main_PutEvent(&event);
+#endif
 				}
 				break;
 
 			case SDL_MOUSEBUTTONUP:
 				if (event.button.button == SDL_BUTTON_LEFT) {
+#ifdef ENABLE_RENDERING_THREAD
 					Keymap_MouseUp(true);
+#else
+					Main_PutEvent(&event);
+#endif
 				}
 				else if (event.button.button == SDL_BUTTON_RIGHT)
 				{
+#ifdef ENABLE_RENDERING_THREAD
 					Keymap_MouseUp(false);
+#else
+					Main_PutEvent(&event);
+#endif
 				}
 				break;
 
 			case SDL_MOUSEWHEEL:
+#ifdef ENABLE_RENDERING_THREAD
 				Keymap_MouseWheel(&event.wheel);
+#else
+				Main_PutEvent(&event);
+#endif
 				break;
 
 			case SDL_KEYDOWN:
@@ -491,14 +669,22 @@ void Main_EventHandler(void) {
 					ShortCut_ActKey();
 					break;
 				}
+#ifdef ENABLE_RENDERING_THREAD
 				Keymap_KeyDown(&event.key.keysym);
+#else
+				Main_PutEvent(&event);
+#endif
 				break;
 
 			case SDL_KEYUP:
 				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, false)) {
 					break;
 				}
+#ifdef ENABLE_RENDERING_THREAD
 				Keymap_KeyUp(&event.key.keysym);
+#else
+				Main_PutEvent(&event);
+#endif
 				break;
 
 			default:
@@ -506,11 +692,23 @@ void Main_EventHandler(void) {
 				if (event.type == SPECIAL_EVENT) {
 					switch (event.user.code) {
 						case MAIN_PAUSE:
-							Main_PauseEmulation(true);
+							Main_PauseEmulation(false);
 							break;
 						case MAIN_UNPAUSE:
 							Main_UnPauseEmulation();
 							break;
+#ifndef ENABLE_RENDERING_THREAD
+						case MAIN_REPAINT:
+							Main_CheckStatusbarUpdate();
+							Screen_Repaint();
+							break;
+						case MAIN_ND_DISPLAY:
+							nd_display_repaint();
+							break;
+						case MAIN_HALT:
+							Main_HaltDialog();
+							break;
+#endif
 						default:
 							break;
 					}
@@ -531,13 +729,28 @@ static void Main_Loop(void) {
 	/* Get an event ID for our special event */
 	SPECIAL_EVENT = SDL_RegisterEvents(1);
 
-	/* Start EventHandler */
-	CycInt_AddRelativeInterruptUs(500*1000, 0, INTERRUPT_EVENT_LOOP);
-
-	/* Run emulation */
+	/* Enable emulation */
 	Main_UnPauseEmulation();
 
+#ifdef ENABLE_RENDERING_THREAD
+	/* Start EventHandler */
+	CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+
+	/* Start emulation */
 	M68000_Start();
+#else
+	/* Initialize event queue */
+	Main_InitEvents();
+
+	/* Start emulator thread */
+	pauseFlag  = SDL_CreateSemaphore(0);
+	nextThread = SDL_CreateThread(Main_Thread, "[Previous] 68k at slot 0", NULL);
+
+	/* Start EventHandler */
+	while (!bQuitProgram) {
+		Main_EventHandler();
+	}
+#endif
 }
 
 /* ----------------------------------------------------------------------- */
@@ -628,6 +841,13 @@ static bool Main_Init(void) {
  * Un-Initialise emulation
  */
 static void Main_UnInit(void) {
+#ifndef ENABLE_RENDERING_THREAD
+	int d;
+	/* Make sure emulator thread exits */
+	bEmulationActive = true;
+	SDL_WaitThread(nextThread, &d);
+	SDL_DestroySemaphore(pauseFlag);
+#endif
 	Screen_ReturnFromFullScreen();
 	IoMem_UnInit();
 	SDLGui_UnInit();

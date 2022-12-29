@@ -62,22 +62,22 @@ static void ShortCut_MouseGrab(void)
  */
 static void ShortCut_SoundOnOff(void)
 {
-    ConfigureParams.Sound.bEnableSound = !ConfigureParams.Sound.bEnableSound;
-    if (bEmulationActive) {
-        Sound_Pause(!ConfigureParams.Sound.bEnableSound);
-    }
+	ConfigureParams.Sound.bEnableSound = !ConfigureParams.Sound.bEnableSound;
+	if (bEmulationActive) {
+		Sound_Pause(!ConfigureParams.Sound.bEnableSound);
+	}
 }
 
 /*-----------------------------------------------------------------------*/
 /**
  * Shorcut to M68K debug interface
  */
-void ShortCut_Debug_M68K(void)
+static void ShortCut_Debug_M68K(void)
 {
-	int running;
+	bool running;
 
 	running = Main_PauseEmulation(true);
-    /* Call the debugger */
+	/* Call the debugger */
 	DebugUI(REASON_USER);
 	if (running)
 		Main_UnPauseEmulation();
@@ -87,25 +87,17 @@ void ShortCut_Debug_M68K(void)
 /**
  * Shorcut to I860 debug interface
  */
-void ShortCut_Debug_I860(void)
+static void ShortCut_Debug_I860(void)
 {
-    if (bInFullScreen)
-        Screen_ReturnFromFullScreen();
+	if (bInFullScreen)
+		Screen_ReturnFromFullScreen();
 
-    Main_PauseEmulation(true);
-    
-    /* override paused message so that user knows to look into console
-     * on how to continue in case he invoked the debugger by accident.
-     */
-    Statusbar_AddMessage("I860 Console Debugger", 100);
-    Statusbar_Update(sdlscrn);
-    
-    /* disable normal GUI alerts while on console */
-    int alertLevel = Log_SetAlertLevel(LOG_FATAL);
-    
-    /* Call the debugger */
-    nd_start_debugger();
-    Log_SetAlertLevel(alertLevel);
+	/* i860 thread silently pauses 68k emulation if necessary */
+	Statusbar_AddMessage("I860 Console Debugger", 100);
+	Statusbar_Update(sdlscrn);
+
+	/* Call the debugger */
+	nd_start_debugger();
 }
 
 /*-----------------------------------------------------------------------*/
@@ -124,27 +116,27 @@ static void ShortCut_Pause(void)
 static void ShortCut_Dimension(void)
 {
 	if (ConfigureParams.System.nMachineType==NEXT_STATION ||
-        ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DUAL) {
+		ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DUAL) {
 		return;
 	}
-    
-    while (ConfigureParams.Screen.nMonitorNum < ND_MAX_BOARDS) {
-        if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_CPU) {
-            ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_DIMENSION;
-            ConfigureParams.Screen.nMonitorNum = 0;
-        } else {
-            ConfigureParams.Screen.nMonitorNum++;
-        }
-        if (ConfigureParams.Screen.nMonitorNum==ND_MAX_BOARDS) {
-            ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_CPU;
-            ConfigureParams.Screen.nMonitorNum = 0;
-            break;
-        }
-        if (ConfigureParams.Dimension.board[ConfigureParams.Screen.nMonitorNum].bEnabled) {
-            break;
-        }
-    }
-    
+
+	while (ConfigureParams.Screen.nMonitorNum < ND_MAX_BOARDS) {
+		if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_CPU) {
+			ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_DIMENSION;
+			ConfigureParams.Screen.nMonitorNum = 0;
+		} else {
+			ConfigureParams.Screen.nMonitorNum++;
+		}
+		if (ConfigureParams.Screen.nMonitorNum==ND_MAX_BOARDS) {
+			ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_CPU;
+			ConfigureParams.Screen.nMonitorNum = 0;
+			break;
+		}
+		if (ConfigureParams.Dimension.board[ConfigureParams.Screen.nMonitorNum].bEnabled) {
+			break;
+		}
+	}
+
 	Statusbar_UpdateInfo();
 }
 
@@ -153,10 +145,10 @@ static void ShortCut_Dimension(void)
  */
 static void ShortCut_StatusBar(void)
 {
-    ConfigureParams.Screen.bShowStatusbar = !ConfigureParams.Screen.bShowStatusbar;
-    ConfigureParams.Screen.bShowDriveLed  = false; /* for now unused in Previous */
-    
-    Screen_StatusbarChanged();
+	ConfigureParams.Screen.bShowStatusbar = !ConfigureParams.Screen.bShowStatusbar;
+	ConfigureParams.Screen.bShowDriveLed  = false; /* for now unused in Previous */
+
+	Screen_StatusbarChanged();
 }
 
 
@@ -238,7 +230,7 @@ bool Shortcut_Invoke(const char *shortcut)
 
 	if (ShortCutKey != SHORTCUT_NONE)
 	{
-		fprintf(stderr, "Shortcut invocation failed, shortcut already active\n");
+		fprintf(stderr, "WARNING: Shortcut invocation failed, shortcut already active\n");
 		return false;
 	}
 	for (i = 0; shortcuts[i].name; i++)
@@ -287,8 +279,11 @@ bool ShortCut_CheckKeys(int modkey, int symkey, bool press)
 {
 	SHORTCUTKEYIDX key;
 
+	if (symkey == SDLK_UNKNOWN)
+		return false;
+
 #if defined(__APPLE__)
-	if ((modkey&(KMOD_RCTRL|KMOD_LCTRL)) && (modkey&(KMOD_RALT|KMOD_LALT)))
+	if ((modkey&KMOD_CTRL) && (modkey&KMOD_ALT))
 #else
 	if (modkey & (KMOD_RALT|KMOD_LGUI|KMOD_RGUI|KMOD_MODE))
 #endif
@@ -298,9 +293,7 @@ bool ShortCut_CheckKeys(int modkey, int symkey, bool press)
 
 	if (key == SHORTCUT_NONE)
 		return false;
-	if (press) {
+	if (press)
 		ShortCutKey = key;
-		fprintf(stderr,"Short :%x\n",ShortCutKey);
-	}
 	return true;
 }

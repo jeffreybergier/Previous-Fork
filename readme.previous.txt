@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.24.0 or later (http://www.libsdl.org)
+  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -117,6 +117,10 @@ Previous with:
 
 If all works fine, you should get the executable "Previous" in the src/ sub-
 directory of the build tree. 
+
+Some systems do not support rendering from secondary threads. In case you get a 
+black window try compiling with rendering threads disabled. In the instructions 
+above replace "cmake .." with "../configure --disable-rendering-thread".
 
 For more detailed building instructions read the file building.previous.txt.
 
@@ -310,11 +314,16 @@ Previous v2.6:
 
 Previous v2.7 (unreleased):
   > Adds ability to unlock the mouse cursor with control-click.
+  > Adds compile-time option to do all rendering from the main thread.
+  > Improves accuracy of Ethernet controller on Turbo systems.
   > Improves handling of caps lock and modifier keys when using shortcuts.
   > Improves behavior of file selection dialog in certain situations.
   > Improves behavior of user interface in some edge cases.
   > Fixes bug that caused Daydream to hang on start up.
+  > Fixes bug that caused errors when formatting floppy disks.
+  > Fixes bug that prevented sound recording on newer versions of macOS.
   > Fixes bug that caused NeXTdimension window to start with wrong size.
+  > Fixes bug in low-pass filter that could cause audible noise.
 
 
  7) Running Previous
@@ -337,7 +346,7 @@ Many thanks go to the members of the NeXT International Forums for their help.
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
-Frank Wegmann and Grzegorz Szwoch!
+Frank Wegmann, Grzegorz Szwoch and Michael Engel!
 
 This emulator would not exist without their help.
 

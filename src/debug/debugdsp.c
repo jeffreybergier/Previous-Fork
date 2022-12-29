@@ -23,6 +23,7 @@ const char DebugDsp_fileid[] = "Hatari debugdsp.c";
 #include "debugdsp.h"
 #include "dsp.h"
 #include "evaluate.h"
+#include "history.h"
 #include "log.h"
 #include "profile.h"
 #include "str.h"
@@ -170,7 +171,7 @@ int DebugDsp_DisAsm(int nArgc, char *psArgs[])
 			shown++;
 		}
 		prev_addr = dsp_disasm_addr;
-		symbol = Symbols_GetByDspAddress(dsp_disasm_addr);
+		symbol = Symbols_GetByDspAddress(dsp_disasm_addr, SYMTYPE_ALL);
 		if (symbol)
 		{
 			fprintf(debugOutput, "%s:\n", symbol);
@@ -516,7 +517,7 @@ void DebugDsp_Check(void)
 	if (LOG_TRACE_LEVEL((TRACE_DSP_DISASM|TRACE_DSP_SYMBOLS)))
 	{
 		const char *symbol;
-		symbol = Symbols_GetByDspAddress(DSP_GetPC());
+		symbol = Symbols_GetByDspAddress(DSP_GetPC(), SYMTYPE_ALL);
 		if (symbol)
 			LOG_TRACE_PRINT("%s\n", symbol);
 	}
@@ -538,6 +539,10 @@ void DebugDsp_Check(void)
 		if (nDspSteps == 0)
 			DebugUI(REASON_DSP_STEPS);
 	}
+	if (History_TrackDsp())
+	{
+		History_AddDsp();
+	}
 }
 
 
@@ -549,9 +554,9 @@ void DebugDsp_Check(void)
 void DebugDsp_SetDebugging(void)
 {
 	bDspProfiling = Profile_DspStart();
-	nDspActiveCBs = 0; //BreakCond_DspBreakPointCount();
+	nDspActiveCBs = BreakCond_DspBreakPointCount();
 
-	if (nDspActiveCBs || nDspSteps || bDspProfiling
+	if (nDspActiveCBs || nDspSteps || bDspProfiling || History_TrackDsp()
 	    || LOG_TRACE_LEVEL((TRACE_DSP_DISASM|TRACE_DSP_SYMBOLS)))
 	{
 		DSP_SetDebugging(true);
@@ -658,6 +663,6 @@ int DebugDsp_Init(const dbgcommand_t **table)
 void DebugDsp_InitSession(void)
 {
 #define MAX_DSP_DISASM_OFFSET 8
-//	dsp_disasm_addr = (uint16_t)History_DisasmAddr(DSP_GetPC(), MAX_DSP_DISASM_OFFSET, true);
+	dsp_disasm_addr = (uint16_t)History_DisasmAddr(DSP_GetPC(), MAX_DSP_DISASM_OFFSET, true);
 	Profile_DspStop();
 }

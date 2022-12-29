@@ -28,6 +28,8 @@ const char Eval_fileid[] = "Hatari calculate.c";
 #include "main.h"
 #include "m68000.h"
 #include "symbols.h"
+#include "vars.h"
+
 
 /* define which character indicates which type of number on expression  */
 #define PREFIX_BIN '%'                            /* binary decimal     */
@@ -219,12 +221,10 @@ static int getValue(const char *str, uint32_t *number, int *base, bool bForDsp)
 
 	*base = 0; /* no base (e.g. variable) */
 
-#if 0
 	/* internal Hatari variable? */
 	if (Vars_GetVariableValue(name, number)) {
 		return len;
 	}
-#endif
 
 	if (bForDsp) {
 		int regsize = DSP_GetRegisterAddress(name, &addr, &mask);
@@ -732,13 +732,13 @@ static long long close_bracket (long long value, char width)
 			addr = val.buf[val.idx];
 			switch (width) {
 			case 'b':
-				value = DBGMemory_ReadByte(addr);
+				value = M68000_ReadByte(addr);
 				break;
 			case 'w':
-				value = DBGMemory_ReadWord(addr);
+				value = M68000_ReadWord(addr);
 				break;
 			case 'l':
-				value = DBGMemory_ReadLong(addr);
+				value = M68000_ReadLong(addr);
 				break;
 			default:
 				id.error = CLAC_PRG_ERR;

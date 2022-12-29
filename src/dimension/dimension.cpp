@@ -317,13 +317,27 @@ extern "C" {
         
         CycInt_AcknowledgeInterrupt();
         
+#ifndef ENABLE_RENDERING_THREAD
+        if (!bBlankToggle) {
+            switch (ConfigureParams.Screen.nMonitorType) {
+                case MONITOR_TYPE_DUAL:
+                    Main_SendSpecialEvent(MAIN_ND_DISPLAY);
+                    break;
+                case MONITOR_TYPE_DIMENSION:
+                    Main_SendSpecialEvent(MAIN_REPAINT);
+                    break;
+                default:
+                    break;
+            }
+        }
+#endif
         host_blank_count(ND_DISPLAY, bBlankToggle);
         
         FOR_EACH_SLOT(slot) {
             IF_NEXT_DIMENSION(slot, nd) {
                 nd->display_vbl = bBlankToggle;
                 nd->send_msg(MSG_DISPLAY_BLANK);
-                nd->i860.i860cycles = (1000*1000*33)/136;
+                host_atomic_set(&nd->i860.i860cycles, (1000*1000*33)/136);
             }
         }
         bBlankToggle = !bBlankToggle;
@@ -331,6 +345,12 @@ extern "C" {
         // 136Hz with toggle gives 68Hz, blank time is 1/2 frame time
         CycInt_AddRelativeInterruptUs((1000*1000)/136, 0, INTERRUPT_ND_VBL);
     }
+
+#ifndef ENABLE_RENDERING_THREAD
+    void nd_display_repaint(void) {
+        nd_sdl_repaint();
+    }
+#endif
 
     void nd_video_vbl_handler(void) {
         static bool bBlankToggle = false;

@@ -50,9 +50,23 @@ static void Video_Interrupt(void) {
  * Check if it is time for vertical video retrace interrupt.
  */
 void Video_InterruptHandler(void) {
+#ifdef ENABLE_RENDERING_THREAD
 	CycInt_AcknowledgeInterrupt();
 	host_blank_count(MAIN_DISPLAY, true);
 	Main_CheckStatusbarUpdate();
 	Video_Interrupt();
 	CycInt_AddRelativeInterruptUs((1000*1000)/NEXT_VBL_FREQ, 0, INTERRUPT_VIDEO_VBL);
+#else
+	static bool bBlankToggle = false;
+
+	CycInt_AcknowledgeInterrupt();
+	host_blank_count(MAIN_DISPLAY, bBlankToggle);
+	if (bBlankToggle) {
+		Video_Interrupt();
+	} else if (ConfigureParams.Screen.nMonitorType != MONITOR_TYPE_DIMENSION) {
+		Main_SendSpecialEvent(MAIN_REPAINT);
+	}
+	bBlankToggle = !bBlankToggle;
+	CycInt_AddRelativeInterruptUs((1000*1000)/(2*NEXT_VBL_FREQ), 0, INTERRUPT_VIDEO_VBL);
+#endif
 }
