@@ -18,6 +18,8 @@ int disasm_min_words = 5;
 int disasm_max_words = 16;
 TCHAR disasm_hexprefix[3] = { '$', 0 };
 
+#define LINE_BUF_SIZE 80
+
 static TCHAR disasm_areg, disasm_dreg, disasm_byte, disasm_word, disasm_long;
 static TCHAR disasm_pcreg[3], disasm_fpreg[3];
 static bool absshort_long = false;
@@ -299,11 +301,13 @@ skip:
 #ifndef WINUAE_FOR_HATARI
 		TCHAR name[256];
 		if (debugmem_get_symbol(addr + i, name, sizeof(name) / sizeof(TCHAR))) {
+			_stprintf(buffer + _tcslen(buffer), _T(" %s"), name);
 #else
 		const char *name;
 		if ((name = Symbols_GetByCpuAddress(addr + i, SYMTYPE_TEXT))) {
+			int len = _tcslen(buffer);
+			snprintf(buffer + len, LINE_BUF_SIZE - len, _T(" %s"), name);
 #endif
-			_stprintf(buffer + _tcslen(buffer), _T(" %s"), name);
 		}
 	}
 }
@@ -508,7 +512,7 @@ uaecptr ShowEA(void *f, uaecptr pc, uae_u16 opcode, int reg, amodes mode, wordsi
 	uaecptr addr = pc;
 	uae_s16 disp16;
 	uae_s32 offset = 0;
-	TCHAR buffer[80];
+	TCHAR buffer[LINE_BUF_SIZE];
 
 	if (actualea)
 		*actualea = 1;
@@ -2214,8 +2218,8 @@ uae_u32 m68k_disasm_2(TCHAR *buf, int bufsize, uaecptr pc, uae_u16 *bufpc, int b
 		} else if (lookup->mnemo == i_CALLM) {
 			TCHAR *p = instrname + _tcslen(instrname);
 			_stprintf(p, _T("#%d,"), extra & 255);
-			pc = ShowEA(NULL, pc, opcode, dp->sreg, dp->smode, dp->size, instrname, &seaddr2, &actualea_src, safemode);
 			add_disasm_word(&pc, &bufpc, &bufpcsize, 2);
+			pc = ShowEA(NULL, pc, opcode, dp->sreg, dp->smode, dp->size, instrname, &seaddr2, &actualea_src, safemode);
 		} else if (lookup->mnemo == i_FDBcc) {
 			pc = ShowEA(NULL, pc, opcode, dp->dreg, dp->dmode, dp->size, instrname, &seaddr2, &actualea_src, safemode);
 			add_disasm_word(&pc, &bufpc, &bufpcsize, 2);

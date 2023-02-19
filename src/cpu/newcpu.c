@@ -2414,7 +2414,6 @@ static void m68k_set_stop(void)
 	if (regs.stopped)
 		return;
 	regs.stopped = 1;
-	set_special(SPCFLAG_STOP);
 #ifndef WINUAE_FOR_HATARI
 	if (cpu_last_stop_vpos >= 0) {
 		cpu_last_stop_vpos = vpos;
@@ -2425,7 +2424,6 @@ static void m68k_set_stop(void)
 static void m68k_unset_stop(void)
 {
 	regs.stopped = 0;
-	unset_special(SPCFLAG_STOP);
 #ifndef WINUAE_FOR_HATARI
 	if (cpu_last_stop_vpos >= 0) {
 		cpu_stopped_lines += vpos - cpu_last_stop_vpos;
@@ -5790,7 +5788,7 @@ static void run_cpu_thread(void (*f)(void *))
 
 		frame_time_t next = vsyncmintimepre + (vsynctimebase * vpos / (maxvpos + 1));
 		frame_time_t c = read_processor_time();
-		if ((int)next - (int)c > 0 && (int)next - (int)c < vsyncmaxtime * 2)
+		if (next - c > 0 && next - c < vsyncmaxtime * 2)
 			continue;
 
 		vp = vpos;
@@ -6259,11 +6257,7 @@ static void m68k_run_mmu040 (void)
 				run_other_MPUs();
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
-				/* We must check for pending interrupt and call do_specialties_interrupt() only */
-				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
-				/* and prevent exiting the STOP state when calling do_specialties() after. */
-				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-				while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) ) {
+				while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) ) {
 					CALL_VAR(PendingInterrupt.pFunction);		/* call the interrupt handler */
 				}
 
@@ -6390,11 +6384,7 @@ insretry:
 				run_other_MPUs();
 
 				/* We can have several interrupts at the same time before the next CPU instruction */
-				/* We must check for pending interrupt and call do_specialties_interrupt() only */
-				/* if the cpu is not in the STOP state. Else, the int could be acknowledged now */
-				/* and prevent exiting the STOP state when calling do_specialties() after. */
-				/* For performance, we first test PendingInterruptCount, then regs.spcflags */
-				while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) && ( ( regs.spcflags & SPCFLAG_STOP ) == 0 ) ) {
+				while ( ( PendingInterrupt.time <= 0 ) && ( PendingInterrupt.pFunction ) ) {
 					CALL_VAR(PendingInterrupt.pFunction);		/* call the interrupt handler */
 				}
 				/* Previous: for now we poll the interrupt pins with every instruction.
@@ -7386,17 +7376,21 @@ void m68k_go (int may_quit)
 			quit_program = 0;
 
 #ifdef SAVESTATE
-			if (savestate_state == STATE_DORESTORE)
+			if (savestate_state == STATE_DORESTORE) {
 				savestate_state = STATE_RESTORE;
-			if (savestate_state == STATE_RESTORE)
+			}
+			if (savestate_state == STATE_RESTORE) {
 				restore_state (savestate_fname);
+				cpu_hardreset = 1;
+			} else if (savestate_state == STATE_REWIND) {
 #ifndef WINUAE_FOR_HATARI
-			else if (savestate_state == STATE_REWIND)
 				savestate_rewind ();
 #endif
+			}
 #endif
-			if (cpu_hardreset)
+			if (cpu_hardreset) {
 				m68k_reset_restore();
+			}
 			prefs_changed_cpu();
 			build_cpufunctbl();
 			set_x_funcs();
@@ -7633,6 +7627,7 @@ void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
 	int i, j;
 	uaecptr pc = M68K_GETPC;
 
+	MakeSR();
 	for (i = 0; i < 8; i++){
 		console_out_f (_T("  D%d %08X "), i, m68k_dreg (regs, i));
 		if ((i & 3) == 3) console_out_f (_T("\n"));

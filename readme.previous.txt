@@ -78,7 +78,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.24.0 or later (http://www.libsdl.org)
+  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -171,8 +171,10 @@ Issues in Previous:
     compared to real hardware.
   > 68882 transcendental FPU instructions produce results identical to 68040 
     FPSP. The results are slightly different from real 68882 results.
-  > Diagnostic tests for SCSI Disk, Monitor/Sound and Ethernet fail due to 
-    timing issues.
+  > Diagnostic tests for Ethernet fail. Diagnostic tests for SCSI Disk and 
+    Monitor/Sound fail in certain situations due to timing issues. Disable 
+    variable speed mode to reliably pass SCSI Disk diagnostics. Disable sound to 
+    pass Monitor/Sound diagnostics.
 
 Issues in NeXTstep:
   > The MO drive causes slow downs and hangs when both drives are connected, but 
@@ -324,6 +326,20 @@ Previous v2.7:
   > Fixes bug that prevented sound recording on newer versions of macOS.
   > Fixes bug that caused NeXTdimension window to start with wrong size.
   > Fixes bug in low-pass filter that could cause audible noise.
+
+Previous v2.8 (unreleased):
+  > Adds support for showing the main window if an alert occurs.
+  > Adds support for creating block and character specials via NFS.
+  > Adds support for setting up DNS from the internal NetInfo server.
+  > Improves SCSI controller emulation to pass diagnostic tests.
+  > Improves accuracy of SCSI command and error condition handling.
+  > Improves accuracy of Real Time Clock chip.
+  > Improves accuracy of Ethernet DMA channel.
+  > Fixes bug that caused endless loop after STOP instruction.
+  > Fixes bug that prevented correct detection of network interface.
+  > Fixes bug that could lead to incorrect SCSI controller detection.
+  > Fixes bug in SCSI DMA channel that could cause incomplete transfers.
+  > Fixes bug that broke networking on 32-bit host platforms.
 
 
  7) Running Previous

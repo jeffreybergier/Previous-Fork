@@ -61,6 +61,9 @@ if(ENABLE_OSX_BUNDLE)
 	add_executable(Previous MACOSX_BUNDLE ${GUIOSX_RSRCS} ${SOURCES})
 	set_target_properties(Previous PROPERTIES MACOSX_BUNDLE_INFO_PLIST
 			      ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/Info-Previous.plist)
+	set_target_properties(Previous PROPERTIES INSTALL_RPATH 
+			      "@executable_path/../Frameworks")
+	set_target_properties(Previous PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 	set(MACOSX_BUNDLE_ICON_FILE Previous.icns)
 	set(MACOSX_BUNDLE_GUI_IDENTIFIER com.sourceforge.previous)
 	if(CMAKE_GENERATOR MATCHES "Xcode")
@@ -72,7 +75,6 @@ if(ENABLE_OSX_BUNDLE)
 	add_custom_target(osx_bundle_dirs
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/Resources
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/Frameworks
-			COMMAND mkdir -p ${BUNDLE_CONTENTS}/SharedSupport
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/MacOS
 			COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 				   ${BUNDLE_CONTENTS}/Resources/${MACOSX_BUNDLE_ICON_FILE}
