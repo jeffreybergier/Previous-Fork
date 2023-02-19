@@ -52,6 +52,10 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_NEXT[] =
 	{ 0x020001c0, SIZE_LONG, DMA_CSR_Read, DMA_CSR_Write },
 	
 	/* Channel SCSI */
+	{ 0x02004000, SIZE_LONG, DMA_Saved_Next_Read, DMA_Saved_Next_Write },
+	{ 0x02004004, SIZE_LONG, DMA_Saved_Limit_Read, DMA_Saved_Limit_Write },
+	{ 0x02004008, SIZE_LONG, DMA_Saved_Start_Read, DMA_Saved_Start_Write },
+	{ 0x0200400c, SIZE_LONG, DMA_Saved_Stop_Read, DMA_Saved_Stop_Write },
 	{ 0x02004010, SIZE_LONG, DMA_Next_Read, DMA_Next_Write },
 	{ 0x02004014, SIZE_LONG, DMA_Limit_Read, DMA_Limit_Write },
 	{ 0x02004018, SIZE_LONG, DMA_Start_Read, DMA_Start_Write },
@@ -269,11 +273,11 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_NEXT[] =
 	{ 0x02014009, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, ESP_ClockConv_Write },
 	{ 0x0201400a, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, ESP_Test_Write },
 	/* Additional Registers for NCR53C90A (68040) */
-	{ 0x0201400b, SIZE_BYTE, ESP_Conf2_Read, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201400c, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201400d, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201400e, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201400f, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x0201400b, SIZE_BYTE, ESP_Conf2_Read, ESP_Conf2_Write },
+	{ 0x0201400c, SIZE_BYTE, ESP_Unknown_Read, ESP_Unknown_Write },
+	{ 0x0201400d, SIZE_BYTE, ESP_Unknown_Read, ESP_Unknown_Write },
+	{ 0x0201400e, SIZE_BYTE, ESP_Unknown_Read, ESP_Unknown_Write },
+	{ 0x0201400f, SIZE_BYTE, ESP_Unknown_Read, ESP_Unknown_Write },
 	
 	/* SCSI DMA Control/Status */
 	{ 0x02014020, SIZE_BYTE, ESP_DMA_CTRL_Read, ESP_DMA_CTRL_Write },

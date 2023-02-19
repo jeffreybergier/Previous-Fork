@@ -183,6 +183,7 @@ void DMA_CSR_Write(void) {
     
     switch (writecsr&DMA_CMD_MASK) {
         case DMA_RESET:
+        case (DMA_RESET | DMA_CLRCOMPLETE):
             Log_Printf(LOG_DMA_LEVEL,"DMA reset"); break;
         case DMA_INITBUF:
             Log_Printf(LOG_DMA_LEVEL,"DMA initialize buffers"); break;
@@ -201,7 +202,7 @@ void DMA_CSR_Write(void) {
         case 0:
             Log_Printf(LOG_DMA_LEVEL,"DMA no command"); break;
         default:
-            Log_Printf(LOG_DMA_LEVEL,"DMA: unknown command!"); break;
+            Log_Printf(LOG_WARN,"DMA: unknown command (%02x)!", writecsr); break;
     }
 
     /* Handle CSR bits */
@@ -423,9 +424,8 @@ void dma_esp_write_memory(void) {
                         espdma_buf_size++;
                     }
                 } else {
-                    while (espdma_buf_limit<DMA_BURST_SIZE && esp_counter>0 && SCSIbus.phase==PHASE_DI) {
-                        espdma_buf[espdma_buf_limit]=SCSIdisk_Send_Data();
-                        esp_counter--;
+                    while (espdma_buf_limit<DMA_BURST_SIZE && ESP_Send_Ready()) {
+                        espdma_buf[espdma_buf_limit]=ESP_Send_Data();
                         espdma_buf_limit++;
                         espdma_buf_size++;
                     }
@@ -470,16 +470,28 @@ void dma_esp_flush_buffer(void) {
         Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel SCSI: Not flushing buffer. Bad direction!");
         return;
     }
+    if ((dma[CHANNEL_SCSI].limit%DMA_BURST_SIZE) || (dma[CHANNEL_SCSI].next%4)) {
+        Log_Printf(LOG_WARN, "[DMA] Channel SCSI: Error! Bad alignment! (Next: $%08X, Limit: $%08X)",
+                   dma[CHANNEL_SCSI].next, dma[CHANNEL_SCSI].limit);
+        abort();
+    }
 
     TRY(prb) {
         if (dma[CHANNEL_SCSI].next<dma[CHANNEL_SCSI].limit) {
             Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel SCSI: Flush buffer to memory at $%08x, 4 bytes",dma[CHANNEL_SCSI].next);
-            if (espdma_buf_size>0) {
-                /* Write one long word to memory */
-                put_long(dma[CHANNEL_SCSI].next, dma_getlong(espdma_buf, espdma_buf_limit-espdma_buf_size));
-                espdma_buf_size-=4;
+            /* If there is less than one long word in the buffer, fill the gap with 0 */
+            while (espdma_buf_size < 4) {
+                espdma_buf[espdma_buf_limit] = 0;
+                espdma_buf_limit++;
+                espdma_buf_size++;
             }
-            dma[CHANNEL_SCSI].next+=4;
+            /* Write one long word to memory */
+            put_long(dma[CHANNEL_SCSI].next, dma_getlong(espdma_buf, espdma_buf_limit-espdma_buf_size));
+            dma[CHANNEL_SCSI].next += 4;
+            espdma_buf_size -= 4;
+            if (espdma_buf_size == 0) {
+                espdma_buf_limit = espdma_buf_size;
+            }
         } else {
             Log_Printf(LOG_WARN, "[DMA] Channel SCSI: Not flushing buffer. DMA done.");
         }
@@ -536,9 +548,8 @@ void dma_esp_read_memory(void) {
                         espdma_buf_size--;
                     }
                 } else {
-                    while (espdma_buf_size>0 && esp_counter>0 && SCSIbus.phase==PHASE_DO) {
-                        SCSIdisk_Receive_Data(espdma_buf[espdma_buf_limit-espdma_buf_size]);
-                        esp_counter--;
+                    while (espdma_buf_size>0 && ESP_Receive_Ready()) {
+                        ESP_Receive_Data(espdma_buf[espdma_buf_limit-espdma_buf_size]);
                         espdma_buf_size--;
                     }
                 }
@@ -833,6 +844,10 @@ void dma_enet_write_memory(bool eop) {
         abort();
     }
     
+    if (enet_rx_buffer.size == enet_rx_buffer.limit) {
+        dma[CHANNEL_EN_RX].saved_next = dma[CHANNEL_EN_RX].next; /* confirmed */
+    }
+    
     TRY(prb) {
         while (dma[CHANNEL_EN_RX].next<dma[CHANNEL_EN_RX].limit && enet_rx_buffer.size>0) {
             put_byte(dma[CHANNEL_EN_RX].next, enet_rx_buffer.data[enet_rx_buffer.limit-enet_rx_buffer.size]);
@@ -870,6 +885,10 @@ bool dma_enet_read_memory(void) {
     if (dma[CHANNEL_EN_TX].csr&DMA_ENABLE) {
         Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel Ethernet Transmit: Read from memory at $%08x, %i bytes",
                    dma[CHANNEL_EN_TX].next,ENADDR(dma[CHANNEL_EN_TX].limit)-dma[CHANNEL_EN_TX].next);
+        
+        if (enet_tx_buffer.size == 0) {
+            dma[CHANNEL_EN_TX].saved_next = dma[CHANNEL_EN_TX].next;
+        }
         
         TRY(prb) {
             while (dma[CHANNEL_EN_TX].next<ENADDR(dma[CHANNEL_EN_TX].limit) && enet_tx_buffer.size<enet_tx_buffer.limit) {
@@ -1138,6 +1157,7 @@ void TDMA_CSR_Write(void) {
     
     switch (writecsr&TDMA_CMD_MASK) {
         case TDMA_RESET:
+        case (TDMA_RESET | TDMA_CLRCOMPLETE):
             Log_Printf(LOG_DMA_LEVEL,"DMA reset"); break;
         case TDMA_BUFRESET:
             Log_Printf(LOG_DMA_LEVEL,"DMA initialize buffers"); break;
@@ -1156,7 +1176,7 @@ void TDMA_CSR_Write(void) {
         case 0:
             Log_Printf(LOG_DMA_LEVEL,"DMA no command"); break;
         default:
-            Log_Printf(LOG_WARN,"DMA: unknown command!"); break;
+            Log_Printf(LOG_WARN,"DMA: unknown command (%08x)!", writecsr); break;
     }
     
     /* Handle CSR bits */
@@ -1205,14 +1225,19 @@ void tdma_flush_buffer(int channel) {
         Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel SCSI: Flush buffer to memory at $%08x, %i bytes",
                    dma[CHANNEL_SCSI].next,espdma_buf_size);
         
-        for (i = 0; i < DMA_BURST_SIZE; i+=4) {
+        for (i = 0; i < DMA_BURST_SIZE; i++) {
             if (dma[CHANNEL_SCSI].next<dma[CHANNEL_SCSI].limit) {
-                if (espdma_buf_size) {
-                    put_long(dma[CHANNEL_SCSI].next, dma_getlong(espdma_buf, espdma_buf_limit-espdma_buf_size));
-                    espdma_buf_size-=4;
+                if (espdma_buf_size > 0) {
+                    put_byte(dma[CHANNEL_SCSI].next, espdma_buf[espdma_buf_limit-espdma_buf_size]);
+                    espdma_buf_size--;
+                } else {
+                    put_byte(dma[CHANNEL_SCSI].next, 0);
                 }
-                dma[CHANNEL_SCSI].next+=4;
+                dma[CHANNEL_SCSI].next++;
             }
+        }
+        if (espdma_buf_size == 0) {
+            espdma_buf_limit = espdma_buf_size;
         }
     } CATCH(prb) {
         Log_Printf(LOG_WARN, "[DMA] Channel SCSI: Bus error while flushing to %08x",dma[CHANNEL_SCSI].next);

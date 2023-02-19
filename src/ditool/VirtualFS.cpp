@@ -445,6 +445,7 @@ void VirtualFS::setFileAttrs(const VFSPath& absoluteVFSpath, const FileAttrs& fs
 
 FileAttrs VirtualFS::getFileAttrs(const VFSPath& absoluteVFSpath) {
     char buffer[128];
+    memset(buffer, 0, sizeof(buffer));
     HostPath hostPath = toHostPath(absoluteVFSpath);
 #if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
