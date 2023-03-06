@@ -238,6 +238,7 @@ typedef struct {
   ENET_INTERFACE nHostInterface;
   char szInterfaceName[FILENAME_MAX];
   char szNFSroot[FILENAME_MAX];
+  bool bNetworkTime;
 } CNF_ENET;
 
 typedef enum
@@ -331,7 +332,6 @@ typedef struct
   bool bRealtime;                 /* TRUE if realtime sources shoud be used */
   DSPTYPE nDSPType;               /* how to "emulate" DSP */
   bool bDSPMemoryExpansion;
-  bool bRealTimeClock;
   FPUTYPE n_FPUType;
   bool bCompatibleFPU;            /* More compatible FPU */
   bool bMMU;                      /* TRUE if MMU is enabled */
