@@ -250,6 +250,7 @@ static const struct Config_Tag configs_Ethernet[] =
 	{ "nHostInterface", Int_Tag, &ConfigureParams.Ethernet.nHostInterface },
 	{ "szInterfaceName", String_Tag, ConfigureParams.Ethernet.szInterfaceName },
 	{ "szNFSroot", String_Tag, ConfigureParams.Ethernet.szNFSroot },
+	{ "bNetworkTime", Bool_Tag, &ConfigureParams.Ethernet.bNetworkTime },
 
 	{ NULL , Error_Tag, NULL }
 };
@@ -297,7 +298,6 @@ static const struct Config_Tag configs_System[] =
 	{ "bRealtime", Bool_Tag, &ConfigureParams.System.bRealtime },
 	{ "nDSPType", Int_Tag, &ConfigureParams.System.nDSPType },
 	{ "bDSPMemoryExpansion", Bool_Tag, &ConfigureParams.System.bDSPMemoryExpansion },
-	{ "bRealTimeClock", Bool_Tag, &ConfigureParams.System.bRealTimeClock },
 	{ "n_FPUType", Int_Tag, &ConfigureParams.System.n_FPUType },
 	{ "bCompatibleFPU", Bool_Tag, &ConfigureParams.System.bCompatibleFPU },
 	{ "bMMU", Bool_Tag, &ConfigureParams.System.bMMU },
@@ -412,6 +412,7 @@ void Configuration_SetDefault(void)
 	/* Set defaults for Ethernet */
 	ConfigureParams.Ethernet.bEthernetConnected = false;
 	ConfigureParams.Ethernet.bTwistedPair = false;
+	ConfigureParams.Ethernet.bNetworkTime = false;
 	ConfigureParams.Ethernet.nHostInterface = ENET_SLIRP;
 	strcpy(ConfigureParams.Ethernet.szInterfaceName, "");
 	File_MakePathBuf(ConfigureParams.Ethernet.szNFSroot,
@@ -502,7 +503,6 @@ void Configuration_SetDefault(void)
 	ConfigureParams.System.bRealtime = false;
 	ConfigureParams.System.nDSPType = DSP_TYPE_EMU;
 	ConfigureParams.System.bDSPMemoryExpansion = false;
-	ConfigureParams.System.bRealTimeClock = true;
 	ConfigureParams.System.n_FPUType = FPU_68882;
 	ConfigureParams.System.bCompatibleFPU = true;
 	ConfigureParams.System.bMMU = true;
@@ -823,6 +823,9 @@ void Configuration_CheckDimensionSettings(void) {
 void Configuration_CheckEthernetSettings(void) {
 	if (ConfigureParams.System.nMachineType == NEXT_CUBE030) {
 		ConfigureParams.Ethernet.bTwistedPair = false;
+	}
+	if (ConfigureParams.Ethernet.nHostInterface == ENET_PCAP) {
+		ConfigureParams.Ethernet.bNetworkTime = false;
 	}
 }
 

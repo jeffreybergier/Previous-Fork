@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.7
+                                  Previous 2.8
 
 
 
@@ -51,11 +51,25 @@ Previous emulates the following machines:
   NeXTstation Turbo Color
   NeXTdimension Graphics Board
 
-Note that some hardware is only supported by later operating system versions:
-  NeXT Computer (68030):                       all versions
-  NeXTcube and NeXTstation (68040 non-Turbo):  NeXTstep 2.0 and later
-  NeXTdimension Graphics Board:                NeXTstep 2.1 and later
-  NeXTcube and NeXTstation (68040 Turbo):      NeXTstep 2.2 and later
+Less common machines can be emulated using custom options:
+  NeXTstation with up to 128 MB RAM (serial number ABB 002 8000 or later): 
+     Select NeXTstation Turbo and set CPU clock to 25 MHz
+  NeXTcube, NeXTstation or NeXTstation Color with board revision 1:
+     Select one of the above machines and set RTC chip to MCCS1850
+
+Note that some hardware is only supported by later operating system versions.
+Listed below are the system and ROM versions that introduced support for new
+hardware:
+
+  NeXTstep 0.8: NeXT Computer
+           2.0: NeXTcube, NeXTstation
+           2.1: NeXTstation Color, NeXTdimension
+           2.2: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color
+
+  ROM Rev. 0.8: NeXT Computer
+           2.0: NeXTcube, NeXTstation, NeXTdimension
+           2.4: NeXTstation Color
+           3.0: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color
 
 Previous includes an internal NFS and NetInfo server for advanced interaction 
 with the host system.
@@ -327,19 +341,23 @@ Previous v2.7:
   > Fixes bug that caused NeXTdimension window to start with wrong size.
   > Fixes bug in low-pass filter that could cause audible noise.
 
-Previous v2.8 (unreleased):
+Previous v2.8:
+  > Adds internal network time server.
   > Adds support for showing the main window if an alert occurs.
   > Adds support for creating block and character specials via NFS.
   > Adds support for setting up DNS from the internal NetInfo server.
   > Improves SCSI controller emulation to pass diagnostic tests.
   > Improves accuracy of SCSI command and error condition handling.
   > Improves accuracy of Real Time Clock chip.
-  > Improves accuracy of Ethernet DMA channel.
+  > Improves accuracy of Ethernet DMA channel for booting NetBSD.
+  > Improves internal NFS server to support writes via TCP.
+  > Improves accuracy of system status registers for later NeXTstations.
   > Fixes bug that caused endless loop after STOP instruction.
   > Fixes bug that prevented correct detection of network interface.
   > Fixes bug that could lead to incorrect SCSI controller detection.
   > Fixes bug in SCSI DMA channel that could cause incomplete transfers.
   > Fixes bug that broke networking on 32-bit host platforms.
+  > Fixes bug that could cause device number corruption on NFS.
 
 
  7) Running Previous
@@ -362,7 +380,7 @@ Many thanks go to the members of the NeXT International Forums for their help.
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
-Frank Wegmann, Grzegorz Szwoch and Michael Engel!
+Frank Wegmann, Grzegorz Szwoch, Michael Engel and Izumi Tsutsui!
 
 This emulator would not exist without their help.
 
