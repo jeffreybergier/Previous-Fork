@@ -15,6 +15,7 @@ const char ShortCut_fileid[] = "Hatari shortcut.c";
 #include "file.h"
 #include "m68000.h"
 #include "dimension.hpp"
+#include "grab.h"
 #include "reset.h"
 #include "screen.h"
 #include "configuration.h"
@@ -177,6 +178,12 @@ void ShortCut_ActKey(void)
 		Reset_Cold();                  /* Reset emulator with 'cold' (clear all) */
 		Main_UnPauseEmulation();
 		break;
+	 case SHORTCUT_SCREENSHOT:
+		Grab_Screen();                 /* Grab screenshot */
+		break;
+	 case SHORTCUT_RECORD:
+		Grab_SoundToggle();            /* Enable/disable sound recording */
+		break;
 	 case SHORTCUT_SOUND:
 		ShortCut_SoundOnOff();         /* Enable/disable sound */
 		break;
@@ -222,7 +229,6 @@ bool Shortcut_Invoke(const char *shortcut)
 	} shortcuts[] = {
 		{ SHORTCUT_MOUSEGRAB, "mousegrab" },
 		{ SHORTCUT_COLDRESET, "coldreset" },
-		{ SHORTCUT_WARMRESET, "warmreset" },
 		{ SHORTCUT_QUIT, "quit" },
 		{ SHORTCUT_NONE, NULL }
 	};
