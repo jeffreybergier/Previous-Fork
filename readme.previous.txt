@@ -94,7 +94,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.24.0 or later (http://www.libsdl.org)
+  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
   > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
@@ -361,6 +361,12 @@ Previous v2.8:
   > Fixes bug that broke networking on 32-bit host platforms.
   > Fixes bug that could cause device number corruption on NFS.
 
+Previous v2.9 (unreleased):
+  > Adds support for using any base clock speed in variable speed mode.
+  > Adds support for saving screen contents to a file.
+  > Adds support for saving sound output to a file.
+  > Improves SCC emulation for booting Mac OS 7.5.3 via Daydream.
+
 
  7) Running Previous
  -------------------
@@ -371,6 +377,24 @@ machine.
 While the emulator is running, you can open the configuration menu by pressing 
 F12, toggle between fullscreen and windowed mode by pressing F11 and initiate a 
 clean shut down by pressing F10 (emulates the power button).
+
+Further shortcuts can be invoked by simultaneously pressing ctrl and alt and
+one of the following keys:
+
+O: Shows main menu (same as F12).
+P: Pauses emulation and resumes it when pressed again.
+C: Initiates a cold reset. All unsaved changes will be lost.
+M: Locks the mouse cursor to the window and releases it when pressed again.
+N: Switches between screens if multiple screens are used in single window or 
+   fullscreen mode.
+G: Grabs the screen contents and saves them to a PNG file. The file is saved 
+   inside the directory specified for printer output.
+R: Records all sound output to an AIFF file and stops recording when pressed 
+   again. The file is saved inside the directory specified for printer output.
+F: Toggles between fullscreen and windowed mode (same as F11).
+B: Hides the statusbar and shows it when pressed again.
+S: Disables sound output and re-enables it when pressed again.
+Q: Requests to quit Previous. All unsaved changes will be lost.
 
 
  8) Contributors
