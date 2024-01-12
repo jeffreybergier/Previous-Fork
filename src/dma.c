@@ -1,11 +1,14 @@
-/* NeXT DMA Emulation 
- * Contains informations from QEMU-NeXT
- * NeXT Integrated Channel Processor (ISP) consists of 12 channel processors
- * with 128 bytes internal buffer for each channel.
- * 12 channels:
- * SCSI, Sound in, Sound out, Optical disk, Printer, SCC, DSP, 
- * Ethernet transmit, Ethernet receive, Video, Memory to register, Register to memory
- */
+/*
+  Previous - dma.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  This file contains a simulation of the Fujitsu MB610313 Integrated
+  Channel Processor (ISP) for direct memory access. The ISP controls
+  twelve DMA channels with 128 byte internal buffers.
+*/
+const char Dma_fileid[] = "Previous dma.c";
 
 #include "main.h"
 #include "ioMem.h"
@@ -27,14 +30,20 @@
 
 #define LOG_DMA_LEVEL LOG_DEBUG
 
-#define IO_SEG_MASK	0x1FFFF
-
-
-int get_channel(uint32_t address);
-int get_interrupt_type(int channel);
-void dma_interrupt(int channel);
-void dma_initialize_buffer(int channel, uint8_t offset);
-
+typedef enum {
+    CHANNEL_SCSI,       // 0x00000010
+    CHANNEL_SOUNDOUT,   // 0x00000040
+    CHANNEL_DISK,       // 0x00000050
+    CHANNEL_SOUNDIN,    // 0x00000080
+    CHANNEL_PRINTER,    // 0x00000090
+    CHANNEL_SCC,        // 0x000000c0
+    CHANNEL_DSP,        // 0x000000d0
+    CHANNEL_EN_TX,      // 0x00000110
+    CHANNEL_EN_RX,      // 0x00000150
+    CHANNEL_VIDEO,      // 0x00000180
+    CHANNEL_M2R,        // 0x000001d0
+    CHANNEL_R2M         // 0x000001c0
+} DMA_CHANNEL;
 
 struct {
     uint8_t  csr;
@@ -101,7 +110,6 @@ uint8_t modma_buf[DMA_BURST_SIZE];
  */
 
 
-
 static inline uint32_t dma_getlong(uint8_t *buf, uint32_t pos) {
     return (buf[pos] << 24) | (buf[pos+1] << 16) | (buf[pos+2] << 8) | buf[pos+3];
 }
@@ -114,51 +122,72 @@ static inline void dma_putlong(uint32_t val, uint8_t *buf, uint32_t pos) {
 }
 
 
-int get_channel(uint32_t address) {
+static int get_channel(uint32_t address) {
     int channel = address&IO_SEG_MASK;
 
     switch (channel) {
-        case 0x010: Log_Printf(LOG_DMA_LEVEL,"channel SCSI:"); return CHANNEL_SCSI; break;
-        case 0x040: Log_Printf(LOG_DMA_LEVEL,"channel Sound Out:"); return CHANNEL_SOUNDOUT; break;
-        case 0x050: Log_Printf(LOG_DMA_LEVEL,"channel MO Disk:"); return CHANNEL_DISK; break;
-        case 0x080: Log_Printf(LOG_DMA_LEVEL,"channel Sound in:"); return CHANNEL_SOUNDIN; break;
-        case 0x090: Log_Printf(LOG_DMA_LEVEL,"channel Printer:"); return CHANNEL_PRINTER; break;
-        case 0x0c0: Log_Printf(LOG_DMA_LEVEL,"channel SCC:"); return CHANNEL_SCC; break;
-        case 0x0d0: Log_Printf(LOG_DMA_LEVEL,"channel DSP:"); return CHANNEL_DSP; break;
-        case 0x110: Log_Printf(LOG_DMA_LEVEL,"channel Ethernet Tx:"); return CHANNEL_EN_TX; break;
-        case 0x150: Log_Printf(LOG_DMA_LEVEL,"channel Ethernet Rx:"); return CHANNEL_EN_RX; break;
-        case 0x180: Log_Printf(LOG_DMA_LEVEL,"channel Video:"); return CHANNEL_VIDEO; break;
-        case 0x1d0: Log_Printf(LOG_DMA_LEVEL,"channel M2R:"); return CHANNEL_M2R; break;
-        case 0x1c0: Log_Printf(LOG_DMA_LEVEL,"channel R2M:"); return CHANNEL_R2M; break;
-            
+        case 0x010: Log_Printf(LOG_DMA_LEVEL,"channel SCSI:");        return CHANNEL_SCSI;
+        case 0x040: Log_Printf(LOG_DMA_LEVEL,"channel Sound Out:");   return CHANNEL_SOUNDOUT;
+        case 0x050: Log_Printf(LOG_DMA_LEVEL,"channel MO Disk:");     return CHANNEL_DISK;
+        case 0x080: Log_Printf(LOG_DMA_LEVEL,"channel Sound in:");    return CHANNEL_SOUNDIN;
+        case 0x090: Log_Printf(LOG_DMA_LEVEL,"channel Printer:");     return CHANNEL_PRINTER;
+        case 0x0c0: Log_Printf(LOG_DMA_LEVEL,"channel SCC:");         return CHANNEL_SCC;
+        case 0x0d0: Log_Printf(LOG_DMA_LEVEL,"channel DSP:");         return CHANNEL_DSP;
+        case 0x110: Log_Printf(LOG_DMA_LEVEL,"channel Ethernet Tx:"); return CHANNEL_EN_TX;
+        case 0x150: Log_Printf(LOG_DMA_LEVEL,"channel Ethernet Rx:"); return CHANNEL_EN_RX;
+        case 0x180: Log_Printf(LOG_DMA_LEVEL,"channel Video:");       return CHANNEL_VIDEO;
+        case 0x1d0: Log_Printf(LOG_DMA_LEVEL,"channel M2R:");         return CHANNEL_M2R;
+        case 0x1c0: Log_Printf(LOG_DMA_LEVEL,"channel R2M:");         return CHANNEL_R2M;
+
         default:
             Log_Printf(LOG_WARN, "Unknown DMA channel!\n");
-            return -1;
+            abort();
+    }
+}
+
+static int get_interrupt_type(int channel) {
+    switch (channel) {
+        case CHANNEL_SCSI:     return INT_SCSI_DMA;
+        case CHANNEL_SOUNDOUT: return INT_SND_OUT_DMA;
+        case CHANNEL_DISK:     return INT_DISK_DMA;
+        case CHANNEL_SOUNDIN:  return INT_SND_IN_DMA;
+        case CHANNEL_PRINTER:  return INT_PRINTER_DMA;
+        case CHANNEL_SCC:      return INT_SCC_DMA;
+        case CHANNEL_DSP:      return INT_DSP_DMA;
+        case CHANNEL_EN_TX:    return INT_EN_TX_DMA;
+        case CHANNEL_EN_RX:    return INT_EN_RX_DMA;
+        case CHANNEL_VIDEO:    return INT_VIDEO;
+        case CHANNEL_M2R:      return INT_M2R_DMA;
+        case CHANNEL_R2M:      return INT_R2M_DMA;
+
+        default:
+            Log_Printf(LOG_WARN, "Unknown DMA interrupt!\n");
+            abort();
+    }
+}
+
+
+static void dma_initialize_buffer(int channel, uint8_t offset) {
+    if (offset>0) {
+        Log_Printf(LOG_WARN, "DMA Initializing buffer with offset %i", offset);
+    }
+    switch (channel) {
+        case CHANNEL_SCSI:
+            esp_dma.status   = 0; /* just a guess */
+            espdma_buf_size  = 0;
+            espdma_buf_limit = offset;
+            break;
+        case CHANNEL_DISK:
+            modma_buf_size   = 0;
+            modma_buf_limit  = offset;
+            break;
+        default:
             break;
     }
 }
 
-int get_interrupt_type(int channel) {
-    switch (channel) {
-        case CHANNEL_SCSI: return INT_SCSI_DMA; break;
-        case CHANNEL_SOUNDOUT: return INT_SND_OUT_DMA; break;
-        case CHANNEL_DISK: return INT_DISK_DMA; break;
-        case CHANNEL_SOUNDIN: return INT_SND_IN_DMA; break;
-        case CHANNEL_PRINTER: return INT_PRINTER_DMA; break;
-        case CHANNEL_SCC: return INT_SCC_DMA; break;
-        case CHANNEL_DSP: return INT_DSP_DMA; break;
-        case CHANNEL_EN_TX: return INT_EN_TX_DMA; break;
-        case CHANNEL_EN_RX: return INT_EN_RX_DMA; break;
-        case CHANNEL_VIDEO: return INT_VIDEO; break;
-        case CHANNEL_M2R: return INT_M2R_DMA; break;
-        case CHANNEL_R2M: return INT_R2M_DMA; break;
-                        
-        default:
-            Log_Printf(LOG_WARN, "Unknown DMA interrupt!\n");
-            return 0;
-            break;
-    }
-}
+
+/* DMA register access functions */
 
 void DMA_CSR_Read(void) { // 0x02000010, length of register is byte on 68030 based NeXT Computer
     int channel = get_channel(IoAccessCurrentAddress);
@@ -345,30 +374,10 @@ void DMA_Init_Write(void) {
     Log_Printf(LOG_DMA_LEVEL,"DMA Init write at $%08x val=$%08x PC=$%08x\n", IoAccessCurrentAddress, dma[channel].next, m68k_getpc());
 }
 
-/* Initialize DMA internal buffer */
-
-void dma_initialize_buffer(int channel, uint8_t offset) {
-    if (offset>0) {
-        Log_Printf(LOG_WARN, "DMA Initializing buffer with offset %i", offset);
-    }
-    switch (channel) {
-        case CHANNEL_SCSI:
-            esp_dma.status = 0x00; /* just a guess */
-            espdma_buf_size = 0;
-            espdma_buf_limit = offset;
-            break;
-        case CHANNEL_DISK:
-            modma_buf_size = 0;
-            modma_buf_limit = offset;
-            break;
-        default:
-            break;
-    }
-}
 
 /* DMA interrupt functions */
 
-void dma_interrupt(int channel) {
+static void dma_interrupt(int channel) {
     int interrupt = get_interrupt_type(channel);
 
     /* If we have reached limit, generate an interrupt and set the flags */
@@ -702,8 +711,6 @@ void dma_mo_read_memory(void) {
 
 
 void dma_sndout_read_memory(void) {
-    int i;
-    
     if (dma[CHANNEL_SOUNDOUT].csr&DMA_ENABLE) {
         
         Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel Sound Out: Read from memory at $%08x, %i bytes",
@@ -717,10 +724,11 @@ void dma_sndout_read_memory(void) {
         }
         
         TRY(prb) {
-            snd_buffer_len = dma[CHANNEL_SOUNDOUT].limit - dma[CHANNEL_SOUNDOUT].next;
-            snd_buffer = malloc(snd_buffer_len * 2);
-            for (i = 0; dma[CHANNEL_SOUNDOUT].next<dma[CHANNEL_SOUNDOUT].limit; dma[CHANNEL_SOUNDOUT].next++, i++)
-                snd_buffer[i] = get_byte(dma[CHANNEL_SOUNDOUT].next);
+            while (dma[CHANNEL_SOUNDOUT].next<dma[CHANNEL_SOUNDOUT].limit && snd_buffer_len<SND_BUFFER_LIMIT) {
+                snd_buffer[snd_buffer_len] = get_byte(dma[CHANNEL_SOUNDOUT].next);
+                dma[CHANNEL_SOUNDOUT].next++;
+                snd_buffer_len++;
+            }
         } CATCH(prb) {
             Log_Printf(LOG_WARN, "[DMA] Channel Sound Out: Bus error reading from %08x",dma[CHANNEL_SOUNDOUT].next);
             dma[CHANNEL_SOUNDOUT].csr &= ~DMA_ENABLE;
@@ -730,8 +738,6 @@ void dma_sndout_read_memory(void) {
 }
 
 void dma_sndout_intr(void) {
-    free(snd_buffer);
-    snd_buffer = NULL;
     snd_buffer_len = 0;
 
     if (dma[CHANNEL_SOUNDOUT].csr&DMA_ENABLE) {
@@ -1209,7 +1215,7 @@ void TDMA_Saved_Limit_Read(void) { // 0x02004050
 
 /* Flush DMA buffer */
 /* FIXME: Implement function for all buffered channels */
-void tdma_flush_buffer(int channel) {
+void tdma_esp_flush_buffer(void) {
     int i;
     
     if (!(dma[CHANNEL_SCSI].csr&DMA_ENABLE)) {
@@ -1246,4 +1252,16 @@ void tdma_flush_buffer(int channel) {
     } ENDTRY
     
     dma_interrupt(CHANNEL_SCSI);
+}
+
+void DMA_Reset(void) {
+    int i;
+    
+    Log_Printf(LOG_WARN, "[DMA] Reset");
+    
+    for (i = 0; i < 12; i++) {
+        dma[i].csr = 0;
+        dma_initialize_buffer(i, 0);
+    }
+    CycInt_RemovePendingInterrupt(INTERRUPT_M2M_IO);
 }

@@ -161,14 +161,6 @@ static uint32_t num_inst;
 #define SIGN_PLUS  0
 #define SIGN_MINUS 1
 
-/* Defines some bits values for access to external memory (X, Y, P) */
-/* These values will set/unset the corresponding bits in the variable access_to_ext_memory */
-/* to detect how many access to the external memory were done for a single instruction */
-#define EXT_X_MEMORY 0
-#define EXT_Y_MEMORY 1
-#define EXT_P_MEMORY 2
-
-
 /**********************************
  *	Variables
  **********************************/
@@ -849,6 +841,13 @@ void dsp56k_execute_instruction(void)
 		dsp_set_interrupt(DSP_INTER_TRACE, 1);
 	}
 
+	/* Check for pending change of operating mode */
+	if (dsp_core.mode_wait > 0) {
+		if (--dsp_core.mode_wait == 0) {
+			dsp_core.mode = dsp_core.registers[DSP_REG_OMR] & ((1<<DSP_OMR_MA) | (1<<DSP_OMR_MB));
+		}
+	}
+
 	/* Decode and execute current instruction */
 	cur_inst = read_memory_p(dsp_core.pc);
 
@@ -882,9 +881,9 @@ void dsp56k_execute_instruction(void)
 	/* Add the waitstate due to external memory access */
 	/* (2 extra cycles per extra access to the external memory after the first one */
 	if (access_to_ext_memory != 0) {
-		value = access_to_ext_memory & 1;
-		value += (access_to_ext_memory & 2) >> 1;
-		value += (access_to_ext_memory & 4) >> 2;
+		value  = (access_to_ext_memory >> DSP_SPACE_X) & 1;
+		value += (access_to_ext_memory >> DSP_SPACE_Y) & 1;
+		value += (access_to_ext_memory >> DSP_SPACE_P) & 1;
 
 		if (value > 1)
 			dsp_core.instr_cycle += (value - 1) * 2;
@@ -1270,13 +1269,14 @@ static void dsp_ccr_update_e_u_n_z(uint32_t reg0, uint32_t reg1, uint32_t reg2)
 
 static uint32_t read_memory_disasm(int space, uint16_t address)
 {
+	/* Program memory space ? */
+	if (space==DSP_SPACE_P) {
+		return read_memory_p(address);
+	}
+
 	/* Internal RAM ? */
 	if (address<0x100) {
 		return dsp_core.ramint[space][address] & BITMASK(24);
-	}
-
-	if (space==DSP_SPACE_P) {
-		return read_memory_p(address);
 	}
 
 	/* Internal ROM? */
@@ -1296,121 +1296,101 @@ static uint32_t read_memory_disasm(int space, uint16_t address)
 		return dsp_core.periph[space][address-0xffc0] & BITMASK(24);
 	}
 
-	/* NeXT: Upper external X and Y memory are physically separate */
-	if (address&0x8000) {
-		address &= (DSP_RAMSIZE>>1) - 1;
-		/* NeXT: External RAM, map X to upper 4K of matching space in P */
-		if (space == DSP_SPACE_X) {
-			address += DSP_RAMSIZE>>1;
+	/* External RAM, map X,Y to P */
+	if (dsp_core.ramext) {
+		/* External X and Y memories are physically separate if A15 is high */
+		if (address&0x8000) {
+			/* Map Y to lower half of available RAM size */
+			address &= (DSP_RAMSIZE>>1) - 1;
+			if (space == DSP_SPACE_X) {
+				/* Map X to upper half of available RAM size */
+				address |= DSP_RAMSIZE>>1;
+			}
 		}
+		
+		/* Mask address to available RAM size */
+		return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
 	}
-
-	/* NeXT: External RAM, finally map X,Y to P */
-	return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
+	return 0;
 }
 
 static inline uint32_t read_memory_p(uint16_t address)
 {
+	/* Internal ROM ? */
+	if (dsp_core.mode == 1) {
+		return dsp_core.rom[DSP_SPACE_P][address & 0x1f] & BITMASK(24);
+	}
+
 	/* Internal RAM ? */
 	if (address < 0x200) {
 		return dsp_core.ramint[DSP_SPACE_P][address] & BITMASK(24);
 	}
 
 	/* Access to the external P memory */
-	access_to_ext_memory |= 1 << EXT_P_MEMORY;
+	access_to_ext_memory |= 1 << DSP_SPACE_P;
 
 	/* External RAM, mask address to available ram size */
-	return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
-}
-
-static inline uint32_t read_memory_x(uint16_t address)
-{
-	uint32_t value;
-
-	/* Internal RAM ? */
-	if (address < 0x100) {
-		return dsp_core.ramint[DSP_SPACE_X][address] & BITMASK(24);
-	}
-
-	/* Internal ROM ? */
-	if (address < 0x200) {
-		if (dsp_core.registers[DSP_REG_OMR] & (1<<DSP_OMR_DE)) {
-			return dsp_core.rom[DSP_SPACE_X][address] & BITMASK(24);
-		}
-	}
-
-	/* Peripheral address ? */
-	if (address >= 0xffc0) {
-		value = dsp_core.periph[DSP_SPACE_X][address-0xffc0] & BITMASK(24);
-		if (address == 0xffc0+DSP_HOST_HRX) {
-			value = dsp_core.dsp_host_rtx;
-			dsp_core_hostport_dspread();
-		}
-		else if (address == 0xffc0+DSP_SSI_RX) {
-			value = dsp_core_ssi_readRX();
-		}
-		return value;
-	}
-
-	/* Access to X external RAM */
-	access_to_ext_memory |= 1 << EXT_X_MEMORY;
-
-	/* Access to contiguous or separated space ? */
-	if (address&0x8000) {
-		/* Map X to upper half of available ram size */
-		address &= (DSP_RAMSIZE>>1)-1;
-		address += DSP_RAMSIZE>>1;
-		return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
-	} else {
-		/* Mask address to available ram size */
+	if (dsp_core.ramext) {
 		return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
 	}
-}
-
-static inline uint32_t read_memory_y(uint16_t address)
-{
-	/* Internal RAM ? */
-	if (address < 0x100) {
-		return dsp_core.ramint[DSP_SPACE_Y][address] & BITMASK(24);
-	}
-
-	/* Internal ROM ? */
-	if (address < 0x200) {
-		if (dsp_core.registers[DSP_REG_OMR] & (1<<DSP_OMR_DE)) {
-			return dsp_core.rom[DSP_SPACE_Y][address] & BITMASK(24);
-		}
-	}
-
-	/* Peripheral address ? */
-	if (address >= 0xffc0) {
-		return dsp_core.periph[DSP_SPACE_Y][address-0xffc0] & BITMASK(24);
-	}
-
-	/* Access to Y external RAM */
-	access_to_ext_memory |= 1 << EXT_Y_MEMORY;
-
-	/* Access to contiguous or separated space ? */
-	if (address&0x8000) {
-		/* Map Y to lower half of available ram size */
-		return dsp_core.ramext[address & ((DSP_RAMSIZE>>1)-1)] & BITMASK(24);
-	} else {
-		/* Mask address to available ram size */
-		return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
-	}
+	return 0;
 }
 
 static uint32_t read_memory(int space, uint16_t address)
 {
-	switch (space) {
-		case DSP_SPACE_P:
-			return read_memory_p(address);
-		case DSP_SPACE_X:
-			return read_memory_x(address);
-		case DSP_SPACE_Y:
-			return read_memory_y(address);
+	uint32_t value;
 
-		default: abort();
+	/* Program memory space ? */
+	if (space == DSP_SPACE_P) {
+		return read_memory_p(address);
 	}
+
+	/* Internal RAM ? */
+	if (address < 0x100) {
+		return dsp_core.ramint[space][address] & BITMASK(24);
+	}
+
+	/* Internal ROM ? */
+	if (address < 0x200) {
+		if (dsp_core.registers[DSP_REG_OMR] & (1<<DSP_OMR_DE)) {
+			return dsp_core.rom[space][address] & BITMASK(24);
+		}
+	}
+
+	/* Peripheral address ? */
+	if (address >= 0xffc0) {
+		value = dsp_core.periph[space][address-0xffc0] & BITMASK(24);
+		if (space == DSP_SPACE_X) {
+			if (address == 0xffc0+DSP_HOST_HRX) {
+				value = dsp_core.dsp_host_rtx;
+				dsp_core_hostport_dspread();
+			}
+			else if (address == 0xffc0+DSP_SSI_RX) {
+				value = dsp_core_ssi_readRX();
+			}
+		}
+		return value;
+	}
+
+	/* Access to external memory */
+	access_to_ext_memory |= 1 << space;
+
+	/* External RAM, map X,Y to P */
+	if (dsp_core.ramext) {
+		/* External X and Y memories are physically separate if A15 is high */
+		if (address&0x8000) {
+			/* Map Y to lower half of available RAM size */
+			address &= (DSP_RAMSIZE>>1) - 1;
+			if (space == DSP_SPACE_X) {
+				/* Map X to upper half of available RAM size */
+				address |= DSP_RAMSIZE>>1;
+			}
+		}
+		
+		/* Mask address to available RAM size */
+		return dsp_core.ramext[address & (DSP_RAMSIZE-1)] & BITMASK(24);
+	}
+	return 0;
 }
 
 static inline void write_memory(int space, uint16_t address, uint32_t value)
@@ -1421,151 +1401,117 @@ static inline void write_memory(int space, uint16_t address, uint32_t value)
 		write_memory_raw(space, address, value);
 }
 
-static void write_memory_p(uint16_t address, uint32_t value)
-{
-	/* Internal P RAM ? */
-	if (address < 0x200) {
-		dsp_core.ramint[DSP_SPACE_P][address] = value;
-		return;
-	}
-
-	/* Access to the P external RAM */
-	access_to_ext_memory |= 1 << EXT_P_MEMORY;
-
-	/* Mask address to available ram size */
-	dsp_core.ramext[address & (DSP_RAMSIZE-1)] = value;
-}
-
-static void write_memory_x(uint16_t address, uint32_t value)
-{
-	/* Peripheral address ? */
-	if (address >= 0xffc0) {
-		switch(address-0xffc0) {
-			case DSP_HOST_HTX:
-				dsp_core.dsp_host_htx = value;
-				dsp_core_hostport_dspwrite();
-				break;
-			case DSP_HOST_HCR:
-				dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR] = value;
-				/* Set HF3 and HF2 accordingly on the host side */
-				dsp_core.hostport[CPU_HOST_ISR] &=
-				BITMASK(8)-((1<<CPU_HOST_ISR_HF3)|(1<<CPU_HOST_ISR_HF2));
-				dsp_core.hostport[CPU_HOST_ISR] |=
-				dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR] & ((1<<CPU_HOST_ISR_HF3)|(1<<CPU_HOST_ISR_HF2));
-				/* Handle interrupt mask */
-				dsp_set_interrupt_mask(DSP_INTER_HOST_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HRIE));
-				dsp_set_interrupt_mask(DSP_INTER_HOST_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HTIE));
-				dsp_set_interrupt_mask(DSP_INTER_HOST_COMMAND, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HCIE));
-				break;
-			case DSP_HOST_HSR:
-				/* Read only */
-				break;
-			case DSP_SSI_CRA:
-				dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
-				dsp_core_ssi_configure(address-0xffc0, value);
-				break;
-			case DSP_SSI_CRB:
-				dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
-				dsp_core_ssi_configure(address-0xffc0, value);
-				dsp_set_interrupt_mask(DSP_INTER_SSI_RCV_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_RIE));
-				dsp_set_interrupt_mask(DSP_INTER_SSI_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_RIE));
-				dsp_set_interrupt_mask(DSP_INTER_SSI_TRX_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_TIE));
-				dsp_set_interrupt_mask(DSP_INTER_SSI_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_TIE));
-				break;
-			case DSP_SSI_TSR:
-				dsp_core_ssi_writeTSR();
-				break;
-			case DSP_SSI_TX:
-				dsp_core_ssi_writeTX(value);
-				break;
-			case DSP_IPR:
-				dsp_core.periph[DSP_SPACE_X][DSP_IPR] = value;
-				dsp_setInterruptIPL(value);
-				break;
-			case DSP_PCD:
-				dsp_core.periph[DSP_SPACE_X][DSP_PCD] = value;
-				dsp_core_setPortCDataRegister(value);
-				break;
-			case DSP_PBC:
-				dsp_core.periph[DSP_SPACE_X][DSP_PBC] = value;
-				dsp_set_interrupt_mask(DSP_INTER_SCI_RCV_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<11));
-				dsp_set_interrupt_mask(DSP_INTER_SCI_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<11));
-				dsp_set_interrupt_mask(DSP_INTER_SCI_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<12));
-				dsp_set_interrupt_mask(DSP_INTER_SCI_IDLE_LINE, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<10));
-				dsp_set_interrupt_mask(DSP_INTER_SCI_TIMER, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<13));
-				break;
-			default:
-				dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
-				break;
-		}
-		return;
-	}
-
-	/* Internal RAM ? */
-	if (address < 0x100) {
-		dsp_core.ramint[DSP_SPACE_X][address] = value;
-		return;
-	}
-
-	/* Access to X external RAM */
-	access_to_ext_memory |= 1 << EXT_X_MEMORY;
-
-	/* Access to contiguous or separated space ? */
-	if (address&0x8000) {
-		/* Map X to upper half of available ram size */
-		address &= (DSP_RAMSIZE>>1)-1;
-		address += DSP_RAMSIZE>>1;
-		dsp_core.ramext[address & (DSP_RAMSIZE-1)] = value;
-	} else {
-		/* Mask address to available ram size */
-		dsp_core.ramext[address & (DSP_RAMSIZE-1)] = value;
-	}
-}
-
-static void write_memory_y(uint16_t address, uint32_t value)
-{
-	/* Peripheral address ? */
-	if (address >= 0xffc0) {
-		dsp_core.periph[DSP_SPACE_Y][address-0xffc0] = value;
-		return;
-	}
-
-	/* Internal RAM ? */
-	if (address < 0x100) {
-		dsp_core.ramint[DSP_SPACE_Y][address] = value;
-		return;
-	}
-
-	/* Access to Y external RAM */
-	access_to_ext_memory |= 1 << EXT_Y_MEMORY;
-
-	/* Access to contiguous or separated space ? */
-	if (address&0x8000) {
-		/* Map Y to lower half of available ram size */
-		dsp_core.ramext[address & ((DSP_RAMSIZE>>1)-1)] = value;
-	} else {
-		/* Mask address to available ram size */
-		dsp_core.ramext[address & (DSP_RAMSIZE-1)] = value;
-	}
-}
-
 static void write_memory_raw(int space, uint16_t address, uint32_t value)
 {
 	value &= BITMASK(24);
 
-	switch (space) {
-		case DSP_SPACE_P:
-			write_memory_p(address, value);
-			break;
-		case DSP_SPACE_X:
-			write_memory_x(address, value);
-			break;
-		case DSP_SPACE_Y:
-			write_memory_y(address, value);
-			break;
+	/* Peripheral address ? */
+	if (address >= 0xffc0) {
+		if (space == DSP_SPACE_X) {
+			switch(address-0xffc0) {
+				case DSP_HOST_HTX:
+					dsp_core.dsp_host_htx = value;
+					dsp_core_hostport_dspwrite();
+					break;
+				case DSP_HOST_HCR:
+					dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR] = value & 0x1f;
+					/* Set HF3 and HF2 accordingly on the host side */
+					dsp_core.hostport[CPU_HOST_ISR] &=
+						BITMASK(8)-((1<<CPU_HOST_ISR_HF3)|(1<<CPU_HOST_ISR_HF2));
+					dsp_core.hostport[CPU_HOST_ISR] |=
+						dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR] & ((1<<CPU_HOST_ISR_HF3)|(1<<CPU_HOST_ISR_HF2));
+					/* Handle interrupt mask */
+					dsp_set_interrupt_mask(DSP_INTER_HOST_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HRIE));
+					dsp_set_interrupt_mask(DSP_INTER_HOST_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HTIE));
+					dsp_set_interrupt_mask(DSP_INTER_HOST_COMMAND, dsp_core.periph[DSP_SPACE_X][DSP_HOST_HCR]&(1<<DSP_HOST_HCR_HCIE));
+					break;
+				case DSP_HOST_HSR:
+					/* Read only */
+					break;
+				case DSP_SSI_CRA:
+					dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
+					dsp_core_ssi_configure(address-0xffc0, value);
+					break;
+				case DSP_SSI_CRB:
+					dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
+					dsp_core_ssi_configure(address-0xffc0, value);
+					dsp_set_interrupt_mask(DSP_INTER_SSI_RCV_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_RIE));
+					dsp_set_interrupt_mask(DSP_INTER_SSI_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_RIE));
+					dsp_set_interrupt_mask(DSP_INTER_SSI_TRX_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_TIE));
+					dsp_set_interrupt_mask(DSP_INTER_SSI_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_SSI_CRB]&(1<<DSP_SSI_CRB_TIE));
+					break;
+				case DSP_SSI_TSR:
+					dsp_core_ssi_writeTSR();
+					break;
+				case DSP_SSI_TX:
+					dsp_core_ssi_writeTX(value);
+					break;
+				case DSP_IPR:
+					dsp_core.periph[DSP_SPACE_X][DSP_IPR] = value;
+					dsp_setInterruptIPL(value);
+					break;
+				case DSP_PCD:
+					dsp_core.periph[DSP_SPACE_X][DSP_PCD] = value;
+					dsp_core_setPortCDataRegister(value);
+					break;
+				case DSP_PBC:
+					dsp_core.periph[DSP_SPACE_X][DSP_PBC] = value;
+					dsp_set_interrupt_mask(DSP_INTER_SCI_RCV_DATA_E, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<11));
+					dsp_set_interrupt_mask(DSP_INTER_SCI_RCV_DATA, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<11));
+					dsp_set_interrupt_mask(DSP_INTER_SCI_TRX_DATA, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<12));
+					dsp_set_interrupt_mask(DSP_INTER_SCI_IDLE_LINE, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<10));
+					dsp_set_interrupt_mask(DSP_INTER_SCI_TIMER, dsp_core.periph[DSP_SPACE_X][DSP_PBC]&(1<<13));
+					break;
+				default:
+					dsp_core.periph[DSP_SPACE_X][address-0xffc0] = value;
+					break;
+			}
+			return;
+		}
+		else if (space == DSP_SPACE_Y) {
+			dsp_core.periph[DSP_SPACE_Y][address-0xffc0] = value;
+			return;
+		}
+	}
 
-		default:
-			break;
+	/* Internal RAM ? */
+	if (address < 0x100) {
+		dsp_core.ramint[space][address] = value;
+		return;
+	}
+
+	/* Internal ROM ? */
+	if (address < 0x200) {
+		if (space != DSP_SPACE_P) {
+			if (dsp_core.registers[DSP_REG_OMR] & (1<<DSP_OMR_DE)) {
+				/* Can not write to ROM space */
+				return;
+			}
+		}
+		else {
+			/* Space P RAM */
+			dsp_core.ramint[DSP_SPACE_P][address] = value;
+			return;
+		}
+	}
+
+	/* Access to external memory */
+	access_to_ext_memory |= 1 << space;
+
+	/* External RAM, map X,Y to P */
+	if (dsp_core.ramext) {
+		/* External X and Y memories are physically separate if A15 is high */
+		if (address&0x8000) {
+			/* Map Y to lower half of available RAM size */
+			address &= (DSP_RAMSIZE>>1) - 1;
+			if (space == DSP_SPACE_X) {
+				/* Map X to upper half of available RAM size */
+				address |= DSP_RAMSIZE>>1;
+			}
+		}
+		
+		/* Mask address to available RAM size */
+		dsp_core.ramext[address & (DSP_RAMSIZE-1)] = value;
 	}
 }
 
@@ -1639,6 +1585,7 @@ static void dsp_write_reg(uint32_t numreg, uint32_t value)
 			break;
 		case DSP_REG_OMR:
 			dsp_core.registers[DSP_REG_OMR] = value & 0xc7;
+			dsp_core.mode_wait = 3;
 			break;
 		case DSP_REG_SR:
 			dsp_core.registers[DSP_REG_SR] = value & 0xaf7f;
@@ -2092,6 +2039,7 @@ static void dsp_andi(void)
 		case 2:
 			/* omr */
 			dsp_core.registers[DSP_REG_OMR] &= value;
+			dsp_core.mode_wait = 3;
 			break;
 	}
 }
@@ -3456,6 +3404,7 @@ static void dsp_ori(void)
 		case 2:
 			/* omr */
 			dsp_core.registers[DSP_REG_OMR] |= value;
+			dsp_core.mode_wait = 3;
 			break;
 	}
 }

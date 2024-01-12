@@ -1,18 +1,18 @@
-/*  Previous - kms.c
- 
- This file is distributed under the GNU Public License, version 2 or at
- your option any later version. Read the file gpl.txt for details.
- 
- Keyboard, Mouse and Sound logic Emulation.
- 
- In real hardware this logic is located in the NeXT Megapixel Display 
- or Soundbox
- 
- */
+/*
+  Previous - kms.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  This file contains keyboard, mouse and sound handling. This logic is 
+  located in the Megapixel Display or Soundbox. See snd.c for sound I/O.
+*/
+const char Kms_fileid[] = "Previous kms.c";
 
 #include "ioMem.h"
 #include "ioMemTables.h"
 #include "m68000.h"
+#include "reset.h"
 #include "kms.h"
 #include "sysReg.h"
 #include "dma.h"
@@ -22,8 +22,6 @@
 
 #define LOG_KMS_REG_LEVEL LOG_DEBUG
 #define LOG_KMS_LEVEL     LOG_DEBUG
-
-#define IO_SEG_MASK	0x1FFFF
 
 
 struct {
@@ -73,7 +71,7 @@ struct {
  * ---- ---- ---- ---- ---- --x- ---- ----  kms enable (return from reset state) (r/w)
  * ---- ---- ---- ---- ---- ---x ---- ----  loop back transmitter data (r/w)
  *
- * ---- ---- ---- ---- ---- ---- xxxx xxxx  command to append on kms data (r/w)
+ * ---- ---- ---- ---- ---- ---- xxxx xxxx  command to apply on kms data (r/w)
  *
  * ---x ---x ---- ---x ---- ---- ---- ----  zero bits
  */
@@ -204,7 +202,7 @@ static void kms_km_receive(uint32_t data) {
     switch (data&KMS_MAGIC_MASK) {
         case KMS_MAGIC_RESET:
             Log_Printf(LOG_WARN, "Keyboard initiated CPU reset!");
-            M68000_Reset(true);
+            Reset_Warm();
             return;
         case KMS_MAGIC_NMI_L:
         case KMS_MAGIC_NMI_R:
@@ -242,7 +240,7 @@ static void kms_codec_receive(uint32_t data) {
 static void kms_sndout_request(void) {
     kms.status.sound |= SNDOUT_DMA_REQUEST;
     
-    if (snd_buffer) {
+    if (snd_buffer_len) {
         dma_sndout_intr();
     }
     dma_sndout_read_memory();

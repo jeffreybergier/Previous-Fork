@@ -1,3 +1,13 @@
+/*
+  Previous - tmc.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  This file contains a simulation of the Turbo Memory Controller (TMC).
+*/
+const char Tmc_fileid[] = "Previous tmc.c";
+
 #include "main.h"
 #include "configuration.h"
 #include "m68000.h"
@@ -163,6 +173,7 @@ static void tmc_ctrl_write3(uint8_t val) {
 /* Video Interrupt Register */
 #define TMC_VI_INTERRUPT	0x01
 #define TMC_VI_INT_MASK		0x02
+#define TMC_VI_ENABLE		0x04
 
 /* Horizontal and Vertical Configruation Registers */
 #define HFPORCH  0x18
@@ -174,6 +185,10 @@ static void tmc_ctrl_write3(uint8_t val) {
 #define VSYNC	 0x08
 #define VBPORCH	 0x30
 #define VDISCNT	 0x340
+
+uint8_t tmc_video_enabled(void) {
+	return tmc.video_intr&TMC_VI_ENABLE;
+}
 
 static void tmc_video_reg_reset(void) {
 	tmc.video_intr = 0x00;

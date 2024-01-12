@@ -1,6 +1,6 @@
 
 
-                                  Previous 2.9
+                                  Previous 3.0
 
 
 
@@ -95,13 +95,13 @@ For using Previous, you need to have installed the following libraries:
 
 Required:
   > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
-  > The zlib compression library (http://www.gzip.org/zlib/)
 
 Optional:
+  > The zlib compression library (https://www.zlib.net)
+    This is required for using libpng.
   > The libpng PNG reference library (http://www.libpng.org)
     This is required for printing to files.
-  > The pcap library (https://github.com/the-tcpdump-group/libpcap or 
-    https://www.winpcap.org)
+  > The pcap library (https://www.tcpdump.org or https://www.winpcap.org)
     This is required if networking via PCAP is preferred over SLiRP.
 
 
@@ -191,6 +191,9 @@ Issues in Previous:
     Monitor/Sound fail in certain situations due to timing issues. Disable 
     variable speed mode to reliably pass SCSI Disk diagnostics. Disable sound to 
     pass Monitor/Sound diagnostics.
+  > Background DMA Read from DSP test menu of the diagnostics utility fails for 
+    an unknown reason. The test program is probably faulty. It sets the DMA 
+    channel to the wrong direction.
 
 Issues in NeXTstep:
   > The MO drive causes slow downs and hangs when both drives are connected, but 
@@ -367,6 +370,22 @@ Previous v2.9:
   > Adds support for saving sound output to a file.
   > Improves SCC emulation for booting Mac OS 7.5.3 via Daydream.
 
+Previous v3.0:
+  > Adds option for simulating DSP bootstrap ROM.
+  > Adds support for changing shared directory without reset.
+  > Adds support for mapping scroll wheel to cursor keys.
+  > Adds support for RESET instruction.
+  > Adds support for identifying some SCSI disk models for easier setup.
+  > Improves screen simulation to not show screen contents while blanked.
+  > Improves DSP emulation accuracy.
+  > Improves CPU emulation accuracy.
+  > Improves SCSI disk emulation accuracy.
+  > Improves keyboard options to show actual shortcuts.
+  > Fixes bug that caused SCSI diagnostics to fail with 1024 byte blocks.
+  > Fixes bug that caused mouse to be unlocked after resuming emulation.
+  > Fixes bug that caused stuck modifier keys after using shortcuts.
+  > Fixes bug that caused sporadic display errors in the boot options dialog.
+
 
  7) Running Previous
  -------------------
@@ -374,9 +393,11 @@ Previous v2.9:
 For running the emulator, you need an image of the boot ROM of the emulated 
 machine.
 
+You can initiate a clean shut down of the emulator using the simulated power 
+key. The power key is mapped to F10 and the Delete key of your keyboard.
+
 While the emulator is running, you can open the configuration menu by pressing 
-F12, toggle between fullscreen and windowed mode by pressing F11 and initiate a 
-clean shut down by pressing F10 (emulates the power button).
+F12 and toggle between fullscreen and windowed mode by pressing F11.
 
 Further shortcuts can be invoked by simultaneously pressing ctrl and alt and
 one of the following keys:
@@ -396,6 +417,22 @@ B: Hides the statusbar and shows it when pressed again.
 S: Disables sound output and re-enables it when pressed again.
 Q: Requests to quit Previous. All unsaved changes will be lost.
 
+Shortcuts can be changed by modifying the preferences file. To modify single 
+key shortcuts change or add key names in the section ShortcutsWithoutModifiers. 
+To modify shortcuts that are invoked with ctrl and alt change or add key names 
+in the section ShortcutsWithModifiers. The appropriate key names can be found 
+under https://wiki.libsdl.org/SDL2/SDL_Keycode.
+
+Previous comes with some empty disk images of different types and sizes. The 
+suffix of the respective file name indicates the image type:
+sd: Hard disk (SCSI disk)
+od: Magneto-optical disk
+fd: Floppy disk
+
+When working with versions of NeXTstep prior to 2.0 it is recommended to use
+the images marked with an 'x'. Only these are automatically detected by early 
+versions of BuildDisk.
+
 
  8) Contributors
  ---------------
@@ -406,7 +443,8 @@ Many thanks go to the members of the NeXT International Forums for their help.
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
-Frank Wegmann, Grzegorz Szwoch, Michael Engel and Izumi Tsutsui!
+Frank Wegmann, Grzegorz Szwoch, Michael Engel, Izumi Tsutsui and William
+Barnett-Lewis!
 
 This emulator would not exist without their help.
 

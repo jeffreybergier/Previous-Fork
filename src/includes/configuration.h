@@ -120,6 +120,7 @@ typedef struct
 typedef struct
 {
   bool bEnableAutoGrab;
+  bool bEnableMapToKey;
   float fLinSpeedNormal;
   float fLinSpeedLocked;
   float fExpSpeedNormal;
@@ -165,17 +166,18 @@ typedef struct
   bool bEnableSCSITest;
   bool bLoopPot;
   bool bVerbose;
+  bool bVisible;
 } CNF_BOOT;
 
 
 /* Hard drives configuration */
 #define ESP_MAX_DEVS 7
 typedef enum {
-  DEVTYPE_NONE,
-  DEVTYPE_HARDDISK,
-  DEVTYPE_CD,
-  DEVTYPE_FLOPPY,
-  NUM_DEVTYPES
+  SD_NONE,
+  SD_HARDDISK,
+  SD_CD,
+  SD_FLOPPY,
+  NUM_SD
 } SCSI_DEVTYPE;
 
 typedef struct {
@@ -307,7 +309,7 @@ typedef enum
 typedef enum
 {
   DSP_TYPE_NONE,
-  DSP_TYPE_DUMMY,
+  DSP_TYPE_ACCURATE,
   DSP_TYPE_EMU
 } DSPTYPE;
 

@@ -1,12 +1,12 @@
 /*
-  Hatari - main.c
+  Previous - main.c
 
   This file is distributed under the GNU General Public License, version 2
   or at your option any later version. Read the file gpl.txt for details.
 
   Main initialization and event handling routines.
 */
-const char Main_fileid[] = "Hatari main.c";
+const char Main_fileid[] = "Previous main.c";
 
 #include <time.h>
 #include <errno.h>
@@ -43,6 +43,10 @@ const char Main_fileid[] = "Hatari main.c";
 
 #if HAVE_GETTIMEOFDAY
 #include <sys/time.h>
+#endif
+
+#ifdef WIN32
+#include "gui-win/opencon.h"
 #endif
 
 volatile bool bQuitProgram = false;            /* Flag to quit program cleanly */
@@ -167,9 +171,10 @@ bool Main_UnPauseEmulation(void) {
 	SDL_ShowCursor(SDL_DISABLE);
 
 	Main_ResetKeys();
-	Main_SetMouseGrab(bGrabMouse);
 
 	bEmulationActive = true;
+
+	Main_SetMouseGrab(bGrabMouse);
 
 	return true;
 }
@@ -451,10 +456,17 @@ void Main_ResetKeys(void) {
 
 	SDL_ResetKeyboard();
 
-	/* Send at least one keyup event */
+	/* Send magic key sequence to avoid stuck keys */
+	event.type                = SDL_KEYDOWN;
+	event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
+	event.key.keysym.sym      = SDLK_LCTRL;
+	event.key.keysym.mod      = KMOD_LCTRL;
+	SDL_PushEvent(&event);
+
 	event.type                = SDL_KEYUP;
 	event.key.keysym.scancode = SDL_SCANCODE_Q;
 	event.key.keysym.sym      = SDLK_q;
+	event.key.keysym.mod      = KMOD_NONE;
 	SDL_PushEvent(&event);
 }
 
@@ -768,11 +780,7 @@ static void Main_Loop(void) {
  * Call this on emulated machine VBL.
  */
 void Main_CheckStatusbarUpdate(void) {
-	static int i = 0;
-	if (++i > 9) {
-		Statusbar_Update(sdlscrn);
-		i = 0;
-	}
+	Statusbar_Update(sdlscrn);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -838,8 +846,7 @@ static bool Main_Init(void) {
 	/* Call menu at startup */
 	if (Main_StartMenu()) {
 		/* Reset emulated machine */
-		Reset_Cold();
-		return true;
+		return !Reset_Cold();
 	}
 	return false;
 }
@@ -897,7 +904,7 @@ static void Main_LoadInitialConfig(void) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * Set TOS etc information and initial help message
+ * Set system information and initial help message
  */
 static void Main_StatusbarSetup(void) {
 	const char *name = NULL;
@@ -921,10 +928,6 @@ static void Main_StatusbarSetup(void) {
 	/* update information loaded by Main_Init() */
 	Statusbar_UpdateInfo();
 }
-
-#ifdef WIN32
-	extern void Win_OpenCon(void);
-#endif
 
 /*-----------------------------------------------------------------------*/
 /**

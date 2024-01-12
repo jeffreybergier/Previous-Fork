@@ -1,14 +1,12 @@
 /*
- Previous - ioMemTabNEXT.c
- 
- This file is distributed under the GNU Public License, version 2 or at
- your option any later version. Read the file gpl.txt for details.
- 
- Table with hardware IO handlers for the NEXT.
- */
+  Previous - ioMemTabNEXT.c
 
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
-const char IoMemTabNEXT_fileid[] = "Previous ioMemTabNEXT.c : " __DATE__ " " __TIME__;
+  Table with hardware I/O handlers for non-Turbo machines.
+*/
+const char IoMemTabNEXT_fileid[] = "Previous ioMemTabNEXT.c";
 
 #include "main.h"
 #include "ioMem.h"
@@ -233,7 +231,7 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_NEXT[] =
 	{ 0x0200f004, SIZE_LONG, LP_Data_Read, LP_Data_Write },
 	
 	/* Brightness */
-	{ 0x02010000, SIZE_LONG, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x02010000, SIZE_LONG, IoMem_ReadWithoutInterceptionButTrace, Brightness_Write },
 	
 	/* Magneto-Optical Drive Controller (Fujitsu MB600310) */
 	{ 0x02012000, SIZE_BYTE, MO_TrackNumH_Read, MO_TrackNumH_Write },

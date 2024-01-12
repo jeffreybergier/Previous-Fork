@@ -1,3 +1,15 @@
+/*
+  Previous - host.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  Host system dependencies such as time synchronization and events that
+  occur on host threads (e.g. VBL & timers) which need to be synchronized
+  to Previous CPU threads.
+*/
+const char Host_fileid[] = "Previous host.c";
+
 #include "config.h"
 
 #if HAVE_NANOSLEEP
@@ -368,17 +380,19 @@ static uint64_t lastVT;
 static char   report[512];
 
 const char* host_report(uint64_t realTime, uint64_t hostTime) {
-    double dVT = hostTime - lastVT;
-    dVT       /= 1000000.0;
-
+    int    nBlank    = 0;
+    char*  r         = report;
+    double dVT       = hostTime - lastVT;
     double hardClock = hardClockExpected;
+    
+    dVT       /= 1000000.0;
     hardClock /= hardClockActual == 0 ? 1 : hardClockActual;
     
-    char* r = report;
     r += sprintf(r, "[%s] hostTime:%llu hardClock:%.3fMHz", enableRealtime ? "Variable" : "CycleTime", hostTime, hardClock);
 
     for(int i = NUM_BLANKS; --i >= 0;) {
-        r += sprintf(r, " %s:%.1fHz", BLANKS[i], (double)(host_reset_blank_counter(i))/dVT);
+        nBlank = host_reset_blank_counter(i);
+        r += sprintf(r, " %s:%.1fHz", BLANKS[i], (double)nBlank/dVT);
     }
     
     lastVT = hostTime;

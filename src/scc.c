@@ -1,13 +1,13 @@
-/*  Previous - scc.c
- 
- This file is distributed under the GNU Public License, version 2 or at
- your option any later version. Read the file gpl.txt for details.
- 
- Serial Communication Controller (AMD AM8530H) Emulation.
- 
- Incomplete.
- 
- */
+/*
+  Previous - scc.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  This file contains a simulation of the AMD AM8530H Serial Communication
+  Controller. Incomplete.
+*/
+const char Scc_fileid[] = "Previous scc.c";
 
 #include "ioMem.h"
 #include "ioMemTables.h"
@@ -16,8 +16,6 @@
 #include "scc.h"
 #include "sysReg.h"
 #include "dma.h"
-
-#define IO_SEG_MASK 0x1FFFF
 
 #define LOG_SCC_LEVEL     LOG_DEBUG
 #define LOG_SCC_IO_LEVEL  LOG_DEBUG
@@ -314,6 +312,7 @@ static void scc_hard_reset(void) {
     scc[1].wreg[14] = (scc[1].wreg[14]&~0x3F)|0x20;
 
     set_interrupt(INT_SCC, RELEASE_INT);
+    CycInt_RemovePendingInterrupt(INTERRUPT_SCC_IO);
 }
 
 

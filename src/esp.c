@@ -1,6 +1,12 @@
-/* Emulation of NCR53C90(A)
- Includes informations from QEMU-NeXT
- */
+/*
+  Previous - esp.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+
+  This file contains a simulation of the NCR53C90A SCSI controller.
+*/
+const char Esp_fileid[] = "Previous esp.c";
 
 #include "ioMem.h"
 #include "ioMemTables.h"
@@ -16,8 +22,6 @@
 #define LOG_ESPREG_LEVEL    LOG_DEBUG   /* Print debugging messages for ESP registers */
 #define LOG_ESPFIFO_LEVEL   LOG_DEBUG   /* Print debugging messages for ESP FIFO */
 
-
-#define IO_SEG_MASK	0x1FFFF
 
 ESPDMASTATUS esp_dma;
 
@@ -167,7 +171,7 @@ void ESP_DMA_CTRL_Write(void) {
     if (esp_dma.control&ESPCTRL_FLUSH) {
         Log_Printf(LOG_ESPDMA_LEVEL, "flush DMA buffer\n");
         if (ConfigureParams.System.bTurbo) {
-            tdma_flush_buffer(CHANNEL_SCSI);
+            tdma_esp_flush_buffer();
         } else {
             dma_esp_flush_buffer();
         }
@@ -720,6 +724,7 @@ void esp_reset_hard(void) {
     status &= ~(STAT_VGC | STAT_PE | STAT_GE); // clear transfer complete aka valid group code, parity error, gross error
     esp_reset_soft();
     esp_finish_command();
+    CycInt_RemovePendingInterrupt(INTERRUPT_ESP);
 }
 
 
@@ -737,6 +742,8 @@ void esp_reset_soft(void) {
     /* This part is "disconnect reset" */
     esp_command_clear();
     esp_state = DISCONNECTED;
+    esp_io_state = ESP_IO_STATE_DONE;
+    CycInt_RemovePendingInterrupt(INTERRUPT_ESP_IO);
 }
 
 
@@ -829,7 +836,7 @@ bool esp_transfer_done(bool write) {
                esp_counter,scsi_buffer.size);
     
     if (esp_counter == 0) { /* Transfer done */
-        if ((write && SCSIbus.phase==PHASE_DI) || (!write && SCSIbus.phase==PHASE_DO)) { /* Still requesting */
+        if (1/*(write && SCSIbus.phase==PHASE_DI) || (!write && SCSIbus.phase==PHASE_DO)*/) { /* Still requesting */
             intstatus = INTR_BS;
         } else {
             intstatus = INTR_FC;
@@ -974,24 +981,7 @@ void esp_message_accepted(void) {
     CycInt_AddRelativeInterruptUs(ESP_DELAY, 20, INTERRUPT_ESP);
 }
 
-
-
-#if 0 /* this is for target commands! */
-/* Decode command to determine the command group and thus the
- * length of the incoming command. Set "valid group code" bit
- * in status register if the group is 0, 1, 5, 6, or 7 (group
- * 2 is also valid on NCR53C90A).
- */
-uint8_t scsi_command_group = (commandbuf[0] & 0xE0) >> 5;
-if(scsi_command_group < 3 || scsi_command_group > 4) {
-    if(ConfigureParams.System.nSCSI == NCR53C90 && scsi_command_group == 2) {
-        Log_Printf(LOG_WARN, "[ESP] Select: Invalid command group %i on NCR53C90\n", scsi_command_group);
-        status &= ~STAT_VGC;
-    } else {
-        status |= STAT_VGC;
-    }
-} else {
-    Log_Printf(LOG_WARN, "[ESP] Select: Invalid command group %i on NCR53C90A\n", scsi_command_group);
-    status &= ~STAT_VGC;
+void ESP_Reset(void) {
+    Log_Printf(LOG_WARN, "[ESP] Reset");
+    esp_reset_hard();
 }
-#endif

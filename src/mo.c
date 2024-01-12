@@ -1,19 +1,17 @@
-/*  Previous - mo.c
+/*
+  Previous - mo.c
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
  
- This file is distributed under the GNU Public License, version 2 or at
- your option any later version. Read the file gpl.txt for details.
+  This file contains a simulation of the Fujitsu MB600310 Optical Storage 
+  Processor (OSP) and Canon magneto-optical disk drive.
  
- Canon Magneto-Optical Disk Drive and NeXT Optical Storage Processor emulation.
-  
- NeXT Optical Storage Processor uses Reed-Solomon algorithm for error correction.
- It has two 1296 (128?) byte internal buffers and uses double-buffering to perform
- error correction.
- 
- TODO:
- - Add realistic seek timings
- - Check drive error handling (attn conditions)
- 
- */
+  The OSP uses the Reed-Solomon algorithm for error correction. It has two 
+  internal buffers of 1296 byte each and uses double-buffering to perform
+  error correction.
+*/
+const char Mo_fileid[] = "Previous mo.c";
 
 #include "ioMem.h"
 #include "ioMemTables.h"
@@ -27,18 +25,15 @@
 #include "rs.h"
 #include "statusbar.h"
 
-
 #define LOG_MO_REG_LEVEL    LOG_DEBUG
 #define LOG_MO_CMD_LEVEL    LOG_DEBUG
 #define LOG_MO_ECC_LEVEL    LOG_DEBUG
 #define LOG_MO_IO_LEVEL     LOG_DEBUG
 
-#define IO_SEG_MASK	0x1FFFF
 
 OpticalDiskBuffer ecc_buffer[2];
 
-/* Registers */
-
+/* OSP registers */
 struct {
     uint8_t tracknuml;
     uint8_t tracknumh;
@@ -58,6 +53,7 @@ struct {
     uint8_t flag[7];
 } osp;
 
+/* MO drives */
 struct {
     uint16_t status;
     uint16_t dstat;
@@ -245,7 +241,6 @@ static void ecc_decode(void);
 static void ecc_encode(void);
 static void ecc_sequence_done(void);
 
-static uint32_t get_logical_sector(uint32_t sector_id);
 static void fmt_sector_done(void);
 static bool fmt_match_id(uint32_t sector_id);
 static void fmt_io(uint32_t sector_id);
@@ -1461,7 +1456,7 @@ void mo_stop_spinning(void) {
     if (mo_empty()) {
         return;
     }
-    Statusbar_AddMessage("Stop magneto-optical disk spin.", 0);
+    Statusbar_AddMessage("Stopping magneto-optical disk spin", 0);
     mo[dnum].spinning=false;
     mo[dnum].spiraling=false;
     mo_set_signals_delayed(true, false, CMD_DELAY);
@@ -1471,7 +1466,7 @@ void mo_start_spinning(void) {
     if (mo_empty()) {
         return;
     }
-    Statusbar_AddMessage("Spin-up magneto-optical disk.", 0);
+    Statusbar_AddMessage("Starting magneto-optical disk spin", 0);
     mo[dnum].spinning=true;
     mo_set_signals_delayed(true, false, 1600000);
 }
@@ -1482,14 +1477,13 @@ void mo_eject_disk(int drive) {
         if (mo_empty())
             return;
         
-        Statusbar_AddMessage("Ejecting magneto-optical disk.", 0);
+        Statusbar_AddMessage("Ejecting magneto-optical disk", 0);
         mo_set_signals_delayed(true, false, CMD_DELAY);
     }
 
     Log_Printf(LOG_WARN, "MO disk %i: Eject",drive);
     
-    File_Close(mo[drive].dsk);
-    mo[drive].dsk=NULL;
+    mo[drive].dsk=File_Close(mo[drive].dsk);;
     mo[drive].inserted=false;
     mo[drive].spinning=false;
     mo[drive].spiraling=false;
@@ -1499,30 +1493,28 @@ void mo_eject_disk(int drive) {
 }
 
 void mo_insert_disk(int drive) {
-    Log_Printf(LOG_WARN, "MO disk %i: Insert",drive);
+    Log_Printf(LOG_WARN, "MO disk %i: Insert %s",drive,ConfigureParams.MO.drive[drive].szImageName);
     
     if (!ConfigureParams.MO.drive[drive].bWriteProtected) {
         mo[drive].dsk = File_Open(ConfigureParams.MO.drive[drive].szImageName, "rb+");
-        mo[drive].inserted=true;
         mo[drive].protected=false;
     }
     if (ConfigureParams.MO.drive[drive].bWriteProtected || mo[drive].dsk == NULL) {
         mo[drive].dsk = File_Open(ConfigureParams.MO.drive[drive].szImageName, "rb");
+        mo[drive].protected=true;
         if (mo[drive].dsk == NULL) {
-            Log_Printf(LOG_WARN, "MO disk %i: Cannot open image file %s\n",
+            Log_Printf(LOG_WARN, "MO disk %i: Cannot open image file %s",
                        drive, ConfigureParams.MO.drive[drive].szImageName);
             mo[drive].inserted=false;
             mo[drive].protected=false;
-            Statusbar_AddMessage("Cannot insert magneto-optical disk.", 0);
+            Statusbar_AddMessage("Cannot insert magneto-optical disk", 0);
             return;
-        } else {
-            mo[drive].inserted=true;
-            mo[drive].protected=true;
         }
     }
     
-    Statusbar_AddMessage("Inserting magneto-optical disk.", 0);
+    Statusbar_AddMessage("Inserting magneto-optical disk", 0);
     mo[drive].dstat|=DS_INSERT;
+    mo[drive].inserted=true;
     mo[drive].spinning=false;
     mo[drive].spiraling=false;
     mo_set_signals(true, false, drive);
@@ -1686,10 +1678,7 @@ void MO_Reset(void) {
     Log_Printf(LOG_WARN, "Loading magneto-optical disks:");
     
     for (dnum=0; dnum<MO_MAX_DRIVES; dnum++) {
-        if (mo[dnum].dsk) {
-            File_Close(mo[dnum].dsk);
-            mo[dnum].dsk=NULL;
-        }
+        mo[dnum].dsk=File_Close(mo[dnum].dsk);
         mo[dnum].connected=false;
         mo[dnum].inserted=false;
         mo_stop();
@@ -1710,6 +1699,11 @@ void MO_Reset(void) {
     /* Initialize formatter variables */
     fmt_mode=FMT_MODE_IDLE;
     ecc_state=ECC_STATE_DONE;
+    
+    /* Stop all periodic operations */
+    CycInt_RemovePendingInterrupt(INTERRUPT_MO);
+    CycInt_RemovePendingInterrupt(INTERRUPT_MO_IO);
+    CycInt_RemovePendingInterrupt(INTERRUPT_ECC_IO);
 }
 
 void MO_Insert(int drive) {
