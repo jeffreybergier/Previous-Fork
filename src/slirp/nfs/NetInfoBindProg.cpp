@@ -8,6 +8,7 @@
 #include "nfsd.h"
 #include "NetInfoBindProg.h"
 #include "UFS.h"
+#include "configuration.h"
 
 #include <sstream>
 #include <cstring>
