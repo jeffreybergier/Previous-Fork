@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.0
+                                  Previous 3.1
 
 
 
@@ -68,8 +68,9 @@ hardware:
 
   ROM Rev. 0.8: NeXT Computer
            2.0: NeXTcube, NeXTstation, NeXTdimension
-           2.4: NeXTstation Color
+           2.2: NeXTstation Color
            3.0: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color
+           3.3: Apple Desktop Bus keyboard and mouse.
 
 Previous includes an internal NFS and NetInfo server for advanced interaction 
 with the host system. It also includes an internal time server that makes it 
@@ -166,7 +167,7 @@ not yet emulated. Status of the individual components is as follows:
   Sound           good
   Keyboard        good
   Mouse           good
-  ADB             dummy
+  ADB             good
   Nitro           dummy
   Dimension       partial (no video I/O)
 
@@ -386,6 +387,12 @@ Previous v3.0:
   > Fixes bug that caused stuck modifier keys after using shortcuts.
   > Fixes bug that caused sporadic display errors in the boot options dialog.
 
+Previous v3.1:
+  > Adds support for Apple Desktop Bus keyboard and mouse.
+  > Improves accuracy of the memory map for ROM and video memory.
+  > Improves key mapping for Backquote and Backslash.
+  > Fixes bug that caused kernel panics on 68040 during network transfers.
+
 
  7) Running Previous
  -------------------
@@ -395,6 +402,16 @@ machine.
 
 You can initiate a clean shut down of the emulator using the simulated power 
 key. The power key is mapped to F10 and the Delete key of your keyboard.
+
+On later versions of NeXTstep you can also invoke the Restart/Power-Off dialog
+by simultaneously pressing Right Command and Backquote.
+
+You may also invoke the NMI mini-monitor by simultaneously pressing both Command
+keys and Backquote or if you are simulating the ADB keyboard Left Command and
+Left Alternate and Backquote. Note that Backquote is mapped to Num Lock.
+
+If all is lost you can initiate a hard CPU reset by simultaneously pressing Left 
+Command and Left Alternate and Asterisk.
 
 While the emulator is running, you can open the configuration menu by pressing 
 F12 and toggle between fullscreen and windowed mode by pressing F11.

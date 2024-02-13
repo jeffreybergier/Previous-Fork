@@ -293,6 +293,7 @@ static const struct Config_Tag configs_System[] =
 	{ "bColor", Bool_Tag, &ConfigureParams.System.bColor },
 	{ "bTurbo", Bool_Tag, &ConfigureParams.System.bTurbo },
 	{ "bNBIC", Bool_Tag, &ConfigureParams.System.bNBIC },
+	{ "bADB", Bool_Tag, &ConfigureParams.System.bADB },
 	{ "nSCSI", Bool_Tag, &ConfigureParams.System.nSCSI },
 	{ "nRTC", Bool_Tag, &ConfigureParams.System.nRTC },
 
@@ -501,6 +502,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.System.bColor = false;
 	ConfigureParams.System.bTurbo = false;
 	ConfigureParams.System.bNBIC = true;
+	ConfigureParams.System.bADB = false;
 	ConfigureParams.System.nSCSI = NCR53C90;
 	ConfigureParams.System.nRTC = MC68HC68T1;
 
@@ -584,6 +586,9 @@ void Configuration_Apply(bool bReset)
 	/* Make sure twisted pair ethernet is disabled on 68030 Cube */
 	Configuration_CheckEthernetSettings();
 
+	/* Make sure NBIC is only used on Cubes and ADB only on Turbo */
+	Configuration_CheckPeripheralSettings();
+
 	/* Make sure we start with statusbar enabled (required for proper screen init) */
 	ConfigureParams.Screen.bShowStatusbar = true;
 
@@ -632,6 +637,7 @@ void Configuration_SetSystemDefaults(void) {
 			ConfigureParams.System.nSCSI = NCR53C90;
 			ConfigureParams.System.nRTC = MC68HC68T1;
 			ConfigureParams.System.bNBIC = true;
+			ConfigureParams.System.bADB = false;
 			break;
 
 		case NEXT_CUBE040:
@@ -640,9 +646,11 @@ void Configuration_SetSystemDefaults(void) {
 			if (ConfigureParams.System.bTurbo) {
 				ConfigureParams.System.nCpuFreq = 33;
 				ConfigureParams.System.nRTC = MCCS1850;
+				ConfigureParams.System.bADB = true;
 			} else {
 				ConfigureParams.System.nCpuFreq = 25;
 				ConfigureParams.System.nRTC = MC68HC68T1;
+				ConfigureParams.System.bADB = false;
 			}
 			ConfigureParams.System.n_FPUType = FPU_CPU;
 			ConfigureParams.System.nDSPType = DSP_TYPE_EMU;
@@ -656,9 +664,11 @@ void Configuration_SetSystemDefaults(void) {
 			if (ConfigureParams.System.bTurbo) {
 				ConfigureParams.System.nCpuFreq = 33;
 				ConfigureParams.System.nRTC = MCCS1850;
+				ConfigureParams.System.bADB = true;
 			} else {
 				ConfigureParams.System.nCpuFreq = 25;
 				ConfigureParams.System.nRTC = MC68HC68T1;
+				ConfigureParams.System.bADB = false;
 			}
 			ConfigureParams.System.n_FPUType = FPU_CPU;
 			ConfigureParams.System.nDSPType = DSP_TYPE_EMU;
@@ -833,6 +843,15 @@ void Configuration_CheckEthernetSettings(void) {
 	}
 	if (ConfigureParams.Ethernet.nHostInterface == ENET_PCAP) {
 		ConfigureParams.Ethernet.bNetworkTime = false;
+	}
+}
+
+void Configuration_CheckPeripheralSettings(void) {
+	if (!ConfigureParams.System.bTurbo) {
+		ConfigureParams.System.bADB = false;
+	}
+	if (ConfigureParams.System.nMachineType == NEXT_STATION) {
+		ConfigureParams.System.bNBIC = false;
 	}
 }
 

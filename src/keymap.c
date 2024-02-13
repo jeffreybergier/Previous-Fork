@@ -17,6 +17,7 @@ const char Keymap_fileid[] = "Previous keymap.c";
 #include "debugui.h"
 #include "log.h"
 #include "kms.h"
+#include "adb.h"
 
 #define  LOG_KEYMAP_LEVEL   LOG_DEBUG
 
@@ -126,8 +127,8 @@ static uint8_t Keymap_GetKeyFromScancode(SDL_Scancode sdlscancode)
 	Log_Printf(LOG_KEYMAP_LEVEL, "[Keymap] Scancode: %i (%s)\n", sdlscancode, SDL_GetScancodeName(sdlscancode));
 
 	switch (sdlscancode) {
-		case SDL_SCANCODE_ESCAPE:
-		case SDL_SCANCODE_GRAVE:          return NEXTKEY_ESC;
+		case SDL_SCANCODE_ESCAPE:         return NEXTKEY_ESC;
+		case SDL_SCANCODE_GRAVE:          return NEXTKEY_BACKQUOTE;
 		case SDL_SCANCODE_1:              return NEXTKEY_1;
 		case SDL_SCANCODE_2:              return NEXTKEY_2;
 		case SDL_SCANCODE_3:              return NEXTKEY_3;
@@ -170,7 +171,7 @@ static uint8_t Keymap_GetKeyFromScancode(SDL_Scancode sdlscancode)
 		case SDL_SCANCODE_APOSTROPHE:     return NEXTKEY_QUOTE;
 		case SDL_SCANCODE_RETURN:         return NEXTKEY_RETURN;
 
-		case SDL_SCANCODE_NONUSBACKSLASH: return NEXTKEY_BACKQUOTE;
+		case SDL_SCANCODE_NONUSBACKSLASH: return NEXTKEY_BACKSLASH;
 		case SDL_SCANCODE_Z:              return NEXTKEY_z;
 		case SDL_SCANCODE_X:              return NEXTKEY_x;
 		case SDL_SCANCODE_C:              return NEXTKEY_c;
@@ -265,6 +266,7 @@ static uint8_t Keymap_GetKeyFromSymbol(SDL_Keycode sdlkey)
 		case SDLK_KP_9:                   return NEXTKEY_KEYPAD_9;
 		case SDLK_KP_MINUS:               return NEXTKEY_KEYPAD_MINUS;
 		case SDLK_KP_MULTIPLY:            return NEXTKEY_KEYPAD_MULTIPLY;
+		case SDLK_NUMLOCKCLEAR:           return NEXTKEY_BACKQUOTE;
 		case SDLK_BACKQUOTE:              return NEXTKEY_BACKQUOTE;
 		case SDLK_KP_EQUALS:              return NEXTKEY_KEYPAD_EQUALS;
 		case SDLK_KP_DIVIDE:              return NEXTKEY_KEYPAD_DIVIDE;
@@ -413,6 +415,10 @@ void Keymap_KeyDown(const SDL_Keysym *sdlkey)
 {
 	uint8_t next_mod, next_key;
 
+	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		ADB_KeyDown(sdlkey);
+		return;
+	}
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
 		next_key = Keymap_GetKeyFromSymbol(sdlkey->sym);
 	} else {
@@ -435,6 +441,10 @@ void Keymap_KeyUp(const SDL_Keysym *sdlkey)
 {
 	uint8_t next_mod, next_key;
 
+	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		ADB_KeyUp(sdlkey);
+		return;
+	}
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
 		next_key = Keymap_GetKeyFromSymbol(sdlkey->sym);
 	} else {
@@ -458,6 +468,10 @@ void Keymap_MouseMove(int dx, int dy)
 	bool left = false;
 	bool up   = false;
 
+	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		ADB_MouseMove(dx, dy);
+		return;
+	}
 	if (dx < 0) {
 		dx = -dx;
 		left = true;
@@ -476,6 +490,10 @@ void Keymap_MouseMove(int dx, int dy)
  */
 void Keymap_MouseDown(bool left)
 {
+	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		ADB_MouseButton(left,true);
+		return;
+	}
 	kms_mouse_button(left,true);
 }
 
@@ -486,6 +504,10 @@ void Keymap_MouseDown(bool left)
  */
 void Keymap_MouseUp(bool left)
 {
+	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		ADB_MouseButton(left,false);
+		return;
+	}
 	kms_mouse_button(left,false);
 }
 
