@@ -206,6 +206,10 @@ Issues in NeXTstep:
     connected causes a hang. "ben" stops the system immediately while "btp" 
     shows one dot before it stops. This is the exact same behavior as seen on 
     real hardware. This is confirmed to be a bug in the NeXT ROM.
+  > When accessing bus error locations from ROM Monitor using the 'e' command 
+    there might occur a double fault on the second or a subsequent access. This 
+    is confirmed for NeXTstation Turbo Color and ROM Rev. 3.3 but might also 
+    affect other models.
 
 
  6) Release notes
