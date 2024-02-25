@@ -1,12 +1,12 @@
 /*
-  Hatari - ioMem.c
+  Previous - ioMem.c
 
   This file is distributed under the GNU General Public License, version 2
   or at your option any later version. Read the file gpl.txt for details.
 
   This is where we intercept read/writes to/from the hardware.
 */
-const char IoMem_fileid[] = "Hatari ioMem.c";
+const char IoMem_fileid[] = "Previous ioMem.c";
 
 #include "main.h"
 #include "configuration.h"
@@ -21,7 +21,11 @@ const char IoMem_fileid[] = "Hatari ioMem.c";
 static void (*pInterceptReadTable[IO_SIZE])(void);   /* Table with read access handlers */
 static void (*pInterceptWriteTable[IO_SIZE])(void);  /* Table with write access handlers */
 
-int nIoMemAccessSize;                                /* Set to 1, 2 or 4 according to byte, word or long word access */
+static uint32_t nAccessSize[IO_SIZE];
+static uint32_t nAccessMask[IO_SIZE];
+
+uint32_t IoAccessSize;                               /* Set to 1, 2 or 4 according to byte, word or long word access */
+uint32_t IoAccessMask;                               /* Mask for deleting don't-care bits from the address */
 uint32_t IoAccessBaseAddress;                        /* Stores the base address of the IO mem access */
 uint32_t IoAccessCurrentAddress;                     /* Current byte address while handling WORD and LONG accesses */
 static int nBusErrorAccesses;                        /* Needed to count bus error accesses */
@@ -39,14 +43,16 @@ static void IoMem_SetBusErrorRegion(uint32_t startaddr, uint32_t endaddr)
 	{
 		if (a & 1)
 		{
-			pInterceptReadTable[a & IO_SEG_MASK] = IoMem_BusErrorOddReadAccess;     /* For 'read' */
-			pInterceptWriteTable[a & IO_SEG_MASK] = IoMem_BusErrorOddWriteAccess;   /* and 'write' */
+			pInterceptReadTable[a] = IoMem_BusErrorOddReadAccess;     /* For 'read' */
+			pInterceptWriteTable[a] = IoMem_BusErrorOddWriteAccess;   /* and 'write' */
 		}
 		else
 		{
-			pInterceptReadTable[a & IO_SEG_MASK] = IoMem_BusErrorEvenReadAccess;    /* For 'read' */
-			pInterceptWriteTable[a & IO_SEG_MASK] = IoMem_BusErrorEvenWriteAccess;  /* and 'write' */
+			pInterceptReadTable[a] = IoMem_BusErrorEvenReadAccess;    /* For 'read' */
+			pInterceptWriteTable[a] = IoMem_BusErrorEvenWriteAccess;  /* and 'write' */
 		}
+		nAccessSize[a] = 1;
+		nAccessMask[a] = IO_MASK;
 	}
 }
 
@@ -58,11 +64,12 @@ static void IoMem_SetBusErrorRegion(uint32_t startaddr, uint32_t endaddr)
 void IoMem_Init(void)
 {
 	uint32_t addr;
+	uint32_t base;
 	int i;
 	const INTERCEPT_ACCESS_FUNC *pInterceptAccessFuncs = NULL;
 
 	/* Set default IO access handler (-> bus error) */
-	IoMem_SetBusErrorRegion(0x02000000, 0x0201FFFF);
+	IoMem_SetBusErrorRegion(0, IO_SIZE - 1);
 
 	if (ConfigureParams.System.bTurbo) {
 		pInterceptAccessFuncs = IoMemTable_Turbo;
@@ -71,28 +78,29 @@ void IoMem_Init(void)
 	}
 
 	/* Now set the correct handlers */
-	for (addr=0x02000000; addr <= 0x0201FFFF; addr++)
+	for (addr = 0; addr < IO_SIZE; addr++)
 	{
 		/* Does this hardware location/span appear in our list of possible intercepted functions? */
-		for (i=0; pInterceptAccessFuncs[i].Address != 0; i++)
+		for (i = 0; pInterceptAccessFuncs[i].Address != 0; i++)
 		{
-			if (addr >= pInterceptAccessFuncs[i].Address
-			    && addr < pInterceptAccessFuncs[i].Address+pInterceptAccessFuncs[i].SpanInBytes)
+			base = addr & pInterceptAccessFuncs[i].Mask & ~(pInterceptAccessFuncs[i].SpanInBytes - 1);
+			/* Search the list */
+			if ((pInterceptAccessFuncs[i].Address & IO_MASK) == base)
 			{
 				/* Security checks... */
-				if (pInterceptReadTable[addr & IO_SEG_MASK] != IoMem_BusErrorEvenReadAccess && pInterceptReadTable[addr & IO_SEG_MASK] != IoMem_BusErrorOddReadAccess)
+				if (pInterceptReadTable[addr] != IoMem_BusErrorEvenReadAccess && pInterceptReadTable[addr] != IoMem_BusErrorOddReadAccess)
 					fprintf(stderr, "IoMem_Init: Warning: $%x (R) already defined\n", addr);
-				if (pInterceptWriteTable[addr & IO_SEG_MASK] != IoMem_BusErrorEvenWriteAccess && pInterceptWriteTable[addr & IO_SEG_MASK] != IoMem_BusErrorOddWriteAccess)
+				if (pInterceptWriteTable[addr] != IoMem_BusErrorEvenWriteAccess && pInterceptWriteTable[addr] != IoMem_BusErrorOddWriteAccess)
 					fprintf(stderr, "IoMem_Init: Warning: $%x (W) already defined\n", addr);
 
 				/* This location needs to be intercepted, so add entry to list */
-				pInterceptReadTable[addr & IO_SEG_MASK] = pInterceptAccessFuncs[i].ReadFunc;
-				pInterceptWriteTable[addr & IO_SEG_MASK] = pInterceptAccessFuncs[i].WriteFunc;
+				pInterceptReadTable[addr] = pInterceptAccessFuncs[i].ReadFunc;
+				pInterceptWriteTable[addr] = pInterceptAccessFuncs[i].WriteFunc;
+				nAccessSize[addr] = pInterceptAccessFuncs[i].SpanInBytes;
+				nAccessMask[addr] = pInterceptAccessFuncs[i].Mask;
 			}
 		}
 	}
-
-
 }
 
 
@@ -107,36 +115,54 @@ void IoMem_UnInit(void)
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Special function for handling long write access to byte wide port.
+ */
+uint8_t IoMem_ReadBytePort(void)
+{
+	uint32_t val = 0;
+
+	Log_Printf(LOG_WARN, "IO byte port access at %08x", IoAccessBaseAddress);
+
+	do {
+		val |= IoMem_ReadByte(IoAccessCurrentAddress);
+		IoAccessCurrentAddress += SIZE_BYTE;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_LONG);
+
+	IoMem_WriteLong(IoAccessBaseAddress, val<<24);
+
+	return val;
+}
+
+/*-----------------------------------------------------------------------*/
+/**
  * Handle byte read access from IO memory.
  */
-uae_u32 IoMem_bget(uaecptr addr)
+uint32_t IoMem_bget(uint32_t addr)
 {
 	uint8_t val;
 
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
-	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, 0);
-		return -1;
-	}
-
-	IoAccessBaseAddress = addr;                   /* Store access location */
-	nIoMemAccessSize = SIZE_BYTE;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
 	nBusErrorAccesses = 0;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptReadTable[addr & IO_SEG_MASK]();         /* Call handler */
+	
+	do {
+		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_BYTE);
 
 	/* Check if we read from a bus-error region */
-	if (nBusErrorAccesses == 1)
+	if (nBusErrorAccesses == SIZE_BYTE)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, 0);
 		return -1;
 	}
 
-	val = IoMem[addr & IO_SEG_MASK];
+	val = IoMem_ReadByte(addr);
 
-	LOG_TRACE(TRACE_IOMEM_RD, "IO read.b $%06x = $%02x\n", addr, val);
+	LOG_TRACE(TRACE_IOMEM_RD, "IO read.b $%08x = $%02x\n", addr, val);
 
 	return val;
 }
@@ -146,35 +172,30 @@ uae_u32 IoMem_bget(uaecptr addr)
 /**
  * Handle word read access from IO memory.
  */
-uae_u32 IoMem_wget(uaecptr addr)
+uint32_t IoMem_wget(uint32_t addr)
 {
-	uint32_t idx;
 	uint16_t val;
 
-
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
+	if (addr & (SIZE_WORD - 1))
 	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_WORD, BUS_ERROR_ACCESS_DATA, 0);
-		return -1;
+		Log_Printf(LOG_WARN, "IO wget: Unaligned address %08x", addr);
+		return 0;
 	}
 
-	IoAccessBaseAddress = addr;                   /* Store for exception frame */
-	nIoMemAccessSize = SIZE_WORD;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
 	nBusErrorAccesses = 0;
-	idx = addr & IO_SEG_MASK;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptReadTable[idx]();                   /* Call 1st handler */
-
-	if (pInterceptReadTable[idx+1] != pInterceptReadTable[idx])
-	{
-		IoAccessCurrentAddress = addr + 1;
-		pInterceptReadTable[idx+1]();             /* Call 2nd handler */
-	}
+	
+	do {
+		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_WORD);
 
 	/* Check if we completely read from a bus-error region */
-	if (nBusErrorAccesses == 2)
+	if (nBusErrorAccesses == SIZE_WORD)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_WORD, BUS_ERROR_ACCESS_DATA, 0);
 		return -1;
@@ -182,7 +203,7 @@ uae_u32 IoMem_wget(uaecptr addr)
 
 	val = IoMem_ReadWord(addr);
 
-	LOG_TRACE(TRACE_IOMEM_RD, "IO read.w $%06x = $%04x\n", addr, val);
+	LOG_TRACE(TRACE_IOMEM_RD, "IO read.w $%08x = $%04x\n", addr, val);
 
 	return val;
 }
@@ -192,47 +213,30 @@ uae_u32 IoMem_wget(uaecptr addr)
 /**
  * Handle long-word read access from IO memory.
  */
-uae_u32 IoMem_lget(uaecptr addr)
+uint32_t IoMem_lget(uint32_t addr)
 {
-	uint32_t idx;
 	uint32_t val;
 
-
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
+	if (addr & (SIZE_LONG - 1))
 	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, 0);
-		return -1;
+		Log_Printf(LOG_WARN, "IO lget: Unaligned address %08x", addr);
+		return 0;
 	}
 
-	IoAccessBaseAddress = addr;                   /* Store for exception frame */
-	nIoMemAccessSize = SIZE_LONG;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
 	nBusErrorAccesses = 0;
-	idx = addr & IO_SEG_MASK;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptReadTable[idx]();                   /* Call 1st handler */
-
-	if (pInterceptReadTable[idx+1] != pInterceptReadTable[idx])
-	{
-		IoAccessCurrentAddress = addr + 1;
-		pInterceptReadTable[idx+1]();             /* Call 2nd handler */
-	}
-
-	if (pInterceptReadTable[idx+2] != pInterceptReadTable[idx+1])
-	{
-		IoAccessCurrentAddress = addr + 2;
-		pInterceptReadTable[idx+2]();             /* Call 3rd handler */
-	}
-
-	if (pInterceptReadTable[idx+3] != pInterceptReadTable[idx+2])
-	{
-		IoAccessCurrentAddress = addr + 3;
-		pInterceptReadTable[idx+3]();             /* Call 4th handler */
-	}
+	
+	do {
+		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_LONG);
 
 	/* Check if we completely read from a bus-error region */
-	if (nBusErrorAccesses == 4)
+	if (nBusErrorAccesses == SIZE_LONG)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, 0);
 		return -1;
@@ -240,7 +244,7 @@ uae_u32 IoMem_lget(uaecptr addr)
 
 	val = IoMem_ReadLong(addr);
 
-	LOG_TRACE(TRACE_IOMEM_RD, "IO read.l $%06x = $%08x\n", addr, val);
+	LOG_TRACE(TRACE_IOMEM_RD, "IO read.l $%08x = $%08x\n", addr, val);
 
 	return val;
 }
@@ -250,29 +254,35 @@ uae_u32 IoMem_lget(uaecptr addr)
 /**
  * Handle byte write access to IO memory.
  */
-void IoMem_bput(uaecptr addr, uae_u32 val)
+void IoMem_bput(uint32_t addr, uint32_t val)
 {
+	LOG_TRACE(TRACE_IOMEM_WR, "IO write.b $%08x = $%02x\n", addr, val&0xff);
 
-	LOG_TRACE(TRACE_IOMEM_WR, "IO write.b $%06x = $%02x\n", addr, val&0x0ff);
-
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
-	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, val);
-		return;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
+	nBusErrorAccesses = 0;
+	
+	switch (IoAccessSize) {
+		case SIZE_LONG:
+			IoMem_WriteByte(IoAccessBaseAddress + 3, val);
+			IoMem_WriteByte(IoAccessBaseAddress + 2, val);
+		case SIZE_WORD:
+			IoMem_WriteByte(IoAccessBaseAddress + 1, val);
+		default:
+			IoMem_WriteByte(IoAccessBaseAddress, val);
+			break;
 	}
 
-	IoAccessBaseAddress = addr;                   /* Store for exception frame, just in case */
-	nIoMemAccessSize = SIZE_BYTE;
-	nBusErrorAccesses = 0;
-
-	IoMem[addr & IO_SEG_MASK] = val;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptWriteTable[addr & IO_SEG_MASK]();        /* Call handler */
+	do {
+		pInterceptWriteTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_BYTE);
 
 	/* Check if we wrote to a bus-error region */
-	if (nBusErrorAccesses == 1)
+	if (nBusErrorAccesses == SIZE_BYTE)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, val);
 	}
@@ -283,38 +293,38 @@ void IoMem_bput(uaecptr addr, uae_u32 val)
 /**
  * Handle word write access to IO memory.
  */
-void IoMem_wput(uaecptr addr, uae_u32 val)
+void IoMem_wput(uint32_t addr, uint32_t val)
 {
-	uint32_t idx;
+	LOG_TRACE(TRACE_IOMEM_WR, "IO write.w $%08x = $%04x\n", addr, val&0xffff);
 
-
-	LOG_TRACE(TRACE_IOMEM_WR, "IO write.w $%06x = $%04x\n", addr, val&0xffff);
-
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
+	if (addr & (SIZE_WORD - 1))
 	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_WORD, BUS_ERROR_ACCESS_DATA, val);
+		Log_Printf(LOG_WARN, "IO wput: Unaligned address %08x", addr);
 		return;
 	}
 
-	IoAccessBaseAddress = addr;                   /* Store for exception frame, just in case */
-	nIoMemAccessSize = SIZE_WORD;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
 	nBusErrorAccesses = 0;
-
-	IoMem_WriteWord(addr, val);
-	idx = addr & IO_SEG_MASK;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptWriteTable[idx]();                  /* Call 1st handler */
-
-	if (pInterceptWriteTable[idx+1] != pInterceptWriteTable[idx])
-	{
-		IoAccessCurrentAddress = addr + 1;
-		pInterceptWriteTable[idx+1]();            /* Call 2nd handler */
+	
+	switch (IoAccessSize) {
+		case SIZE_LONG:
+			IoMem_WriteWord(IoAccessBaseAddress + 2, val);
+		default:
+			IoMem_WriteWord(IoAccessBaseAddress, val);
+			break;
 	}
 
+	do {
+		pInterceptWriteTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_WORD);
+
 	/* Check if we wrote to a bus-error region */
-	if (nBusErrorAccesses == 2)
+	if (nBusErrorAccesses == SIZE_WORD)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_WORD, BUS_ERROR_ACCESS_DATA, val);
 	}
@@ -325,49 +335,32 @@ void IoMem_wput(uaecptr addr, uae_u32 val)
 /**
  * Handle long-word write access to IO memory.
  */
-void IoMem_lput(uaecptr addr, uae_u32 val)
+void IoMem_lput(uint32_t addr, uint32_t val)
 {
-	uint32_t idx;
+	LOG_TRACE(TRACE_IOMEM_WR, "IO write.l $%08x = $%08x\n", addr, val);
 
-	LOG_TRACE(TRACE_IOMEM_WR, "IO write.l $%06x = $%08x\n", addr, val);
-
-	if ((addr & IO_SEG_MASK) >= IO_SIZE)
+	if (addr & (SIZE_LONG - 1))
 	{
-		/* invalid memory addressing --> bus error */
-		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, val);
+		Log_Printf(LOG_WARN, "IO lput: Unaligned address %08x", addr);
 		return;
 	}
 
-	IoAccessBaseAddress = addr;                   /* Store for exception frame, just in case */
-	nIoMemAccessSize = SIZE_LONG;
+	IoAccessMask = nAccessMask[addr & IO_MASK];
+	IoAccessSize = nAccessSize[addr & IO_MASK];
+	IoAccessCurrentAddress = addr;  /* Store access location */
+	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
+	
 	nBusErrorAccesses = 0;
-
-	IoMem_WriteLong(addr, val);
-	idx = addr & IO_SEG_MASK;
-
-	IoAccessCurrentAddress = addr;
-	pInterceptWriteTable[idx]();                  /* Call handler */
-
-	if (pInterceptWriteTable[idx+1] != pInterceptWriteTable[idx])
-	{
-		IoAccessCurrentAddress = addr + 1;
-		pInterceptWriteTable[idx+1]();            /* Call 2nd handler */
-	}
-
-	if (pInterceptWriteTable[idx+2] != pInterceptWriteTable[idx+1])
-	{
-		IoAccessCurrentAddress = addr + 2;
-		pInterceptWriteTable[idx+2]();            /* Call 3rd handler */
-	}
-
-	if (pInterceptWriteTable[idx+3] != pInterceptWriteTable[idx+2])
-	{
-		IoAccessCurrentAddress = addr + 3;
-		pInterceptWriteTable[idx+3]();            /* Call 4th handler */
-	}
+	
+	IoMem_WriteLong(IoAccessBaseAddress, val);
+	
+	do {
+		pInterceptWriteTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
+		IoAccessCurrentAddress += IoAccessSize;
+	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_LONG);
 
 	/* Check if we wrote to a bus-error region */
-	if (nBusErrorAccesses == 4)
+	if (nBusErrorAccesses == SIZE_LONG)
 	{
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, val);
 	}
@@ -386,7 +379,6 @@ void IoMem_lput(uaecptr addr, uae_u32 val)
 void IoMem_BusErrorEvenReadAccess(void)
 {
 	nBusErrorAccesses += 1;
-	// IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0xff;
 	Log_Printf(LOG_WARN,"Bus error $%08x PC=$%08x %s at %d", IoAccessCurrentAddress,regs.pc,__FILE__,__LINE__);
 }
 
@@ -397,7 +389,6 @@ void IoMem_BusErrorEvenReadAccess(void)
 void IoMem_BusErrorOddReadAccess(void)
 {
 	nBusErrorAccesses += 1;
-	// IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0xff;
 	Log_Printf(LOG_WARN,"Bus error $%08x PC=$%08x %s at %d", IoAccessCurrentAddress,regs.pc,__FILE__,__LINE__);
 }
 
@@ -420,41 +411,6 @@ void IoMem_BusErrorOddWriteAccess(void)
 	nBusErrorAccesses += 1;
 	Log_Printf(LOG_WARN,"Bus error $%08x PC=$%08x %s at %d", IoAccessCurrentAddress,regs.pc,__FILE__,__LINE__);
 }
-
-
-/*-------------------------------------------------------------------------*/
-/**
- * This is the read handler for the IO memory locations without an assigned
- * IO register and which also do not generate a bus error. Reading from such
- * a register will return the result 0xff.
- */
-void IoMem_VoidRead(void)
-{
-	uint32_t a;
-
-	/* handler is probably called only once, so we have to take care of the neighbour "void IO registers" */
-	for (a = IoAccessBaseAddress; a < IoAccessBaseAddress + nIoMemAccessSize; a++)
-	{
-		if (pInterceptReadTable[a & IO_SEG_MASK] == IoMem_VoidRead)
-		{
-			IoMem[a & IO_SEG_MASK] = 0xff;
-		}
-	}
-	Log_Printf(LOG_WARN,"IO read at $%08x PC=$%08x\n", IoAccessCurrentAddress,regs.pc);
-}
-
-/*-------------------------------------------------------------------------*/
-/**
- * This is the write handler for the IO memory locations without an assigned
- * IO register and which also do not generate a bus error. We simply ignore
- * a write access to these registers.
- */
-void IoMem_VoidWrite(void)
-{
-	/* Nothing... */
-	Log_Printf(LOG_WARN,"IO write at $%08x PC=$%08x\n", IoAccessCurrentAddress,regs.pc);
-}
-
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -493,5 +449,5 @@ void IoMem_ReadWithoutInterceptionButTrace(void)
  */
 void IoMem_WriteWithoutInterceptionButTrace(void)
 {
-	Log_Printf(LOG_WARN,"IO write at $%08x val=%02x PC=$%08x\n", IoAccessCurrentAddress,IoMem[IoAccessCurrentAddress & IO_SEG_MASK],regs.pc);
+	Log_Printf(LOG_WARN,"IO write at $%08x val=%02x PC=$%08x\n", IoAccessCurrentAddress,IoMem_ReadByte(IoAccessCurrentAddress),regs.pc);
 }

@@ -136,33 +136,33 @@ uint8_t floppy_stat_read(void);
 
 
 void FLP_StatA_Read(void) { // 0x02014100
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = floppy_sra_read();
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Status A read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, floppy_sra_read());
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Status A read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_StatB_Read(void) { // 0x02014101
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = flp.srb|SRB_ALL1;
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Status B read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, flp.srb|SRB_ALL1);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Status B read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_DataOut_Read(void) { // 0x02014102
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = floppy_dor_read();
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data out read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, floppy_dor_read());
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data out read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_DataOut_Write(void) {
-    floppy_dor_write(IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data out write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    floppy_dor_write(IoMem_ReadByte(IoAccessCurrentAddress));
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data out write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_MainStatus_Read(void) { // 0x02014104
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = flp.msr;
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Main status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, flp.msr);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Main status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_DataRate_Write(void) {
-    flp.dsr = IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data rate write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    flp.dsr = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data rate write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
     
     if (flp.dsr&DSR_RESET) {
         Log_Printf(LOG_WARN,"[Floppy] Entering and leaving reset state.");
@@ -173,35 +173,35 @@ void FLP_DataRate_Write(void) {
 }
 
 void FLP_FIFO_Read(void) { // 0x02014105
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = floppy_fifo_read();
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] FIFO read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, floppy_fifo_read());
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] FIFO read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_FIFO_Write(void) {
-    uint8_t val = IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] FIFO write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    uint8_t val = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] FIFO write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
     
     floppy_fifo_write(val);
 }
 
 void FLP_DataIn_Read(void) { // 0x02014107
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = flp.din;
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data in read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, flp.din);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Data in read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_Configuration_Write(void) {
-    flp.ccr = IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Configuration write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    flp.ccr = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Configuration write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_Status_Read(void) { // 0x02014108
-    IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = floppy_stat_read();
-    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Control read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, floppy_stat_read());
+    Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Control read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void FLP_Control_Write(void) {
-    uint8_t val = IoMem[IoAccessCurrentAddress & IO_SEG_MASK];
-    Log_Printf(LOG_DEBUG,"[Floppy] Select write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    uint8_t val = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_DEBUG,"[Floppy] Select write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
     
     floppy_ctrl_write(val);
 }

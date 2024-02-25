@@ -887,143 +887,143 @@ void DSP_SsiTransmit_SCK(void)
 void DSP_ICR_Read(void) { // 0x02008000
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_ICR);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_ICR));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0x7F;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ICR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0x7F);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ICR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_ICR_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_ICR, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_ICR, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ICR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ICR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_CVR_Read(void) { // 0x02008001
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_CVR);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_CVR));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0xFF;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] CVR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0xFF);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] CVR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_CVR_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_CVR, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_CVR, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] CVR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] CVR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_ISR_Read(void) { // 0x02008002
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_ISR);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_ISR));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0xFF;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ISR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0xFF);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ISR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_ISR_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_ISR, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_ISR, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ISR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] ISR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_IVR_Read(void) { // 0x02008003
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_IVR);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_IVR));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0xFF;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] IVR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0xFF);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] IVR read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_IVR_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_IVR, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_IVR, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] IVR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] IVR write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data0_Read(void) { // 0x02008004
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_TRX0);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_TRX0));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0x00;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data0 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0x00);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data0 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data0_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_TRX0, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_TRX0, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data0 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data0 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data1_Read(void) { // 0x02008005
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_TRXH);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_TRXH));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0x00;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data1 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0x00);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data1 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data1_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_TRXH, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_TRXH, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data1 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data1 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data2_Read(void) { // 0x02008006
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_TRXM);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_TRXM));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0x00;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data2 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0x00);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data2 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data2_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_TRXM, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_TRXM, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data2 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data2 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data3_Read(void) { // 0x02008007
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = dsp_core_read_host(CPU_HOST_TRXL);
+		IoMem_WriteByte(IoAccessCurrentAddress, dsp_core_read_host(CPU_HOST_TRXL));
 	else
 #endif
-		IoMem[IoAccessCurrentAddress & IO_SEG_MASK] = 0x00;
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data3 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+		IoMem_WriteByte(IoAccessCurrentAddress, 0x00);
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data3 read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void DSP_Data3_Write(void) {
 #if ENABLE_DSP_EMU
 	if (bDspEmulated)
-		dsp_core_write_host(CPU_HOST_TRXL, IoMem[IoAccessCurrentAddress & IO_SEG_MASK]);
+		dsp_core_write_host(CPU_HOST_TRXL, IoMem_ReadByte(IoAccessCurrentAddress));
 #endif
-	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data3 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+	Log_Printf(LOG_DSP_REG_LEVEL,"[DSP] Data3 write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
