@@ -313,7 +313,7 @@ static void adb_command(void) {
 				adb_read_data(buf);
 				switch (reg) {
 					case 3:
-						Log_Printf(LOG_WARN, "[ADB] Keyboard: Register 3 write (%02x%02x)", buf[0], buf[1]);
+						Log_Printf(LOG_ADB_CMD_LEVEL, "[ADB] Keyboard: Register 3 write (%02x%02x)", buf[0], buf[1]);
 						if (buf[1] == 0) {
 							adb_kbd.addr = buf[0] & ADB_ADDR_MASK;
 							adb_kbd.conf = (adb_kbd.conf & ~ADB_CONF_REQ) | (buf[0] & ADB_CONF_REQ);
@@ -338,7 +338,7 @@ static void adb_command(void) {
 				adb_read_data(buf);
 				switch (reg) {
 					case 3:
-						Log_Printf(LOG_WARN, "[ADB] Mouse: Register 3 write (%02x%02x)", buf[0], buf[1]);
+						Log_Printf(LOG_ADB_CMD_LEVEL, "[ADB] Mouse: Register 3 write (%02x%02x)", buf[0], buf[1]);
 						if (buf[1] == 0) {
 							adb_mouse.addr = buf[0] & ADB_ADDR_MASK;
 							adb_mouse.conf = (adb_mouse.conf & ~ADB_CONF_REQ) | (buf[0] & ADB_CONF_REQ);
@@ -427,10 +427,12 @@ static void adb_command(void) {
 					break;
 					
 				case ADB_CMD_FLUSH:
-					Log_Printf(LOG_WARN, "[ADB] Command: Flush");
+					Log_Printf(LOG_ADB_CMD_LEVEL, "[ADB] Command: Flush");
 					if (addr == adb_kbd.addr) {
+						Log_Printf(LOG_WARN, "[ADB] Keyboard: Flush");
 						adb_kbd_flush();
 					} else if (addr == adb_mouse.addr) {
+						Log_Printf(LOG_WARN, "[ADB] Mouse: Flush");
 						adb_mouse_flush();
 					} else {
 						Log_Printf(LOG_WARN, "[ADB] Flush: Unknown device (%d)", addr);
