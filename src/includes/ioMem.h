@@ -21,6 +21,7 @@ extern uint32_t IoAccessCurrentAddress;
 static inline uint32_t IoMem_ReadLong(uint32_t Address)
 {
 	Address &= IoAccessMask;
+	Address &= ~3;
 	return do_get_mem_long(&NEXTIo[Address]);
 }
 
@@ -32,6 +33,7 @@ static inline uint32_t IoMem_ReadLong(uint32_t Address)
 static inline uint16_t IoMem_ReadWord(uint32_t Address)
 {
 	Address &= IoAccessMask;
+	Address &= ~1;
 	return do_get_mem_word(&NEXTIo[Address]);
 }
 
@@ -53,6 +55,7 @@ static inline uint8_t IoMem_ReadByte(uint32_t Address)
 static inline void IoMem_WriteLong(uint32_t Address, uint32_t Var)
 {
 	Address &= IoAccessMask;
+	Address &= ~3;
 	do_put_mem_long(&NEXTIo[Address], Var);
 }
 
@@ -64,6 +67,7 @@ static inline void IoMem_WriteLong(uint32_t Address, uint32_t Var)
 static inline void IoMem_WriteWord(uint32_t Address, uint16_t Var)
 {
 	Address &= IoAccessMask;
+	Address &= ~1;
 	do_put_mem_word(&NEXTIo[Address], Var);
 }
 

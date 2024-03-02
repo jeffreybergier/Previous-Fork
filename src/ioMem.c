@@ -145,13 +145,10 @@ uint32_t IoMem_bget(uint32_t addr)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
-	do {
-		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
-		IoAccessCurrentAddress += IoAccessSize;
-	} while (IoAccessCurrentAddress < IoAccessBaseAddress + SIZE_BYTE);
+
+	pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
 
 	/* Check if we read from a bus-error region */
 	if (nBusErrorAccesses == SIZE_BYTE)
@@ -186,9 +183,9 @@ uint32_t IoMem_wget(uint32_t addr)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
+
 	do {
 		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
 		IoAccessCurrentAddress += IoAccessSize;
@@ -227,9 +224,9 @@ uint32_t IoMem_lget(uint32_t addr)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
+
 	do {
 		pInterceptReadTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
 		IoAccessCurrentAddress += IoAccessSize;
@@ -262,9 +259,9 @@ void IoMem_bput(uint32_t addr, uint32_t val)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
+
 	switch (IoAccessSize) {
 		case SIZE_LONG:
 			IoMem_WriteByte(IoAccessBaseAddress + 3, val);
@@ -307,9 +304,9 @@ void IoMem_wput(uint32_t addr, uint32_t val)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
+
 	switch (IoAccessSize) {
 		case SIZE_LONG:
 			IoMem_WriteWord(IoAccessBaseAddress + 2, val);
@@ -349,11 +346,11 @@ void IoMem_lput(uint32_t addr, uint32_t val)
 	IoAccessSize = nAccessSize[addr & IO_MASK];
 	IoAccessCurrentAddress = addr;  /* Store access location */
 	IoAccessBaseAddress = addr & ~(IoAccessSize - 1);
-	
+
 	nBusErrorAccesses = 0;
-	
+
 	IoMem_WriteLong(IoAccessBaseAddress, val);
-	
+
 	do {
 		pInterceptWriteTable[IoAccessCurrentAddress & IO_MASK]();   /* Call handler */
 		IoAccessCurrentAddress += IoAccessSize;

@@ -139,14 +139,8 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_Turbo[] =
 	{ 0x02008007, 0x0001e007, SIZE_BYTE, DSP_Data3_Read, DSP_Data3_Write },
 	
 	/* System Control Register 1 */
-	{ 0x0200c000, 0x0001f803, SIZE_BYTE, SCR1_Read0, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c001, 0x0001f803, SIZE_BYTE, SCR1_Read1, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c002, 0x0001f803, SIZE_BYTE, SCR1_Read2, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c003, 0x0001f803, SIZE_BYTE, SCR1_Read3, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c800, 0x0001f803, SIZE_BYTE, SCR1_Read0, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c801, 0x0001f803, SIZE_BYTE, SCR1_Read1, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c802, 0x0001f803, SIZE_BYTE, SCR1_Read2, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0200c803, 0x0001f803, SIZE_BYTE, SCR1_Read3, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x0200c000, 0x0001f803, SIZE_LONG, SCR1_Read, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x0200c800, 0x0001f803, SIZE_LONG, SCR1_Read, IoMem_WriteWithoutInterceptionButTrace },
 
 	/* System Control Register 2 */
 	{ 0x0200d000, 0x0001f003, SIZE_BYTE, SCR2_Read0, SCR2_Write0 },

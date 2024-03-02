@@ -277,25 +277,10 @@ void SCR_Reset(void) {
     }
 }
 
-void SCR1_Read0(void)
+void SCR1_Read(void)
 {
     Log_Printf(LOG_SCR_LEVEL,"SCR1 read at $%08x PC=$%08x\n", IoAccessCurrentAddress,m68k_getpc());
-    IoMem_WriteByte(IoAccessCurrentAddress, (scr1&0xFF000000)>>24);
-}
-void SCR1_Read1(void)
-{
-    Log_Printf(LOG_SCR_LEVEL,"SCR1 read at $%08x PC=$%08x\n", IoAccessCurrentAddress,m68k_getpc());
-    IoMem_WriteByte(IoAccessCurrentAddress, (scr1&0x00FF0000)>>16);
-}
-void SCR1_Read2(void)
-{
-    Log_Printf(LOG_SCR_LEVEL,"SCR1 read at $%08x PC=$%08x\n", IoAccessCurrentAddress,m68k_getpc());
-    IoMem_WriteByte(IoAccessCurrentAddress, (scr1&0x0000FF00)>>8);
-}
-void SCR1_Read3(void)
-{
-    Log_Printf(LOG_SCR_LEVEL,"SCR1 read at $%08x PC=$%08x\n", IoAccessCurrentAddress,m68k_getpc());
-    IoMem_WriteByte(IoAccessCurrentAddress, scr1&0x000000FF);
+    IoMem_WriteLong(IoAccessCurrentAddress, scr1);
 }
 
 
