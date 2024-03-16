@@ -3231,9 +3231,9 @@ static void Exception_mmu030 (int nr, uaecptr oldpc)
 
 #ifndef WINUAE_FOR_PREVIOUS
 	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
-	exception_debug (nr);
+	exception_debug (vector_nr);
 	MakeSR ();
     
 	if (!regs.s) {
@@ -3290,7 +3290,7 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 
 	interrupt = nr >= 24 && nr < 24 + 8;
 	if (interrupt)
-		nr = iack_cycle(nr);
+		vector_nr = iack_cycle(nr);
 
 	// exception vector fetch and exception stack frame
 	// operations don't allocate new cachelines
@@ -3298,9 +3298,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 
 #ifndef WINUAE_FOR_PREVIOUS
 	LOG_TRACE(TRACE_CPU_EXCEPTION, "cpu exception %d currpc %x buspc %x newpc %x fault_e3 %x op_e3 %x addr_e3 %x SR %x\n",
-		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
+		nr, currpc, regs.instruction_pc, STMemory_ReadLong (regs.vbr + 4*vector_nr), last_fault_for_exception_3, last_op_for_exception_3, last_addr_for_exception_3, regs.sr);
 #endif
-	exception_debug (nr);
+	exception_debug (vector_nr);
 	MakeSR ();
 
 	if (!regs.s) {
@@ -3327,7 +3327,7 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 			Exception_build_stack_frame(regs.mmu_fault_addr, currpc, regs.mmu_fslw, vector_nr, 0x4);
 	} else if (nr == 3) { // address error
         Exception_build_stack_frame(last_fault_for_exception_3, currpc, 0, vector_nr, 0x2);
-		write_log (_T("Exception %d (%x) at %x -> %x!\n"), nr, last_fault_for_exception_3, currpc, get_long_debug (regs.vbr + 4 * nr));
+		write_log (_T("Exception %d (%x) at %x -> %x!\n"), nr, last_fault_for_exception_3, currpc, get_long_debug (regs.vbr + 4 * vector_nr));
 	} else if (regs.m && interrupt) { /* M + Interrupt */
 		Exception_build_stack_frame(oldpc, currpc, regs.mmu_ssw, vector_nr, 0x0);
 		MakeSR();
@@ -3463,7 +3463,7 @@ static void Exception_normal (int nr)
 		vector_nr = iack_cycle(nr);
 #endif
 
-	exception_debug (nr);
+	exception_debug (vector_nr);
 	MakeSR ();
 
 	if (!regs.s) {
