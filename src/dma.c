@@ -1157,7 +1157,7 @@ void TDMA_CSR_Write(void) {
     }
     
     /* Handle CSR bits */
-    dma[channel].direction = (writecsr>>16)&DMA_DEV2M;
+    dma[channel].direction = writecsr&DMA_DEV2M;
     
     if (writecsr&DMA_RESET) {
         dma[channel].csr &= ~(DMA_COMPLETE | DMA_SUPDATE | DMA_ENABLE);
