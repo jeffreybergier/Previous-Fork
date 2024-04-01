@@ -10,7 +10,7 @@ set(SOURCES
 # When building for macOS, define specific sources for gui and resources
 if(ENABLE_OSX_BUNDLE)
 	set(GUIOSX_RSRCS
-	    gui-osx/Previous.icns gui-osx/English.lproj gui-osx/French.lproj)
+	    gui-osx/Previous.icns gui-osx/en.lproj gui-osx/fr.lproj)
 endif(ENABLE_OSX_BUNDLE)
 
 # When building for Windows, define specific sources for gui and resources
@@ -87,6 +87,7 @@ if(ENABLE_OSX_BUNDLE)
 			# Copy Frameworks to Bundle
 			COMMAND cp -R ${SDL2_LIBDIR} ${BUNDLE_CONTENTS}/Frameworks/
 			COMMAND ${COPY_PNG}
+			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 	)
 	add_dependencies(${APP_NAME} osx_bundle_dirs)
 	set_source_files_properties(${GUIOSX_RSRCS} PROPERTIES
