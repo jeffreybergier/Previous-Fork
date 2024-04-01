@@ -1060,6 +1060,9 @@ void DebugUI_Init(void)
  */
 void DebugUI_UnInit(void)
 {
+	Profile_CpuFree();
+	Profile_DspFree();
+	Symbols_FreeAll();
 	free(debugCommand);
 	debugCommands = 0;
 }
@@ -1129,6 +1132,7 @@ void DebugUI(debug_reason_t reason)
 	}
 	DebugCpu_InitSession();
 	DebugDsp_InitSession();
+	Symbols_LoadCurrentProgram();
 	DebugInfo_ShowSessionInfo();
 
 	/* override paused message so that user knows to look into console
