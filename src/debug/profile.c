@@ -14,42 +14,6 @@ const char Profile_fileid[] = "Hatari profile.c";
 #include "debugui.h"
 #include "profile.h"
 
-/* ------------------ CPU profile control ----------------- */
-bool Profile_CpuStart(void)
-{
-	return false;
-}
-void Profile_CpuUpdate(void)
-{
-}
-void Profile_CpuStop(void)
-{
-}
-void Profile_CpuFree(void)
-{
-}
-
-/* ------------------ DSP profile results ----------------- */
-bool Profile_DspAddressData(uint16_t addr, float *percentage, uint64_t *count, uint64_t *cycles, uint16_t *cycle_diff)
-{
-	return false;
-}
-
-
-/* ------------------ DSP profile control ----------------- */
-bool Profile_DspStart(void)
-{
-	return false;
-}
-void Profile_DspUpdate(void)
-{
-}
-void Profile_DspStop(void)
-{
-}
-void Profile_DspFree(void)
-{
-}
 
 /* ------------------- command parsing ---------------------- */
 
