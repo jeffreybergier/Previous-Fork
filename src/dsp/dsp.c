@@ -24,7 +24,6 @@
 
 #include "main.h"
 #include "sysdeps.h"
-#include "newcpu.h"
 #include "ioMem.h"
 #include "dsp.h"
 #include "configuration.h"

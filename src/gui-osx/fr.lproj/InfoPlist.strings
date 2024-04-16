@@ -1,6 +1,5 @@
 /* Localized versions of Info.plist keys */
 
-CFBundleName = "Previous";
-CFBundleShortVersionString = "3.1";
-CFBundleGetInfoString = "Previous version 3.1 , Copyright © 2011-2024 par Andreas Grabher, Simon Schubiger, Gilles Fetis et autres (voir readme.previous.txt)";
-NSHumanReadableCopyright = "Copyright © 2011-2024 par Andreas Grabher, Simon Schubiger, Gilles Fetis et autres (voir readme.previous.txt)";﻿
+NSHumanReadableCopyright = "Copyright © 2011-2024 Andreas Grabher, Simon Schubiger, Gilles Fetis et autres (voir readme.previous.txt)";﻿
+NSMicrophoneUsageDescription = "Previous a besoin d'accéder à votre microphone pour l'entrée sonore.";
+NSCameraUsageDescription = "Previous a besoin d'accéder à votre caméra pour l'entrée vidéo.";
