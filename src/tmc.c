@@ -32,8 +32,7 @@ struct {
 	uint32_t nmi;
 	uint32_t horizontal;
 	uint32_t vertical;
-	uint8_t video_intr;
-	uint32_t nitro;
+	uint32_t video_intr;
 } tmc;
 
 /* Additional System Control Register for Turbo systems:
@@ -59,7 +58,7 @@ struct {
 
 #define TURBOSCR_FMASK   0x0FFF0F08
 
-static void TurboSCR1_Reset(void) {
+static void tmc_scr1_reset(void) {
 	uint8_t memory_speed = 0;
 	uint8_t cpu_speed = 0x07; // 33 MHz
 	
@@ -180,28 +179,16 @@ static void tmc_ctrl_write3(uint8_t val) {
 }
 
 /* TMC NMI Register */
-static uint8_t tmc_nmi_read0(void) {
-	return 0;
-}
-static uint8_t tmc_nmi_read1(void) {
-	return 0;
-}
-static uint8_t tmc_nmi_read2(void) {
-	return 0;
-}
+#define TMC_NMI 0x00000001
+
 static uint8_t tmc_nmi_read3(void) {
 	return tmc.nmi;
 }
 
-static void tmc_nmi_write0(uint8_t val) {
-}
-static void tmc_nmi_write1(uint8_t val) {
-}
-static void tmc_nmi_write2(uint8_t val) {
-}
 static void tmc_nmi_write3(uint8_t val) {
 	tmc.nmi = val & 0x01;
-	if (tmc.nmi & 0x00000001) {
+	
+	if (tmc.nmi & TMC_NMI) {
 		Log_Printf(LOG_WARN,"[TMC] Enable NMI");
 		set_interrupt(INT_NMI, SET_INT);
 	} else {
@@ -212,29 +199,29 @@ static void tmc_nmi_write3(uint8_t val) {
 
 
 /* Video Interrupt Register */
-#define TMC_VI_INTERRUPT	0x01
-#define TMC_VI_INT_MASK		0x02
-#define TMC_VI_ENABLE		0x04
+#define TMC_VI_INTERRUPT (0x01<<24)
+#define TMC_VI_INT_MASK  (0x02<<24)
+#define TMC_VI_ENABLE    (0x04<<24)
 
 /* Horizontal and Vertical Configruation Registers */
-#define HFPORCH  0x18
-#define HSYNC	 0x20
-#define HBPORCH  0x48
-#define HDISCNT	 0x118
+#define HFPORCH  (0x18<<25)
+#define HSYNC    (0x20<<19)
+#define HBPORCH  (0x48<<12)
+#define HDISCNT  (0x118<<0)
 
-#define VFPORCH  0x08
-#define VSYNC	 0x08
-#define VBPORCH	 0x30
-#define VDISCNT	 0x340
+#define VFPORCH  (0x08<<25)
+#define VSYNC    (0x08<<19)
+#define VBPORCH  (0x30<<12)
+#define VDISCNT  (0x340<<0)
 
-uint8_t tmc_video_enabled(void) {
-	return tmc.video_intr&TMC_VI_ENABLE;
+bool tmc_video_enabled(void) {
+	return (tmc.video_intr&TMC_VI_ENABLE);
 }
 
 static void tmc_video_reg_reset(void) {
-	tmc.video_intr = 0x00;
-	tmc.horizontal = (HFPORCH<<25)|(HSYNC<<19)|(HBPORCH<<12)|HDISCNT;
-	tmc.vertical = (VFPORCH<<25)|(VSYNC<<19)|(VBPORCH<<12)|VDISCNT;
+	tmc.video_intr = 0;
+	tmc.horizontal = HFPORCH|HSYNC|HBPORCH|HDISCNT;
+	tmc.vertical   = VFPORCH|VSYNC|VBPORCH|VDISCNT;
 }
 
 void tmc_video_interrupt(void) {
@@ -245,11 +232,11 @@ void tmc_video_interrupt(void) {
 }
 
 static uint8_t tmc_vir_read0(void) {
-	return tmc.video_intr;
+	return (tmc.video_intr>>24);
 }
 
 static void tmc_vir_write0(uint8_t val) {
-	tmc.video_intr = val;
+	tmc.video_intr = val<<24;
 	if (tmc.video_intr&TMC_VI_INTERRUPT) {
 		tmc.video_intr &= ~TMC_VI_INTERRUPT;
 		set_interrupt(INT_DISK, RELEASE_INT);
@@ -327,7 +314,7 @@ static uint8_t (*tmc_read_reg[36])(void) = {
 	tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read,
 	tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read,
 	tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read, tmc_unimpl_read,
-	tmc_nmi_read0,   tmc_nmi_read1,   tmc_nmi_read2,   tmc_nmi_read3
+	tmc_void_read,   tmc_void_read,   tmc_void_read,   tmc_nmi_read3
 };
 
 static uint8_t (*tmc_read_vid_reg[16])(void) = {
@@ -347,7 +334,7 @@ static void (*tmc_write_reg[36])(uint8_t) = {
 	tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write,
 	tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write,
 	tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write, tmc_unimpl_write,
-	tmc_nmi_write0,   tmc_nmi_write1,   tmc_nmi_write2,   tmc_nmi_write3
+	tmc_void_write,   tmc_void_write,   tmc_void_write,   tmc_nmi_write3
 };
 
 static void (*tmc_write_vid_reg[16])(uint8_t) = {
@@ -366,17 +353,6 @@ uint32_t tmc_lget(uaecptr addr) {
         abort();
     }
 	
-	if (addr==0x02210000) {
-		Log_Printf(LOG_WARN, "[TMC] Nitro register lget from $%08X",addr);
-		if (ConfigureParams.System.nCpuFreq==40) {
-			val = tmc.nitro;
-		} else {
-			Log_Printf(LOG_WARN, "[TMC] No nitro --> bus error!");
-			M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, 0);
-		}
-		return val;
-	}
-
 	if ((addr&0xFFFFF00)==TMC_ADB_ADDR_MASK) {
 		return adb_lget(addr);
 	}
@@ -451,17 +427,6 @@ void tmc_lput(uaecptr addr, uint32_t l) {
 		abort();
 	}
 	
-	if (addr==0x02210000) {
-		Log_Printf(LOG_WARN, "[TMC] Nitro register lput %08X at $%08X",l,addr);
-		if (ConfigureParams.System.nCpuFreq==40) {
-			tmc.nitro = l&0x0000011F;
-		} else {
-			Log_Printf(LOG_WARN, "[TMC] No nitro --> bus error!");
-			M68000_BusError(addr, BUS_ERROR_WRITE, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, l);
-		}
-		return;
-	}
-	
 	if ((addr&0xFFFFF00)==TMC_ADB_ADDR_MASK) {
 		adb_lput(addr, l);
 		return;
@@ -527,13 +492,12 @@ void tmc_bput(uaecptr addr, uint32_t b) {
 
 
 /* TMC Reset */
-
 void TMC_Reset(void) {
-	TurboSCR1_Reset();
-	
+	tmc_scr1_reset();
 	tmc_video_reg_reset();
+	
 	tmc.control = 0x0D17038F;
 	tmc.nmi     = 0x00000000;
-	tmc.nitro   = 0x00000000;
-	ADB_Reset();
+	
+	adb_reset();
 }

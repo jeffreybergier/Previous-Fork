@@ -711,8 +711,8 @@ void ColorVideo_CMD_Write(void) {
     }
 }
 
-uint8_t color_video_enabled(void) {
-    return col_vid_intr&VID_CMD_UNBLANK;
+bool color_video_enabled(void) {
+    return (col_vid_intr&VID_CMD_UNBLANK);
 }
 
 void color_video_interrupt(void) {
@@ -727,8 +727,8 @@ void color_video_interrupt(void) {
 #define BRIGHTNESS_UNBLANK 0x40
 #define BRIGHTNESS_MASK    0x3F
 
-uint8_t brighness_video_enabled(void) {
-    return bright_reg&BRIGHTNESS_UNBLANK;
+bool brighness_video_enabled(void) {
+    return (bright_reg&BRIGHTNESS_UNBLANK);
 }
 
 void Brightness_Write(void) {

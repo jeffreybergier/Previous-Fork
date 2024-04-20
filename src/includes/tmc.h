@@ -16,8 +16,8 @@ extern void tmc_lput(uaecptr addr, uae_u32 l);
 extern void tmc_wput(uaecptr addr, uae_u32 w);
 extern void tmc_bput(uaecptr addr, uae_u32 b);
 
-extern uint8_t tmc_video_enabled(void);
-extern void    tmc_video_interrupt(void);
+extern bool tmc_video_enabled(void);
+extern void tmc_video_interrupt(void);
 
 extern void TMC_Reset(void);
 

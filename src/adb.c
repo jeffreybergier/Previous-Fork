@@ -672,7 +672,7 @@ void adb_bput(uint32_t addr, uint8_t b) {
 	M68000_BusError(addr, BUS_ERROR_WRITE, BUS_ERROR_SIZE_BYTE, BUS_ERROR_ACCESS_DATA, b);
 }
 
-void ADB_Reset(void) {
+void adb_reset(void) {
 	Log_Printf(LOG_WARN, "[ADB] Reset");
 	adb.intstatus = 0;
 	adb.intmask = 0;

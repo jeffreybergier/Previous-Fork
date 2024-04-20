@@ -126,8 +126,8 @@ extern void color_video_interrupt(void);
 
 extern void Brightness_Write(void);
 
-extern uint8_t color_video_enabled(void);
-extern uint8_t brighness_video_enabled(void);
+extern bool color_video_enabled(void);
+extern bool brighness_video_enabled(void);
 
 #ifdef __cplusplus
 }

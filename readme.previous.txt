@@ -64,13 +64,14 @@ hardware:
   NeXTstep 0.8: NeXT Computer
            2.0: NeXTcube, NeXTstation
            2.1: NeXTstation Color, NeXTdimension
-           2.2: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color
+           2.2: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color,
+                Apple Desktop Bus, Nitro
 
   ROM Rev. 0.8: NeXT Computer
            2.0: NeXTcube, NeXTstation, NeXTdimension
            2.2: NeXTstation Color
            3.0: NeXTcube Turbo, NeXTstation Turbo, NeXTstation Turbo Color
-           3.3: Apple Desktop Bus keyboard and mouse.
+           3.3: Apple Desktop Bus, Nitro
 
 Previous includes an internal NFS and NetInfo server for advanced interaction 
 with the host system. It also includes an internal time server that makes it 
@@ -396,6 +397,11 @@ Previous v3.1:
   > Improves accuracy of the memory map for ROM and video memory.
   > Improves key mapping for Backquote and Backslash.
   > Fixes bug that caused kernel panics on 68040 during network transfers.
+
+Previous v3.2 (unreleased):
+  > Adds dummy Nitro cache for passing power-on DRAM test.
+  > Improves accuracy of the memory map for devices.
+  > Fixes bug in DSP modulo addressing mode that could cause bad results.
 
 
  7) Running Previous

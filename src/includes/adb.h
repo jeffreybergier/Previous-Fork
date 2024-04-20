@@ -18,7 +18,7 @@ extern void adb_lput(uint32_t addr, uint32_t l);
 extern void adb_wput(uint32_t addr, uint16_t w);
 extern void adb_bput(uint32_t addr, uint8_t  b);
 
-extern void ADB_Reset(void);
+extern void adb_reset(void);
 
 extern void ADB_KeyDown(const SDL_Keysym *sdlkey);
 extern void ADB_KeyUp(const SDL_Keysym *sdlkey);

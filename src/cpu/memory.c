@@ -24,6 +24,7 @@ const char Memory_fileid[] = "Previous memory.c";
 #include "ioMem.h"
 #include "bmap.h"
 #include "tmc.h"
+#include "ncc.h"
 #include "nbic.h"
 #include "reset.h"
 #include "m68000.h"
@@ -99,6 +100,7 @@ uae_u8 ce_banktype[65536], ce_cachable[65536];
 
 #define NEXT_RAM_START          0x04000000
 #define NEXT_RAM_SIZE           0x04000000
+#define NEXT_RAM_MASK           0x03FFFFFF
 
 #define NEXT_RAM_BANK_SIZE      0x01000000
 #define NEXT_RAM_BANK_SIZE_C    0x00800000
@@ -149,7 +151,6 @@ static uae_u32 next_ram_bank3_mask;
 /* IO memory */
 #define NEXT_IO_START           0x02000000
 #define NEXT_IO_BMAP_START      0x02100000
-#define NEXT_IO_TMC_START       0x02200000
 #define NEXT_IO_SIZE            0x00020000
 #define NEXT_IO_ALLOC           0x00020000
 #define NEXT_IO_MASK            0x0001FFFF
@@ -158,6 +159,14 @@ static uae_u32 next_ram_bank3_mask;
 #define NEXT_BMAP_START2        0x820C0000
 #define NEXT_BMAP_SIZE          0x00010000
 #define NEXT_BMAP_MASK          0x0000003F
+
+#define NEXT_TMC_START          0x02200000
+#define NEXT_TMC_SIZE           0x00010000
+#define NEXT_TMC_MASK           0x0000FFFF
+
+#define NEXT_NCC_START          0x02210000
+#define NEXT_NCC_SIZE           0x00010000
+#define NEXT_NCC_MASK           0x0000FFFF
 
 #define NEXT_NBIC_START         0x02020000
 #define NEXT_NBIC_SIZE          0x00010000
@@ -624,7 +633,7 @@ static uae_u32 memory_write_func(uae_u32 old, uae_u32 new, int function, int siz
 static uae_u32 mem_ram_mwf_lget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFFFFFFFF:0;
 }
@@ -632,7 +641,7 @@ static uae_u32 mem_ram_mwf_lget(uaecptr addr)
 static uae_u32 mem_ram_mwf_wget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFFFF:0;
 }
@@ -640,7 +649,7 @@ static uae_u32 mem_ram_mwf_wget(uaecptr addr)
 static uae_u32 mem_ram_mwf_bget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFF:0;
 }
@@ -648,7 +657,7 @@ static uae_u32 mem_ram_mwf_bget(uaecptr addr)
 static void mem_ram_mwf_lput(uaecptr addr, uae_u32 l)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	uae_u32 old = get_long(addr);
 	uae_u32 val = memory_write_func(old, l, function, 4);
@@ -659,7 +668,7 @@ static void mem_ram_mwf_lput(uaecptr addr, uae_u32 l)
 static void mem_ram_mwf_wput(uaecptr addr, uae_u32 w)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	uae_u32 old = get_word(addr);
 	uae_u32 val = memory_write_func(old, w, function, 2);
@@ -670,7 +679,7 @@ static void mem_ram_mwf_wput(uaecptr addr, uae_u32 w)
 static void mem_ram_mwf_bput(uaecptr addr, uae_u32 b)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&0x03FFFFFF);
+	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	uae_u32 old = get_byte(addr);
 	uae_u32 val = memory_write_func(old, b, function, 1);
@@ -934,6 +943,24 @@ static addrbank TMC_bank =
 	tmc_lput, tmc_wput, tmc_bput
 };
 
+static addrbank NCC_bank =
+{
+	ncc_lget, dummy_wget, dummy_bget,
+	ncc_lput, dummy_wput, dummy_bput
+};
+
+static addrbank NCC_cache_bank =
+{
+	ncc_cache_lget, ncc_cache_wget, ncc_cache_bget,
+	ncc_cache_lput, ncc_cache_wput, ncc_cache_bput
+};
+
+static addrbank NCC_tag_bank =
+{
+	ncc_tag_lget, dummy_wget, dummy_bget,
+	ncc_tag_lput, dummy_wput, dummy_bput
+};
+
 static addrbank NBIC_bank =
 {
 	nbic_reg_lget, nbic_reg_wget, nbic_reg_bget,
@@ -1153,14 +1180,16 @@ int memory_init (void)
 	}
 	
 	if (ConfigureParams.System.bTurbo) {
-		map_banks(&TMC_bank, NEXT_IO_TMC_START>>16, NEXT_IO_SIZE>>16);
-		write_log("Mapping TMC device space at $%08x\n", NEXT_IO_TMC_START);
+		map_banks(&TMC_bank, NEXT_TMC_START>>16, NEXT_TMC_SIZE>>16);
+		write_log("Mapping TMC device space at $%08x\n", NEXT_TMC_START);
 		
 		if (ConfigureParams.System.nCpuFreq==40) {
-			map_banks(&dummy_bank, NEXT_CACHE_START>>16, NEXT_CACHE_SIZE>>16);
-			write_log("Mapping cache memory at $%08x: %ikB\n", NEXT_CACHE_START, NEXT_CACHE_SIZE>>10);
-			map_banks(&dummy_bank, NEXT_CACHE_TAG_START>>16, NEXT_CACHE_TAG_SIZE>>16);
-			write_log("Mapping cache tag memory at $%08x: %ikB\n", NEXT_CACHE_TAG_START, NEXT_CACHE_TAG_SIZE>>10);
+			map_banks(&NCC_bank, NEXT_NCC_START>>16, NEXT_NCC_SIZE>>16);
+			write_log("Mapping cache controller at $%08x\n", NEXT_NCC_START);
+			map_banks(&NCC_cache_bank, NEXT_CACHE_START>>16, NEXT_CACHE_SIZE>>16);
+			write_log("Mapping cache memory at $%08x\n", NEXT_CACHE_START);
+			map_banks(&NCC_tag_bank, NEXT_CACHE_TAG_START>>16, NEXT_CACHE_TAG_SIZE>>16);
+			write_log("Mapping cache tag memory at $%08x\n", NEXT_CACHE_TAG_START);
 		}
 	}
 	
