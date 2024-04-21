@@ -132,15 +132,15 @@ void ncc_lput(uaecptr addr, uint32_t val) {
 uae_u32 ncc_tag_lget(uaecptr addr) {
 	Log_Printf(LOG_TAG_LEVEL, "[NCC] Tag read at $%08X", addr);
 	
-	addr &= NCC_TAG_MASK;
-	return ncc.tag[addr >> 5] & NCC_TAG_READABLE;
+	addr = (addr >> 5) & NCC_TAG_MASK;
+	return ncc.tag[addr] & NCC_TAG_READABLE;
 }
 
 void ncc_tag_lput(uaecptr addr, uae_u32 val) {
 	Log_Printf(LOG_TAG_LEVEL, "[NCC] Tag write %08X at $%08X", val, addr);
 	
-	addr &= NCC_TAG_MASK;
-	ncc.tag[addr >> 5] = val & NCC_TAG_WRITABLE;
+	addr = (addr >> 5) & NCC_TAG_MASK;
+	ncc.tag[addr] = val & NCC_TAG_WRITABLE;
 }
 
 

@@ -275,7 +275,7 @@ void Main_SetMouseGrab(bool grab) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
 			SDL_SetRelativeMouseMode(SDL_TRUE);
 			SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
-			Main_SetTitle(MOUSE_LOCK_MSG);
+			Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 		}
 	} else {
 		SDL_SetRelativeMouseMode(SDL_FALSE);
