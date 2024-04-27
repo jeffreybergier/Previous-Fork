@@ -228,10 +228,10 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_Turbo[] =
 	{ 0x0201a003, 0x0001e003, SIZE_BYTE, IoMem_ReadWithoutInterception, IoMem_WriteWithoutInterceptionButTrace },
 	
 	/* RAMDAC (Brooktree Bt463) */
-	{ 0x0201c000, 0x0001e003, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201c001, 0x0001e003, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201c002, 0x0001e003, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x0201c003, 0x0001e003, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x0201c000, 0x0001e003, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x0201c001, 0x0001e003, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x0201c002, 0x0001e003, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x0201c003, 0x0001e003, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
 	
 	{ 0, 0, NULL, NULL }
 };

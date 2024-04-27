@@ -296,10 +296,10 @@ const INTERCEPT_ACCESS_FUNC IoMemTable_NEXT[] =
 	{ 0x02018004, 0x0001e1ff, SIZE_LONG, SCC_Clock_Read, SCC_Clock_Write },
 	
 	/* RAMDAC (Brooktree Bt463) */
-	{ 0x02018100, 0x0001e1ff, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x02018101, 0x0001e1ff, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x02018102, 0x0001e1ff, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
-	{ 0x02018103, 0x0001e1ff, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, IoMem_WriteWithoutInterceptionButTrace },
+	{ 0x02018100, 0x0001e1ff, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x02018101, 0x0001e1ff, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x02018102, 0x0001e1ff, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
+	{ 0x02018103, 0x0001e1ff, SIZE_BYTE, RAMDAC_Read, RAMDAC_Write },
 	
 	/* Color Video Control and Memory Timings */
 	{ 0x02018180, 0x0001e1ff, SIZE_BYTE, IoMem_ReadWithoutInterceptionButTrace, ColorVideo_CMD_Write },

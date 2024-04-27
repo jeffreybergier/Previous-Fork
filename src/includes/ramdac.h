@@ -24,8 +24,11 @@ typedef struct {
 extern "C" {
 #endif /* __cplusplus */
 
-extern uae_u32 bt463_bget(bt463* ramdac, uaecptr addr);
-extern void    bt463_bput(bt463* ramdac, uaecptr addr, uae_u32 b);
+extern uint32_t bt463_bget(bt463* ramdac, uint32_t addr);
+extern void     bt463_bput(bt463* ramdac, uint32_t addr, uint32_t b);
+
+extern void RAMDAC_Read(void);
+extern void RAMDAC_Write(void);
 
 #ifdef __cplusplus
 }
