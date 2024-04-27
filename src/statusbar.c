@@ -401,10 +401,10 @@ void Statusbar_AddMessage(const char *msg, uint32_t msecs)
  */
 static char *Statusbar_AddString(char *buffer, const char *more)
 {
+	if (!more)
+		return buffer;
 	while (*more)
-	{
 		*buffer++ = *more++;
-	}
 	return buffer;
 }
 

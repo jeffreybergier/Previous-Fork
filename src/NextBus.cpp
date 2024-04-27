@@ -1,10 +1,17 @@
+/*
+  Previous - NextBus.cpp
+
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
+*/
+
 #include "configuration.h"
 #include "m68000.h"
 #include "NextBus.hpp"
 #include "nbic.h"
 #include "dimension.hpp"
 
-static uint8_t bus_error(uint32_t addr, int read, int size, uae_u32 val, const char* acc) {
+static uint8_t bus_error(uint32_t addr, int read, int size, uint32_t val, const char* acc) {
     Log_Printf(LOG_WARN, "[NextBus] Bus error %s at %08X", acc, addr);
     M68000_BusError(addr, read, size, BUS_ERROR_ACCESS_DATA, val);
     return 0;

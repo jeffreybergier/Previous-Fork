@@ -62,12 +62,12 @@ static struct {
 
 
 /* Register read/write functions */
-uint32_t ncc_lget(uaecptr addr) {
-	uint32_t val = ncc.ccr&NCC_CCR_READABLE;
+uae_u32 ncc_lget(uaecptr addr) {
+	uae_u32 val = ncc.ccr&NCC_CCR_READABLE;
 	
 	Log_Printf(LOG_WARN, "[NCC] CCR read %08X at $%08X", val, addr);
 
-	if (addr&3) {
+	if (addr & 3) {
 		Log_Printf(LOG_WARN, "[NCC] Unaligned access.");
 		M68000_BusError(addr, BUS_ERROR_READ, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, 0);
 		return 0;
@@ -76,21 +76,18 @@ uint32_t ncc_lget(uaecptr addr) {
 	return val;
 }
 
-void ncc_lput(uaecptr addr, uint32_t val) {
-	uint32_t changed_bits = ncc.ccr;
-	
+void ncc_lput(uaecptr addr, uae_u32 val) {
 	Log_Printf(LOG_WARN, "[NCC] CCR write %08X at $%08X", val, addr);
 
-	if (addr&3) {
+	if (addr & 3) {
 		Log_Printf(LOG_WARN, "[NCC] Unaligned access.");
 		M68000_BusError(addr, BUS_ERROR_WRITE, BUS_ERROR_SIZE_LONG, BUS_ERROR_ACCESS_DATA, val);
 	}
 	
-	ncc.ccr = val&NCC_CCR_WRITABLE;
+	val &= NCC_CCR_WRITABLE;
 	
-	changed_bits ^= ncc.ccr;
-	
-	if (changed_bits) {
+	if (ncc.ccr ^ val) {
+		ncc.ccr = val;
 		Log_Printf(LOG_WARN,      "[NCC] Cache %sabled", (ncc.ccr&NCC_CCR_ENABLE)?"en":"dis");
 		Log_Printf(LOG_WARN,      "[NCC] Cache size: %dkB", 64<<((ncc.ccr&NCC_CCR_SIZE)>>3));
 		Log_Printf(LOG_NCC_LEVEL, "[NCC] %synchronous mode", (ncc.ccr&NCC_CCR_SYNC)?"S":"As");
