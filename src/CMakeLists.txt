@@ -3,14 +3,14 @@ set(SOURCES
 	adb.c audio.c bmap.c cfgopts.c configuration.c change.c cycInt.c 
 	dialog.c dma.c esp.c enet_slirp.c enet_pcap.c ethernet.c file.c 
 	floppy.c grab.c ioMem.c ioMemTabNEXT.c ioMemTabTurbo.c keymap.c kms.c 
-	m68000.c main.c mo.c nbic.c NextBus.cpp paths.c printer.c queue.c 
+	m68000.c main.c mo.c nbic.c ncc.c NextBus.cpp paths.c printer.c queue.c 
 	ramdac.c reset.c rom.c rs.c rtcnvram.c scandir.c scc.c screen.c host.c 
 	scsi.c shortcut.c snd.c statusbar.c str.c sysReg.c tmc.c video.c zip.c)
 
 # When building for macOS, define specific sources for gui and resources
 if(ENABLE_OSX_BUNDLE)
 	set(GUIOSX_RSRCS
-	    gui-osx/Previous.icns gui-osx/English.lproj gui-osx/French.lproj)
+	    gui-osx/Previous.icns gui-osx/en.lproj gui-osx/fr.lproj)
 endif(ENABLE_OSX_BUNDLE)
 
 # When building for Windows, define specific sources for gui and resources
@@ -75,6 +75,9 @@ if(ENABLE_OSX_BUNDLE)
 	endif()
 	# Create Previous.app bundle
 	add_custom_target(osx_bundle_dirs
+			COMMAND rm -rf ${BUNDLE_CONTENTS}/Resources
+			COMMAND rm -rf ${BUNDLE_CONTENTS}/Frameworks
+			COMMAND rm -rf ${BUNDLE_CONTENTS}/MacOS
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/Resources
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/Frameworks
 			COMMAND mkdir -p ${BUNDLE_CONTENTS}/MacOS
@@ -87,6 +90,7 @@ if(ENABLE_OSX_BUNDLE)
 			# Copy Frameworks to Bundle
 			COMMAND cp -R ${SDL2_LIBDIR} ${BUNDLE_CONTENTS}/Frameworks/
 			COMMAND ${COPY_PNG}
+			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 	)
 	add_dependencies(${APP_NAME} osx_bundle_dirs)
 	set_source_files_properties(${GUIOSX_RSRCS} PROPERTIES

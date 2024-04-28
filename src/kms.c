@@ -661,13 +661,13 @@ static void kms_command_in(uint8_t command, uint32_t data) {
 
 /* KMS Interface */
 void KMS_Stat_Snd_Read(void) { // 0x0200e000
-    IoMem[IoAccessCurrentAddress&IO_SEG_MASK] = kms.status.sound;
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Sound status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, kms.status.sound);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Sound status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void KMS_Ctrl_Snd_Write(void) {
-    uint8_t val = IoMem[IoAccessCurrentAddress&IO_SEG_MASK];
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Sound control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    uint8_t val = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Sound control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
     
     kms.status.sound &= ~(SNDOUT_DMA_ENABLE|SNDIN_DMA_ENABLE);
     kms.status.sound |= (val&(SNDOUT_DMA_ENABLE|SNDIN_DMA_ENABLE));
@@ -683,13 +683,13 @@ void KMS_Ctrl_Snd_Write(void) {
 }
 
 void KMS_Stat_KM_Read(void) { // 0x0200e001
-    IoMem[IoAccessCurrentAddress&IO_SEG_MASK] = kms.status.km;
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Keyboard/Mouse status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, kms.status.km);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Keyboard/Mouse status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void KMS_Ctrl_KM_Write(void) {
-    uint8_t val = IoMem[IoAccessCurrentAddress&IO_SEG_MASK];
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Keyboard/Mouse control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    uint8_t val = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Keyboard/Mouse control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 
     if (val&KM_OVERRUN) {
         kms.status.km &= ~(KM_RECEIVED|KM_OVERRUN|KM_INT);
@@ -706,13 +706,13 @@ void KMS_Ctrl_KM_Write(void) {
 }
 
 void KMS_Stat_TX_Read(void) { // 0x0200e002
-    IoMem[IoAccessCurrentAddress&IO_SEG_MASK] = kms.status.transmit;
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Tansmitter status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, kms.status.transmit);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Tansmitter status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void KMS_Ctrl_TX_Write(void) {
-    uint8_t val = IoMem[IoAccessCurrentAddress&IO_SEG_MASK];
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Tansmitter control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    uint8_t val = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Tansmitter control write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
     
     if ((kms.status.transmit&KMS_ENABLE) && !(val&KMS_ENABLE)) {
         kms_reset();
@@ -722,22 +722,22 @@ void KMS_Ctrl_TX_Write(void) {
 }
 
 void KMS_Stat_Cmd_Read(void) { // 0x0200e003
-    IoMem[IoAccessCurrentAddress&IO_SEG_MASK] = kms.status.cmd;
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Command read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, kms.status.cmd);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Command read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void KMS_Ctrl_Cmd_Write(void) {
-    kms.command = IoMem[IoAccessCurrentAddress&IO_SEG_MASK];
-    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Command write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem[IoAccessCurrentAddress & IO_SEG_MASK], m68k_getpc());
+    kms.command = IoMem_ReadByte(IoAccessCurrentAddress);
+    Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Command write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
 void KMS_Data_Read(void) { // 0x0200e004
-    IoMem_WriteLong(IoAccessCurrentAddress&IO_SEG_MASK, kms.data);
+    IoMem_WriteLong(IoAccessCurrentAddress, kms.data);
     Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Data read at $%08x val=$%08x PC=$%08x\n", IoAccessCurrentAddress, kms.data, m68k_getpc());
 }
 
 void KMS_Data_Write(void) {
-    uint32_t val = IoMem_ReadLong(IoAccessCurrentAddress&IO_SEG_MASK);
+    uint32_t val = IoMem_ReadLong(IoAccessCurrentAddress);
     Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Data write at $%08x val=$%08x PC=$%08x\n", IoAccessCurrentAddress, val, m68k_getpc());
     if (kms.status.transmit&TX_LOOP) {
         kms_command_out(kms.command, val);
@@ -747,7 +747,7 @@ void KMS_Data_Write(void) {
 }
 
 void KMS_KM_Data_Read(void) { // 0x0200e008
-    IoMem_WriteLong(IoAccessCurrentAddress & IO_SEG_MASK, kms.kmdata);
+    IoMem_WriteLong(IoAccessCurrentAddress, kms.kmdata);
     Log_Printf(LOG_KMS_REG_LEVEL,"[KMS] Keyboard/Mouse data read at $%08x val=$%08x PC=$%08x\n", IoAccessCurrentAddress, kms.kmdata, m68k_getpc());
 
     kms.status.km &= ~(KM_RECEIVED|KM_INT);

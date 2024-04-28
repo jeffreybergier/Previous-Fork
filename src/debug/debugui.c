@@ -86,7 +86,7 @@ void DebugUI_MemorySnapShot_Capture(const char *path, bool bSave)
 		if (File_Exists(filename))
 		{
 			/* and parse back the saved breakpoints */
-			DebugUI_ParseFile(filename, true);
+			DebugUI_ParseFile(filename, true, true);
 		}
 	}
 	free(filename);
@@ -380,6 +380,21 @@ static int DebugUI_ChangeDir(int argc, char *argv[])
 }
 
 /**
+ * Command: Print strings to debug log output, with escape handling.
+ */
+static int DebugUI_Echo(int argc, char *argv[])
+{
+	if (argc < 2)
+		return DebugUI_PrintCmdHelp(argv[0]);
+	for (int i = 1; i < argc; i++)
+	{
+		Str_UnEscape(argv[i]);
+		fputs(argv[i], debugOutput);
+	}
+	return DEBUGGER_CMDDONE;
+}
+
+/**
  * Command: Rename file
  */
 static int DebugUI_Rename(int argc, char *argv[])
@@ -423,7 +438,7 @@ static int DebugUI_Reset(int argc, char *argv[])
 static int DebugUI_CommandsFromFile(int argc, char *argv[])
 {
 	if (argc == 2)
-		DebugUI_ParseFile(argv[1], true);
+		DebugUI_ParseFile(argv[1], true, true);
 	else
 		DebugUI_PrintCmdHelp(argv[0]);
 	return DEBUGGER_CMDDONE;
@@ -574,7 +589,7 @@ static int DebugUI_ParseCommand(const char *input_orig)
 	if (cmd == -1)
 	{
 		fprintf(stderr, "Command '%s' not found.\n"
-			"Use 'help' to view a list of available commands.\n",
+			"Use 'help' to view a list of available debugger commands.\n",
 			psArgs[0]);
 		free(input);
 		return DEBUGGER_CMDDONE;
@@ -888,6 +903,11 @@ static const dbgcommand_t uicommand[] =
 	  "\tChange Hatari work directory. With '-f', directory is\n"
 	  "\tchanged only after all script files have been parsed.",
 	  false },
+	{ DebugUI_Echo, NULL,
+	  "echo", "",
+	  "output given string(s)",
+	  "<strings>\n",
+	  false },
 	{ DebugUI_Evaluate, Vars_MatchCpuVariable,
 	  "evaluate", "e",
 	  "evaluate an expression",
@@ -1026,7 +1046,7 @@ void DebugUI_Init(void)
 		int i;
 		for (i = 0; i < parseFiles; i++)
 		{
-			DebugUI_ParseFile(parseFileNames[i], true);
+			DebugUI_ParseFile(parseFileNames[i], true, true);
 			free(parseFileNames[i]);
 		}
 		free(parseFileNames);
@@ -1040,6 +1060,9 @@ void DebugUI_Init(void)
  */
 void DebugUI_UnInit(void)
 {
+	Profile_CpuFree();
+	Profile_DspFree();
+	Symbols_FreeAll();
 	free(debugCommand);
 	debugCommands = 0;
 }
@@ -1109,6 +1132,7 @@ void DebugUI(debug_reason_t reason)
 	}
 	DebugCpu_InitSession();
 	DebugDsp_InitSession();
+	Symbols_LoadCurrentProgram();
 	DebugInfo_ShowSessionInfo();
 
 	/* override paused message so that user knows to look into console
@@ -1153,11 +1177,12 @@ void DebugUI(debug_reason_t reason)
 
 
 /**
- * Read debugger commands from a file.  If 'reinit' is set
- * (as it normally should), reinitialize breakpoints etc.
- * afterwards. return false for error, true for success.
+ * Read debugger commands from a file.  If 'reinit' is set (as it
+ * normally should), reinitialize breakpoints etc. afterwards.
+ * Processed command lines are printed if 'verbose' is set.
+ * return false for error, true for success.
  */
-bool DebugUI_ParseFile(const char *path, bool reinit)
+bool DebugUI_ParseFile(const char *path, bool reinit, bool verbose)
 {
 	int recurse;
 	static int recursing;
@@ -1165,7 +1190,8 @@ bool DebugUI_ParseFile(const char *path, bool reinit)
 	char input[256];
 	FILE *fp;
 
-	fprintf(stderr, "Reading debugger commands from '%s'...\n", path);
+	if (verbose)
+		fprintf(stderr, "Reading debugger commands from '%s'...\n", path);
 	if (!(fp = fopen(path, "r")))
 	{
 		perror("ERROR");
@@ -1193,7 +1219,8 @@ bool DebugUI_ParseFile(const char *path, bool reinit)
 			fclose(fp);
 			return false;
 		}
-		fprintf(stderr, "Changed to input file dir '%s'.\n", dir);
+		if (verbose)
+			fprintf(stderr, "Changed to input file dir '%s'.\n", dir);
 	}
 	free(dir);
 
@@ -1213,7 +1240,8 @@ bool DebugUI_ParseFile(const char *path, bool reinit)
 			continue;
 
 		cmd = Str_Trim(expanded);
-		fprintf(stderr, "> %s\n", cmd);
+		if (verbose)
+			fprintf(stderr, "> %s\n", cmd);
 		DebugUI_ParseCommand(cmd);
 		free(expanded);
 	}
@@ -1225,7 +1253,7 @@ bool DebugUI_ParseFile(const char *path, bool reinit)
 	{
 		if (chdir(olddir) != 0)
 			perror("ERROR");
-		else
+		else if (verbose)
 			fprintf(stderr, "Changed back to '%s' dir.\n", olddir);
 		free(olddir);
 	}
@@ -1237,7 +1265,7 @@ bool DebugUI_ParseFile(const char *path, bool reinit)
 		{
 			if (chdir(finalDir) != 0)
 				perror("ERROR");
-			else
+			else if(verbose)
 				fprintf(stderr, "Delayed change to '%s' dir.\n", finalDir);
 			free(finalDir);
 			finalDir = NULL;
@@ -1295,9 +1323,11 @@ void DebugUI_Exceptions(int nr, long pc)
 		{ EXCEPT_ILLEGAL,   "Illegal instruction" },	/* 4 */
 		{ EXCEPT_ZERODIV,   "Div by zero" },		/* 5 */
 		{ EXCEPT_CHK,       "CHK" },			/* 6 */
-		{ EXCEPT_TRAPV,     "TRAPV" },			/* 7 */
+		{ EXCEPT_TRAPV,     "TRAPCc/TRAPV" },		/* 7 */
 		{ EXCEPT_PRIVILEGE, "Privilege violation" },	/* 8 */
-		{ EXCEPT_TRACE,     "Trace" }			/* 9 */
+		{ EXCEPT_TRACE,     "Trace" },			/* 9 */
+		{ EXCEPT_LINEA,     "Line-A" },			/* 10 */
+		{ EXCEPT_LINEF,     "Line-F" }			/* 11 */
 	};
 	nr -= 2;
 	if (nr < 0  || nr >= ARRAY_SIZE(ex))

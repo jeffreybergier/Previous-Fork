@@ -12,7 +12,6 @@
 #include "screen.h"
 #include "host.h"
 #include "cycInt.h"
-#include "NextBus.hpp"
 
 #include <SDL.h>
 

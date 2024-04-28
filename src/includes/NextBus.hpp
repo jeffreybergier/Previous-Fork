@@ -10,8 +10,7 @@
 #ifndef PREV_NEXTBUS_HPP
 #define PREV_NEXTBUS_HPP
 
-#include "log.h"
-#include "cycInt.h"
+#include "m68000.h"
 
 #define LOG_NEXTBUS_LEVEL   LOG_NONE
 
@@ -21,19 +20,19 @@ extern "C" {
 
 extern void nextbus_init(void);
 
-extern uint32_t nextbus_slot_lget(uint32_t addr);
-extern uint32_t nextbus_slot_wget(uint32_t addr);
-extern uint32_t nextbus_slot_bget(uint32_t addr);
-extern void nextbus_slot_lput(uint32_t addr, uint32_t val);
-extern void nextbus_slot_wput(uint32_t addr, uint32_t val);
-extern void nextbus_slot_bput(uint32_t addr, uint32_t val);
+extern uae_u32 nextbus_slot_lget(uaecptr addr);
+extern uae_u32 nextbus_slot_wget(uaecptr addr);
+extern uae_u32 nextbus_slot_bget(uaecptr addr);
+extern void nextbus_slot_lput(uaecptr addr, uae_u32 val);
+extern void nextbus_slot_wput(uaecptr addr, uae_u32 val);
+extern void nextbus_slot_bput(uaecptr addr, uae_u32 val);
 
-extern uint32_t nextbus_board_lget(uint32_t addr);
-extern uint32_t nextbus_board_wget(uint32_t addr);
-extern uint32_t nextbus_board_bget(uint32_t addr);
-extern void nextbus_board_lput(uint32_t addr, uint32_t val);
-extern void nextbus_board_wput(uint32_t addr, uint32_t val);
-extern void nextbus_board_bput(uint32_t addr, uint32_t val);
+extern uae_u32 nextbus_board_lget(uaecptr addr);
+extern uae_u32 nextbus_board_wget(uaecptr addr);
+extern uae_u32 nextbus_board_bget(uaecptr addr);
+extern void nextbus_board_lput(uaecptr addr, uae_u32 val);
+extern void nextbus_board_wput(uaecptr addr, uae_u32 val);
+extern void nextbus_board_bput(uaecptr addr, uae_u32 val);
 
 extern void NextBus_Reset(void);
 extern void NextBus_Pause(bool pause);

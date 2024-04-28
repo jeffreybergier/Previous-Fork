@@ -117,5 +117,5 @@ extern void M68000_WriteByte(uint32_t addr,uint8_t  val);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-        
+
 #endif

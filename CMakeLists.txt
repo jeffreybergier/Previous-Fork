@@ -154,7 +154,6 @@ check_struct_has_member("struct stat" st_mtimespec.tv_nsec
 check_struct_has_member("struct dirent" d_namelen
 	"dirent.h" HAVE_STRUCT_DIRENT_D_NAMELEN)
 
-
 # #############
 # Other CFLAGS:
 # #############
@@ -169,9 +168,6 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wwrite-strings -Wsign-compare")
 	#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra -Wno-unused-parameter -Wno-empty-body")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-security")
-	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2")
-	endif()
 	# Enable and disable some warnings and flags for Previous:
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -D__USE_MINGW_ANSI_STDIO=1")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion -Wno-unused -Wno-sign-compare")
@@ -189,6 +185,11 @@ CHECK_C_COMPILER_FLAG("-Wshadow=local" WARN_SHADOW_LOCAL_AVAILABLE)
 if(WARN_SHADOW_LOCAL_AVAILABLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wshadow=local")
 endif(WARN_SHADOW_LOCAL_AVAILABLE)
+
+CHECK_C_COMPILER_FLAG("-Wvla" WARN_VARIABLE_LENGTH_ARRAY_AVAILABLE)
+if(WARN_VARIABLE_LENGTH_ARRAY_AVAILABLE)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wvla")
+endif(WARN_VARIABLE_LENGTH_ARRAY_AVAILABLE)
 
 if(ENABLE_WERROR)
 	if (ENABLE_TRACING)

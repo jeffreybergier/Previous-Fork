@@ -762,13 +762,6 @@ const char *dsp_interrupt_name[32] = {
 	"Unknown", "Unknown", "Unknown", "Illegal"
 };
 
-static struct {
-	int limit;
-	int count;
-	uint32_t inst;
-	uint16_t pc;
-} dsp_error;
-
 
 /**********************************
  *	Emulator kernel
@@ -778,8 +771,6 @@ void dsp56k_init_cpu(void)
 {
 	dsp56k_disasm_init();
 	isDsp_in_disasm_mode = false;
-	memset(&dsp_error, 0, sizeof(dsp_error));
-	dsp_error.limit = 1;
 #if DSP_COUNT_IPS
 	start_time = SDL_GetTicks();
 	num_inst = 0;
@@ -1597,7 +1588,7 @@ static void dsp_write_reg(uint32_t numreg, uint32_t value)
 				dsp_set_interrupt(DSP_INTER_STACK_ERROR, 1);
 				dsp_core.registers[DSP_REG_SP] = value & (3<<DSP_SP_SE);
 				if (!isDsp_in_disasm_mode)
-					fprintf(stderr,"Dsp: Stack Overflow or Underflow\n");
+					Log_Printf(LOG_WARN, "Dsp: Stack Overflow or Underflow\n");
 				if (ExceptionDebugMask & EXCEPT_DSP)
 					DebugUI(REASON_DSP_EXCEPTION);
 			}
@@ -1640,7 +1631,7 @@ static void dsp_stack_push(uint32_t curpc, uint32_t cursr, uint16_t sshOnly)
 		/* Stack full, raise interrupt */
 		dsp_set_interrupt(DSP_INTER_STACK_ERROR, 1);
 		if (!isDsp_in_disasm_mode)
-			fprintf(stderr,"Dsp: Stack Overflow\n");
+			Log_Printf(LOG_WARN, "Dsp: Stack Overflow\n");
 		if (ExceptionDebugMask & EXCEPT_DSP)
 			DebugUI(REASON_DSP_EXCEPTION);
 	}
@@ -1677,7 +1668,7 @@ static void dsp_stack_pop(uint32_t *newpc, uint32_t *newsr)
 		/* Stack empty*/
 		dsp_set_interrupt(DSP_INTER_STACK_ERROR, 1);
 		if (!isDsp_in_disasm_mode)
-			fprintf(stderr,"Dsp: Stack underflow\n");
+			Log_Printf(LOG_WARN, "Dsp: Stack underflow\n");
 		if (ExceptionDebugMask & EXCEPT_DSP)
 			DebugUI(REASON_DSP_EXCEPTION);
 	}
@@ -1795,21 +1786,20 @@ static void dsp_update_rn_modulo(uint32_t numreg, int16_t modifier)
 	}
 
 
-	if (abs_modifier>modulo) {
-		if (abs_modifier&bufmask) {
-			fprintf(stderr,"Dsp: Modulo addressing result unpredictable\n");
+	if (abs_modifier&bufmask) {
+		if (abs_modifier>modulo) {
+			Log_Printf(LOG_WARN, "Dsp: Modulo addressing result unpredictable\n");
 		} else {
 			r_reg += modifier;
+
+			if (r_reg>hibound) {
+				r_reg -= modulo;
+			} else if (r_reg<lobound) {
+				r_reg += modulo;
+			}
 		}
 	} else {
 		r_reg += modifier;
-
-
-		if (r_reg>hibound) {
-			r_reg -= modulo;
-		} else if (r_reg<lobound) {
-			r_reg += modulo;
-		}
 	}
 
 	dsp_core.registers[DSP_REG_R0+numreg] = r_reg & BITMASK(16);
@@ -1993,26 +1983,11 @@ static void dsp_undefined(void)
 {
 	if (isDsp_in_disasm_mode == false) {
 		cur_inst_len = 0;
+		Log_Printf(LOG_WARN, "Dsp: 0x%04x: 0x%06x Illegal instruction\n",dsp_core.pc, cur_inst);
 		/* Add some artificial CPU cycles to avoid being stuck in an infinite loop */
 		dsp_core.instr_cycle += 100;
-
-		/* Rate limit identical messages. */
-		dsp_error.count++;
-		if (cur_inst != dsp_error.inst || dsp_core.pc != dsp_error.pc ||
-		    dsp_error.count >= dsp_error.limit) {
-			dsp_error.inst = cur_inst;
-			dsp_error.pc = dsp_core.pc;
-			fprintf(stderr, "Dsp: 0x%04hx: 0x%06x Illegal instruction (%dx times)\n",
-				dsp_error.pc, dsp_error.inst, dsp_error.count);
-			if (dsp_error.count >= dsp_error.limit) {
-				/* next message after 2x more hits */
-				dsp_error.limit *= 2;
-			} else {
-				dsp_error.limit = 1;
-			}
-			dsp_error.count = 0;
-		}
-	} else {
+	}
+	else {
 		cur_inst_len = 1;
 		dsp_core.instr_cycle = 0;
 	}

@@ -17,6 +17,7 @@ const char Reset_fileid[] = "Hatari reset.c";
 #include "scc.h"
 #include "screen.h"
 #include "tmc.h"
+#include "ncc.h"
 #include "bmap.h"
 #include "video.h"
 #include "debugcpu.h"
@@ -57,6 +58,7 @@ static int Reset_NeXT(bool bCold)
 
 	M68000_Reset();               /* Reset CPU */
 	TMC_Reset();                  /* Reset TMC Registers */
+	NCC_Reset();                  /* Reset NCC Registers and Cache */
 	BMAP_Reset();                 /* Reset BMAP Registers */
 	SCR_Reset();                  /* Reset System Control Registers */
 	RTC_Reset();                  /* Reset RTC and NVRAM */

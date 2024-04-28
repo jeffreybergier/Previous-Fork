@@ -2479,7 +2479,7 @@ uae_u32 m68k_disasm_2(TCHAR *buf, int bufsize, uaecptr pc, uae_u16 *bufpc, int b
 				buf = buf_out(buf, &bufsize, disasm_lc_hex(_T(" == $%08X")), seaddr2);
 			}
 		}
-#ifndef WINUAE_FOR_PREVIOUS
+#ifdef WINUAE_FOR_HATARI
 		/* outputting only single disassembly line, and there's profile info? */
 		if (Profile_CpuAddr_HasData(oldpc)) {
 # define PROFILE_OUTPUT_COLUMN 68

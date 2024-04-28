@@ -92,10 +92,7 @@ static inline int intlev(void) {
 
 extern void SCR_Reset(void);
 
-extern void SCR1_Read0(void);
-extern void SCR1_Read1(void);
-extern void SCR1_Read2(void);
-extern void SCR1_Read3(void);
+extern void SCR1_Read(void);
 
 extern void SCR2_Read0(void);
 extern void SCR2_Write0(void);
@@ -129,8 +126,8 @@ extern void color_video_interrupt(void);
 
 extern void Brightness_Write(void);
 
-extern uint8_t color_video_enabled(void);
-extern uint8_t brighness_video_enabled(void);
+extern bool color_video_enabled(void);
+extern bool brighness_video_enabled(void);
 
 #ifdef __cplusplus
 }

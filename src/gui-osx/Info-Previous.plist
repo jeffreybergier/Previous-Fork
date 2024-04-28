@@ -101,6 +101,8 @@
 	<string>3.1</string>
 	<key>Previous</key>
 	<string>SDL Cocoa App</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.13.0</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>

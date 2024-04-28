@@ -14,12 +14,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
-uint32_t nbic_reg_lget(uint32_t addr);
-uint32_t nbic_reg_wget(uint32_t addr);
-uint32_t nbic_reg_bget(uint32_t addr);
-void nbic_reg_lput(uint32_t addr, uint32_t val);
-void nbic_reg_wput(uint32_t addr, uint32_t val);
-void nbic_reg_bput(uint32_t addr, uint32_t val);
+uae_u32 nbic_reg_lget(uaecptr addr);
+uae_u32 nbic_reg_wget(uaecptr addr);
+uae_u32 nbic_reg_bget(uaecptr addr);
+void nbic_reg_lput(uaecptr addr, uae_u32 val);
+void nbic_reg_wput(uaecptr addr, uae_u32 val);
+void nbic_reg_bput(uaecptr addr, uae_u32 val);
 
 uint32_t nb_cpu_slot_lget(uint32_t addr);
 uint16_t nb_cpu_slot_wget(uint32_t addr);

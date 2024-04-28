@@ -424,27 +424,27 @@ public:
     ND_RAMDAC(NextDimension* nd) : ND_Addrbank(nd) {}
 
     uint32_t lget(uint32_t addr) const {
-        return bt463_bget(&nd->ramdac, addr) << 24;
+        return bt463_bget(&nd->ramdac, addr >> 2) << 24;
     }
 
     uint32_t wget(uint32_t addr) const {
-        return bt463_bget(&nd->ramdac, addr) << 8;
+        return bt463_bget(&nd->ramdac, addr >> 2) << 8;
     }
 
     uint32_t bget(uint32_t addr) const {
-        return bt463_bget(&nd->ramdac, addr);
+        return bt463_bget(&nd->ramdac, addr >> 2);
     }
 
     void lput(uint32_t addr, uint32_t l) const {
-        bt463_bput(&nd->ramdac, addr, l >> 24);
+        bt463_bput(&nd->ramdac, addr >> 2, l >> 24);
     }
 
     void wput(uint32_t addr, uint32_t w) const {
-        bt463_bput(&nd->ramdac, addr, w >> 8);
+        bt463_bput(&nd->ramdac, addr >> 2, w >> 8);
     }
 
     void bput(uint32_t addr, uint32_t b) const {
-        bt463_bput(&nd->ramdac, addr, b);
+        bt463_bput(&nd->ramdac, addr >> 2, b);
     }
 };
 

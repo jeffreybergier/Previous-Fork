@@ -186,7 +186,7 @@ static const char* ND_DRAM_BITS[] = {
     "10000000",        "20000000",        "40000000",    "80000000",
 };
 
-static const char* decodeBits(const char** bits, uae_u32 val) {
+static const char* decodeBits(const char** bits, uint32_t val) {
     static char buffer[512];
     char*       result = buffer;
     

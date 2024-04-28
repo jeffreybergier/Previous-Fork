@@ -45,7 +45,6 @@ const char Ramdac_fileid[] = "Previous ramdac.c";
 #define BT_REG_REV  0x20
 
 
-
 static void bt463_autoinc(bt463* ramdac) {
     ramdac->idx++;
     if(ramdac->idx > 2) {
@@ -62,8 +61,8 @@ static void bt463_autoinc_reg(bt463* ramdac) {
 }
 
 /* BT463 Registers */
-static uae_u32 bt463_read_reg(bt463* ramdac) {
-    uae_u32 result = 0;
+static uint32_t bt463_read_reg(bt463* ramdac) {
+    uint32_t result = 0;
     
     if ((ramdac->addr&0xFF)<0x10) {
         switch (ramdac->addr&0x0F) {
@@ -89,7 +88,7 @@ static uae_u32 bt463_read_reg(bt463* ramdac) {
     return result;
 }
 
-static void bt463_write_reg(bt463* ramdac, uae_u32 val) {
+static void bt463_write_reg(bt463* ramdac, uint32_t val) {
    
     if ((ramdac->addr&0xFF)<0x10) {
         switch (ramdac->addr&0x0F) {
@@ -110,8 +109,8 @@ static void bt463_write_reg(bt463* ramdac, uae_u32 val) {
 }
 
 /* BT463 Cursor Color */
-static uae_u32 bt463_read_ccr(bt463* ramdac) {
-    uae_u32 result = 0;
+static uint32_t bt463_read_ccr(bt463* ramdac) {
+    uint32_t result = 0;
     
     if ((ramdac->addr&0xFF)<2) {
         result = ramdac->ccr[(ramdac->addr&1)*3+ramdac->idx];
@@ -121,7 +120,7 @@ static uae_u32 bt463_read_ccr(bt463* ramdac) {
     return result;
 }
 
-static void bt463_write_ccr(bt463* ramdac, uae_u32 val) {
+static void bt463_write_ccr(bt463* ramdac, uint32_t val) {
     
     if ((ramdac->addr&0xFF)<4) {
         ramdac->ccr[(ramdac->addr&3)*3+ramdac->idx] = val & 0xFF;
@@ -130,8 +129,8 @@ static void bt463_write_ccr(bt463* ramdac, uae_u32 val) {
 }
 
 /* BT463 Window Type Table */
-static uae_u32 bt463_read_wtt(bt463* ramdac) {
-    uae_u32 result = 0;
+static uint32_t bt463_read_wtt(bt463* ramdac) {
+    uint32_t result = 0;
     
     if ((ramdac->addr&0xFF)<0x10) {
         switch (ramdac->idx) {
@@ -154,7 +153,7 @@ static uae_u32 bt463_read_wtt(bt463* ramdac) {
     return result;
 }
 
-static void bt463_write_wtt(bt463* ramdac, uae_u32 val) {
+static void bt463_write_wtt(bt463* ramdac, uint32_t val) {
     
     if ((ramdac->addr&0xFF)<0x10) {
         switch (ramdac->idx) {
@@ -176,8 +175,8 @@ static void bt463_write_wtt(bt463* ramdac, uae_u32 val) {
 }
 
 /* BT463 Palette RAM */
-static uae_u32 bt463_read_palette(bt463* ramdac) {
-    uae_u32 result = 0;
+static uint32_t bt463_read_palette(bt463* ramdac) {
+    uint32_t result = 0;
     
     if (ramdac->addr<0x210) {
         result = ramdac->ram[ramdac->addr*3+ramdac->idx];
@@ -187,7 +186,7 @@ static uae_u32 bt463_read_palette(bt463* ramdac) {
     return result;
 }
 
-static void bt463_write_palette(bt463* ramdac, uae_u32 val) {
+static void bt463_write_palette(bt463* ramdac, uint32_t val) {
     
     if (ramdac->addr<0x210) {
         ramdac->ram[ramdac->addr*3+ramdac->idx] = val & 0xFF;
@@ -196,18 +195,18 @@ static void bt463_write_palette(bt463* ramdac, uae_u32 val) {
 }
 
 
-
 /* BT463 Host Interface */
-uae_u32 bt463_bget(bt463* ramdac, uaecptr addr) {
+uint32_t bt463_bget(bt463* ramdac, uint32_t addr) {
+    Log_Printf(LOG_RAMDAC_LEVEL,"[RAMDAC] Read from register %d", addr & 3);
 
-    switch(addr & 0xF) {
+    switch(addr & 3) {
         case 0:
             ramdac->idx = 0;
             return ramdac->addr & 0xFF;
-        case 0x4:
+        case 1:
             ramdac->idx = 0;
             return (ramdac->addr >> 8) & 0x0F;
-        case 0x8:
+        case 2:
             switch (ramdac->addr&0x0F00) {
                 case BT_ADDR_CCR:
                     return bt463_read_ccr(ramdac);
@@ -219,25 +218,27 @@ uae_u32 bt463_bget(bt463* ramdac, uaecptr addr) {
                 default: break;
             }
             break;
-        case 0xC:
+        case 3:
             return bt463_read_palette(ramdac);
     }
     return 0;
 }
 
-void bt463_bput(bt463* ramdac, uaecptr addr, uae_u32 b) {
-    switch(addr & 0xF) {
-        case 0x0:
+void bt463_bput(bt463* ramdac, uint32_t addr, uint32_t b) {
+    Log_Printf(LOG_RAMDAC_LEVEL,"[RAMDAC] Write %02x to register %d", b, addr & 3);
+
+    switch(addr & 3) {
+        case 0:
             ramdac->addr &= 0x0F00;
             ramdac->addr |= b & 0xFF;
             ramdac->idx = 0;
             break;
-        case 0x4:
+        case 1:
             ramdac->addr &= 0x00FF;
             ramdac->addr |= (b & 0x0F) << 8;
             ramdac->idx = 0;
             break;
-        case 0x8:
+        case 2:
             switch (ramdac->addr&0x0F00) {
                 case BT_ADDR_CCR:
                     bt463_write_ccr(ramdac, b);
@@ -253,8 +254,22 @@ void bt463_bput(bt463* ramdac, uaecptr addr, uae_u32 b) {
                     break;
             }
             break;
-        case 0xC:
+        case 3:
             bt463_write_palette(ramdac, b);
             break;
     }
+}
+
+
+/* BT463 Device for CPU Board */
+static bt463 ramdac68k;
+
+void RAMDAC_Read(void) {
+    Log_Printf(LOG_RAMDAC_LEVEL,"[RAMDAC] Read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
+    IoMem_WriteByte(IoAccessCurrentAddress, bt463_bget(&ramdac68k, IoAccessCurrentAddress & 3));
+}
+
+void RAMDAC_Write(void) {
+    Log_Printf(LOG_RAMDAC_LEVEL,"[RAMDAC] Write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
+    bt463_bput(&ramdac68k, IoAccessCurrentAddress & 3, IoMem_ReadByte(IoAccessCurrentAddress));
 }
