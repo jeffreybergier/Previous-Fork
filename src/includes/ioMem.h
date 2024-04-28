@@ -87,13 +87,13 @@ extern void IoMem_UnInit(void);
 
 extern uint8_t IoMem_ReadBytePort(void);
 
-extern uint32_t IoMem_bget(uint32_t addr);
-extern uint32_t IoMem_wget(uint32_t addr);
-extern uint32_t IoMem_lget(uint32_t addr);
+extern uae_u32 IoMem_bget(uaecptr addr);
+extern uae_u32 IoMem_wget(uaecptr addr);
+extern uae_u32 IoMem_lget(uaecptr addr);
 
-extern void IoMem_bput(uint32_t addr, uint32_t val);
-extern void IoMem_wput(uint32_t addr, uint32_t val);
-extern void IoMem_lput(uint32_t addr, uint32_t val);
+extern void IoMem_bput(uaecptr addr, uae_u32 val);
+extern void IoMem_wput(uaecptr addr, uae_u32 val);
+extern void IoMem_lput(uaecptr addr, uae_u32 val);
 
 extern void IoMem_BusErrorEvenReadAccess(void);
 extern void IoMem_BusErrorOddReadAccess(void);

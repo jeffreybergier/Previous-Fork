@@ -137,7 +137,7 @@ uint8_t IoMem_ReadBytePort(void)
 /**
  * Handle byte read access from IO memory.
  */
-uint32_t IoMem_bget(uint32_t addr)
+uae_u32 IoMem_bget(uaecptr addr)
 {
 	uint8_t val;
 
@@ -169,7 +169,7 @@ uint32_t IoMem_bget(uint32_t addr)
 /**
  * Handle word read access from IO memory.
  */
-uint32_t IoMem_wget(uint32_t addr)
+uae_u32 IoMem_wget(uaecptr addr)
 {
 	uint16_t val;
 
@@ -210,7 +210,7 @@ uint32_t IoMem_wget(uint32_t addr)
 /**
  * Handle long-word read access from IO memory.
  */
-uint32_t IoMem_lget(uint32_t addr)
+uae_u32 IoMem_lget(uaecptr addr)
 {
 	uint32_t val;
 
@@ -251,7 +251,7 @@ uint32_t IoMem_lget(uint32_t addr)
 /**
  * Handle byte write access to IO memory.
  */
-void IoMem_bput(uint32_t addr, uint32_t val)
+void IoMem_bput(uaecptr addr, uae_u32 val)
 {
 	LOG_TRACE(TRACE_IOMEM_WR, "IO write.b $%08x = $%02x\n", addr, val&0xff);
 
@@ -290,7 +290,7 @@ void IoMem_bput(uint32_t addr, uint32_t val)
 /**
  * Handle word write access to IO memory.
  */
-void IoMem_wput(uint32_t addr, uint32_t val)
+void IoMem_wput(uaecptr addr, uae_u32 val)
 {
 	LOG_TRACE(TRACE_IOMEM_WR, "IO write.w $%08x = $%04x\n", addr, val&0xffff);
 
@@ -332,7 +332,7 @@ void IoMem_wput(uint32_t addr, uint32_t val)
 /**
  * Handle long-word write access to IO memory.
  */
-void IoMem_lput(uint32_t addr, uint32_t val)
+void IoMem_lput(uaecptr addr, uae_u32 val)
 {
 	LOG_TRACE(TRACE_IOMEM_WR, "IO write.l $%08x = $%08x\n", addr, val);
 

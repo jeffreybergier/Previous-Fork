@@ -158,16 +158,6 @@ check_struct_has_member("struct dirent" d_namelen
 # Other CFLAGS:
 # #############
 
-# GCC/Clang stack/pointer debugging (~2x slowdown)
-if(ENABLE_ASAN)
-	# better backtraces
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fno-omit-frame-pointer")
-	# enable stack protection
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
-	# enable AddressSanitizer with global variable tracking
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-common")
-endif(ENABLE_ASAN)
-
 # GCC/Clang specific flags:
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	# We want to allow ‘for’-loop initial declarations a la for(int i=0; ...)

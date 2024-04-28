@@ -167,8 +167,8 @@ static void (*nbic_write_reg[8])(uint32_t, uint8_t) = {
 };
 
 
-uint32_t nbic_reg_lget(uint32_t addr) {
-	uint32_t val = 0;
+uae_u32 nbic_reg_lget(uaecptr addr) {
+	uae_u32 val = 0;
 	
 	if (addr&3) {
 		Log_Printf(LOG_WARN, "[NBIC] Unaligned access at %08X.",addr);
@@ -187,8 +187,8 @@ uint32_t nbic_reg_lget(uint32_t addr) {
 	return val;
 }
 
-uint32_t nbic_reg_wget(uaecptr addr) {
-	uint32_t val = 0;
+uae_u32 nbic_reg_wget(uaecptr addr) {
+	uae_u32 val = 0;
 	
 	if (addr&1) {
 		Log_Printf(LOG_WARN, "[NBIC] Unaligned access at %08X.",addr);
@@ -205,7 +205,7 @@ uint32_t nbic_reg_wget(uaecptr addr) {
 	return val;
 }
 
-uint32_t nbic_reg_bget(uaecptr addr) {
+uae_u32 nbic_reg_bget(uaecptr addr) {
 	if ((addr&0x0000FFFF)>7) {
 		return nbic_bus_error_read(addr);
 	} else {
@@ -213,7 +213,7 @@ uint32_t nbic_reg_bget(uaecptr addr) {
 	}
 }
 
-void nbic_reg_lput(uaecptr addr, uint32_t l) {
+void nbic_reg_lput(uaecptr addr, uae_u32 l) {
 	if (addr&3) {
 		Log_Printf(LOG_WARN, "[NBIC] Unaligned access at %08X.",addr);
 		abort();
@@ -229,7 +229,7 @@ void nbic_reg_lput(uaecptr addr, uint32_t l) {
 	}
 }
 
-void nbic_reg_wput(uaecptr addr, uint32_t w) {
+void nbic_reg_wput(uaecptr addr, uae_u32 w) {
 	if (addr&1) {
 		Log_Printf(LOG_WARN, "[NBIC] Unaligned access at %08X.",addr);
 		abort();
@@ -243,7 +243,7 @@ void nbic_reg_wput(uaecptr addr, uint32_t w) {
 	}
 }
 
-void nbic_reg_bput(uaecptr addr, uint32_t b) {
+void nbic_reg_bput(uaecptr addr, uae_u32 b) {
 	if ((addr&0x0000FFFF)>7) {
 		nbic_bus_error_write(addr,0);
 	} else {

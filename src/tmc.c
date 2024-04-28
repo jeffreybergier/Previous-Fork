@@ -345,10 +345,10 @@ static void (*tmc_write_vid_reg[16])(uint8_t) = {
 };
 
 
-uint32_t tmc_lget(uaecptr addr) {
-	uint32_t val = 0;
+uae_u32 tmc_lget(uaecptr addr) {
+	uae_u32 val = 0;
 	
-    if (addr%4) {
+    if (addr&3) {
         Log_Printf(LOG_WARN, "[TMC] Unaligned access.");
         abort();
     }
@@ -376,10 +376,10 @@ uint32_t tmc_lget(uaecptr addr) {
 	return val;
 }
 
-uint32_t tmc_wget(uaecptr addr) {
-    uint32_t val = 0;
+uae_u32 tmc_wget(uaecptr addr) {
+	uae_u32 val = 0;
     
-	if (addr%2) {
+	if (addr&1) {
 		Log_Printf(LOG_WARN, "[TMC] Unaligned access.");
 		abort();
 	}
@@ -403,7 +403,7 @@ uint32_t tmc_wget(uaecptr addr) {
 	return val;
 }
 
-uint32_t tmc_bget(uaecptr addr) {
+uae_u32 tmc_bget(uaecptr addr) {
 	if ((addr&0xFFFFF00)==TMC_ADB_ADDR_MASK) {
 		return adb_bget(addr);
 	}
@@ -421,8 +421,8 @@ uint32_t tmc_bget(uaecptr addr) {
     return 0;
 }
 
-void tmc_lput(uaecptr addr, uint32_t l) {
-	if (addr%4) {
+void tmc_lput(uaecptr addr, uae_u32 l) {
+	if (addr&3) {
 		Log_Printf(LOG_WARN, "[TMC] Unaligned access.");
 		abort();
 	}
@@ -449,8 +449,8 @@ void tmc_lput(uaecptr addr, uint32_t l) {
 	}
 }
 
-void tmc_wput(uaecptr addr, uint32_t w) {
-	if (addr%2) {
+void tmc_wput(uaecptr addr, uae_u32 w) {
+	if (addr&1) {
 		Log_Printf(LOG_WARN, "[TMC] Unaligned access.");
 		abort();
 	}
@@ -473,7 +473,7 @@ void tmc_wput(uaecptr addr, uint32_t w) {
 	}
 }
 
-void tmc_bput(uaecptr addr, uint32_t b) {
+void tmc_bput(uaecptr addr, uae_u32 b) {
 	if ((addr&0xFFFFF00)==TMC_ADB_ADDR_MASK) {
 		adb_bput(addr, b);
 		return;
