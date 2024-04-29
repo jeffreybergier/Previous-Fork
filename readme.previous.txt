@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.1
+                                  Previous 3.2
 
 
 
@@ -398,8 +398,9 @@ Previous v3.1:
   > Improves key mapping for Backquote and Backslash.
   > Fixes bug that caused kernel panics on 68040 during network transfers.
 
-Previous v3.2 (unreleased):
+Previous v3.2:
   > Adds dummy Nitro cache for passing power-on DRAM test.
+  > Adds RAMDAC to CPU board.
   > Improves accuracy of the memory map for devices.
   > Fixes bug in DSP modulo addressing mode that could cause bad results.
 
