@@ -56,6 +56,8 @@ Less common machines can be emulated using custom options:
      Select NeXTstation Turbo and set CPU clock to 25 MHz
   NeXTcube, NeXTstation or NeXTstation Color with board revision 1:
      Select one of the above machines and set RTC chip to MCCS1850
+  NeXTstation Turbo (Color) or NeXTcube Turbo with Nitro accelerator board:
+     Select one of the above machines and set CPU clock to 40 MHz
 
 Note that some hardware is only supported by later operating system versions.
 Listed below are the system and ROM versions that introduced support for new
