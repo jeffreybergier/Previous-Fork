@@ -116,7 +116,7 @@ static void DebugInfo_RegAddr(FILE *fp, uint32_t arg)
 	bool forDsp;
 	char regname[3];
 	uint32_t *reg32, regvalue, mask;
-	char cmdbuf[12], addrbuf[6];
+	char cmdbuf[6], addrbuf[12];
 	char *argv[] = { cmdbuf, addrbuf };
 
 	regname[0] = (arg>>24)&0xff;
@@ -221,7 +221,7 @@ static char *parse_filename;
 static void DebugInfo_FileParse(FILE *fp, uint32_t dummy)
 {
 	if (parse_filename) {
-		DebugUI_ParseFile(parse_filename, true);
+		DebugUI_ParseFile(parse_filename, true, true);
 	} else {
 		fputs("ERROR: debugger input file name to parse isn't set!\n", stderr);
 	}
@@ -263,7 +263,7 @@ static void DebugInfo_Default(FILE *fp, uint32_t dummy)
 		fprintf(fp, "$%x\n", DSP_GetPC());
 	else
 		fprintf(fp, "N/A\n");
-	return; // FIXME: for now we do not disassemble. Disasm crashes if not in super user mode.
+	return; /* FIXME: for now we do not disassemble. Disasm crashes if not in super user mode. */
 
 	Disasm(fp, pc, &nextpc, 1);
 }

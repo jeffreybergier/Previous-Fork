@@ -1,23 +1,19 @@
 /*
-  Hatari - main.h
+  Previous - main.h
 
   This file is distributed under the GNU General Public License, version 2
   or at your option any later version. Read the file gpl.txt for details.
 */
 
-#ifndef HATARI_MAIN_H
-#define HATARI_MAIN_H
+#ifndef PREV_MAIN_H
+#define PREV_MAIN_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 /* Name and version for window title: */
-#define PROG_NAME "Previous 2.9"
-
-/* Messages for window title: */
-#define MOUSE_LOCK_MSG "Mouse is locked. Ctrl-click to release."
-
+#define PROG_NAME "Previous 3.2"
 
 #include "config.h"
 
@@ -28,6 +24,10 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
+
+#if defined(_MSC_VER)
+#include "vs-fix.h"
+#endif
 
 #if __GNUC__ >= 3
 # define likely(x)      __builtin_expect (!!(x), 1)
@@ -92,4 +92,4 @@ extern const char* Main_SpeedMsg(void);
 }
 #endif /* __cplusplus */
 
-#endif /* ifndef HATARI_MAIN_H */
+#endif /* ifndef PREV_MAIN_H */

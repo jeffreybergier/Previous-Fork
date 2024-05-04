@@ -1,13 +1,12 @@
 /*
-  Hatari - screen.c
+  Previous - screen.c
 
-  This file is distributed under the GNU Public License, version 2 or at your
-  option any later version. Read the file gpl.txt for details.
+  This file is distributed under the GNU General Public License, version 2
+  or at your option any later version. Read the file gpl.txt for details.
 
- (SC) Simon Schubiger - most of it rewritten for Previous NeXT emulator
+  This file contains the SDL interface for video output.
 */
-
-const char Screen_fileid[] = "Previous fast_screen.c : " __DATE__ " " __TIME__;
+const char Screen_fileid[] = "Previous screen.c";
 
 #include "main.h"
 #include "host.h"
@@ -184,21 +183,43 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 }
 
 /*
+ Blank screen
+ */
+void Screen_Blank(SDL_Texture* tex) {
+	void* pixels;
+	int   d;
+	SDL_LockTexture(tex, NULL, &pixels, &d);
+	uint32_t* dst = (uint32_t*)pixels;
+	for(int i = 0; i < (NeXT_SCRN_WIDTH * NeXT_SCRN_HEIGHT); i++) {
+		*dst++ = 0;
+	}
+	SDL_UnlockTexture(tex);
+}
+
+/*
  Blit NeXT framebuffer to texture.
  */
 static bool blitScreen(SDL_Texture* tex) {
 	if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DIMENSION) {
 		uint32_t* vram = nd_vram_for_slot(ND_SLOT(ConfigureParams.Screen.nMonitorNum));
 		if (vram) {
-			Screen_BlitDimension(vram, tex);
+			if (nd_video_enabled(ND_SLOT(ConfigureParams.Screen.nMonitorNum))) {
+				Screen_BlitDimension(vram, tex);
+			} else {
+				Screen_Blank(tex);
+			}
 			return true;
 		}
 	} else {
 		if (NEXTVideo) {
-			if (ConfigureParams.System.bColor) {
-				blitColor(tex);
+			if (Video_Enabled()) {
+				if (ConfigureParams.System.bColor) {
+					blitColor(tex);
+				} else {
+					blitBW(tex);
+				}
 			} else {
-				blitBW(tex);
+				Screen_Blank(tex);
 			}
 			return true;
 		}
