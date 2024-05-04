@@ -289,7 +289,7 @@ bool ShortCut_CheckKeys(int modkey, int symkey, bool press)
 	if (symkey == SDLK_UNKNOWN)
 		return false;
 
-	if ((modkey&KMOD_CTRL) && (modkey&KMOD_ALT))
+	if ((modkey&SDL_KMOD_CTRL) && (modkey&SDL_KMOD_ALT))
 		key = ShortCut_CheckKey(symkey, ConfigureParams.Shortcut.withModifier);
 	else
 		key = ShortCut_CheckKey(symkey, ConfigureParams.Shortcut.withoutModifier);

@@ -145,7 +145,7 @@ bool Main_PauseEmulation(bool visualize) {
 	}
 
 	/* Show mouse pointer and set it to the middle of the screen */
-	SDL_ShowCursor(SDL_ENABLE);
+	SDL_ShowCursor();
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
 
 	return true;
@@ -168,7 +168,7 @@ bool Main_UnPauseEmulation(void) {
 
 	/* Set mouse pointer to the middle of the screen and hide it */
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
-	SDL_ShowCursor(SDL_DISABLE);
+	SDL_HideCursor();
 
 	Main_ResetKeys();
 
@@ -190,7 +190,7 @@ static void Main_HaltDialog(void) {
 	/* flush key up events to avoid unintendedly exiting the alert dialog */
 	SDL_ResetKeyboard();
 	SDL_PumpEvents();
-	SDL_FlushEvent(SDL_KEYUP);
+	SDL_FlushEvent(SDL_EVENT_KEY_UP);
 	if (!DlgAlert_Query("Fatal error: CPU halted!\n\nPress OK to restart CPU or cancel to quit.")) {
 		Main_RequestQuit(false);
 	}
@@ -274,12 +274,12 @@ void Main_SetMouseGrab(bool grab) {
 		if (bEmulationActive) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
 			SDL_SetRelativeMouseMode(SDL_TRUE);
-			SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
+			SDL_SetWindowMouseGrab(sdlWindow, SDL_TRUE);
 			Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 		}
 	} else {
 		SDL_SetRelativeMouseMode(SDL_FALSE);
-		SDL_SetWindowGrab(sdlWindow, SDL_FALSE);
+		SDL_SetWindowMouseGrab(sdlWindow, SDL_FALSE);
 		Main_SetTitle(NULL);
 	}
 }
@@ -390,7 +390,7 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	nDeltaY = pEvent->motion.yrel;
 
 	/* Get all mouse event to clean the queue and sum them */
-	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
+	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_MOTION);
 
 	for (int i = 0; i < nEvents; i++) {
 		nDeltaX += mouse_event[i].motion.xrel;
@@ -457,24 +457,24 @@ void Main_ResetKeys(void) {
 	SDL_ResetKeyboard();
 
 	/* Send magic key sequence to avoid stuck keys */
-	event.type                = SDL_KEYDOWN;
+	event.type                = SDL_EVENT_KEY_DOWN;
 	event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
 	event.key.keysym.sym      = SDLK_LCTRL;
-	event.key.keysym.mod      = KMOD_LCTRL;
+	event.key.keysym.mod      = SDL_KMOD_LCTRL;
 	SDL_PushEvent(&event);
 
 	if (ConfigureParams.System.bADB) {
-		event.type                = SDL_KEYUP;
+		event.type                = SDL_EVENT_KEY_UP;
 		event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
 		event.key.keysym.sym      = SDLK_LCTRL;
-		event.key.keysym.mod      = KMOD_LCTRL;
+		event.key.keysym.mod      = SDL_KMOD_LCTRL;
 		SDL_PushEvent(&event);
 	}
 	
-	event.type                = SDL_KEYUP;
+	event.type                = SDL_EVENT_KEY_UP;
 	event.key.keysym.scancode = SDL_SCANCODE_Q;
 	event.key.keysym.sym      = SDLK_q;
-	event.key.keysym.mod      = KMOD_NONE;
+	event.key.keysym.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&event);
 }
 
@@ -610,33 +610,28 @@ void Main_EventHandler(void) {
 			continue;
 		}
 		switch (event.type) {
-			case SDL_WINDOWEVENT:
-				switch(event.window.event) {
-					case SDL_WINDOWEVENT_CLOSE:
-						SDL_FlushEvent(SDL_QUIT); // remove SDL_Quit if pending
-						Main_RequestQuit(true);
-						break;
-					case SDL_WINDOWEVENT_RESIZED:
-						Screen_SizeChanged();
-						break;
-					default:
-						break;
-				}
+			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+				SDL_FlushEvent(SDL_EVENT_QUIT); // remove SDL_Quit if pending
+				Main_RequestQuit(true);
 				continue;
 
-			case SDL_QUIT:
+			case SDL_EVENT_WINDOW_RESIZED:
+				Screen_SizeChanged();
+				continue;
+
+			case SDL_EVENT_QUIT:
 				Main_RequestQuit(true);
 				break;
 
-			case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
+			case SDL_EVENT_MOUSE_MOTION:               /* Read/Update internal mouse position */
 				Main_HandleMouseMotion(&event);
 				bContinueProcessing = false;
 				break;
 
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					if (bGrabMouse) {
-						if (SDL_GetModState() & KMOD_CTRL) {
+						if (SDL_GetModState() & SDL_KMOD_CTRL) {
 							bGrabMouse = false;
 							Main_SetMouseGrab(bGrabMouse);
 							break;
@@ -664,7 +659,7 @@ void Main_EventHandler(void) {
 				}
 				break;
 
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				if (event.button.button == SDL_BUTTON_LEFT) {
 #ifdef ENABLE_RENDERING_THREAD
 					Keymap_MouseUp(true);
@@ -682,7 +677,7 @@ void Main_EventHandler(void) {
 				}
 				break;
 
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 #ifdef ENABLE_RENDERING_THREAD
 				Keymap_MouseWheel(&event.wheel);
 #else
@@ -690,7 +685,7 @@ void Main_EventHandler(void) {
 #endif
 				break;
 
-			case SDL_KEYDOWN:
+			case SDL_EVENT_KEY_DOWN:
 				if (event.key.repeat) {
 					break;
 				}
@@ -705,7 +700,7 @@ void Main_EventHandler(void) {
 #endif
 				break;
 
-			case SDL_KEYUP:
+			case SDL_EVENT_KEY_UP:
 				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, false)) {
 					break;
 				}

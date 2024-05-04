@@ -30,12 +30,12 @@ int inet_aton(const char *cp, struct in_addr *addr);
 /* -- SLIRP -- */
 
 /* queue prototypes */
-queueADT	slirpq;
+queueADT slirpq;
 
 int slirp_inited;
 int slirp_started;
-static SDL_mutex *slirp_mutex = NULL;
-SDL_Thread *tick_func_handle;
+static mutex_t *slirp_mutex = NULL;
+thread_t *tick_func_handle;
 
 //Is slirp initalized?
 //Is set to true from the init, and false on ethernet disconnect
@@ -51,11 +51,11 @@ void slirp_output (const unsigned char *pkt, int pkt_len)
 {
     struct queuepacket *p;
     p=(struct queuepacket *)malloc(sizeof(struct queuepacket));
-    SDL_LockMutex(slirp_mutex);
+    host_mutex_lock(slirp_mutex);
     p->len=pkt_len;
     memcpy(p->data,pkt,pkt_len);
     QueueEnter(slirpq,p);
-    SDL_UnlockMutex(slirp_mutex);
+    host_mutex_unlock(slirp_mutex);
     Log_Printf(LOG_EN_SLIRP_LEVEL, "[SLIRP] Output packet with %i bytes to queue",pkt_len);
 }
 
@@ -74,9 +74,9 @@ static void slirp_tick(void)
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
         FD_ZERO(&xfds);
-        SDL_LockMutex(slirp_mutex);
+        host_mutex_lock(slirp_mutex);
         timeout=slirp_select_fill(&nfds,&rfds,&wfds,&xfds); //this can crash
-        SDL_UnlockMutex(slirp_mutex);
+        host_mutex_unlock(slirp_mutex);
         
         if(timeout<0)
             timeout=500;
@@ -85,9 +85,9 @@ static void slirp_tick(void)
         
         ret2 = select(nfds + 1, &rfds, &wfds, &xfds, &tv);
         if(ret2>=0){
-            SDL_LockMutex(slirp_mutex);
+            host_mutex_lock(slirp_mutex);
             slirp_select_poll(&rfds, &wfds, &xfds);
-            SDL_UnlockMutex(slirp_mutex);
+            host_mutex_unlock(slirp_mutex);
         }
     }
 }
@@ -99,9 +99,9 @@ static void slirp_rip_tick(void)
     if (slirp_started)
     {
         Log_Printf(LOG_EN_SLIRP_LEVEL, "[SLIRP] Routing table broadcast");
-        SDL_LockMutex(slirp_mutex);
+        host_mutex_lock(slirp_mutex);
         slirp_rip_broadcast();
-        SDL_UnlockMutex(slirp_mutex);
+        host_mutex_unlock(slirp_mutex);
     }
 }
 
@@ -139,7 +139,7 @@ static int tick_func(void *arg)
 
 void enet_slirp_queue_poll(void)
 {
-    SDL_LockMutex(slirp_mutex);
+    host_mutex_lock(slirp_mutex);
     if (QueuePeek(slirpq)>0)
     {
         struct queuepacket *qp;
@@ -148,27 +148,25 @@ void enet_slirp_queue_poll(void)
         enet_receive(qp->data,qp->len);
         free(qp);
     }
-    SDL_UnlockMutex(slirp_mutex);
+    host_mutex_unlock(slirp_mutex);
 }
 
 void enet_slirp_input(uint8_t *pkt, int pkt_len) {
     if (slirp_started) {
         Log_Printf(LOG_EN_SLIRP_LEVEL, "[SLIRP] Input packet with %i bytes",enet_tx_buffer.size);
-        SDL_LockMutex(slirp_mutex);
+        host_mutex_lock(slirp_mutex);
         slirp_input(pkt,pkt_len);
-        SDL_UnlockMutex(slirp_mutex);
+        host_mutex_unlock(slirp_mutex);
     }
 }
 
 void enet_slirp_stop(void) {
-    int ret;
-    
     if (slirp_started) {
         Log_Printf(LOG_WARN, "Stopping SLIRP");
         slirp_started=0;
         QueueDestroy(slirpq);
-        SDL_DestroyMutex(slirp_mutex);
-        SDL_WaitThread(tick_func_handle, &ret);
+        host_mutex_destroy(slirp_mutex);
+        host_thread_wait(tick_func_handle);
     }
 }
 
@@ -187,8 +185,8 @@ void enet_slirp_start(uint8_t *mac) {
         memcpy(client_ethaddr, mac, 6);
         slirp_started=1;
         slirpq = QueueCreate();
-        slirp_mutex=SDL_CreateMutex();
-        tick_func_handle=SDL_CreateThread(tick_func,"SLiRPTickThread", (void *)NULL);
+        slirp_mutex=host_mutex_create();
+        tick_func_handle=host_thread_create(tick_func,"SLiRPTickThread", (void *)NULL);
     }
     
     /* (re)start local nfs deamon */

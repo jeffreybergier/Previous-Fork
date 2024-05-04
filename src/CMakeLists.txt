@@ -23,7 +23,7 @@ if(WIN32)
 endif(WIN32)
 
 include_directories(includes debug dsp softfloat dimension slirp
-		    ${CMAKE_BINARY_DIR} ${SDL2_INCLUDE_DIRS} cpu)
+		    ${CMAKE_BINARY_DIR} ${SDL3_INCLUDE_DIRS} cpu)
 
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
@@ -88,7 +88,7 @@ if(ENABLE_OSX_BUNDLE)
 			# Copy ROM Images to Bundle
 			COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/*.BIN ${BUNDLE_CONTENTS}/Resources/
 			# Copy Frameworks to Bundle
-			COMMAND cp -R ${SDL2_LIBDIR} ${BUNDLE_CONTENTS}/Frameworks/
+			COMMAND cp -R ~/Library/Frameworks/SDL3.xcframework/macos-arm64_x86_64/SDL3.framework ${BUNDLE_CONTENTS}/Frameworks/
 			COMMAND ${COPY_PNG}
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 	)
@@ -112,12 +112,12 @@ else()
 	add_executable(${APP_NAME} ${SOURCES})
 endif(ENABLE_OSX_BUNDLE)
 
-if(SDL2_OTHER_CFLAGS)
-	target_compile_definitions(${APP_NAME} PRIVATE ${SDL2_OTHER_CFLAGS})
-	# message(STATUS "Additional CFLAGS of SDL: ${SDL2_OTHER_CFLAGS}")
-endif(SDL2_OTHER_CFLAGS)
+if(SDL3_OTHER_CFLAGS)
+	target_compile_definitions(${APP_NAME} PRIVATE ${SDL3_OTHER_CFLAGS})
+	# message(STATUS "Additional CFLAGS of SDL: ${SDL3_OTHER_CFLAGS}")
+endif(SDL3_OTHER_CFLAGS)
 
-target_link_libraries(${APP_NAME} Debug GuiSdl UaeCpu DSP Dimension Slirp SoftFloat ${SDL2_LIBRARIES})
+target_link_libraries(${APP_NAME} Debug GuiSdl UaeCpu DSP Dimension Slirp SoftFloat ${SDL3_LIBRARIES})
 
 if(Math_FOUND AND NOT APPLE)
 	target_link_libraries(${APP_NAME} ${MATH_LIBRARY})

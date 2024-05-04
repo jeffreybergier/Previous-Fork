@@ -20,7 +20,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare -Wno-strict-overflow")
 endif(CMAKE_COMPILER_IS_GNUCC)
 
-include_directories(../ditool ${SDL2_INCLUDE_DIRS})
+include_directories(../ditool ${SDL3_INCLUDE_DIRS})
 
 add_library(Slirp
             bootp.c cksum.c if.c ip_icmp.c ip_input.c ip_output.c 
@@ -34,4 +34,4 @@ add_library(Slirp
             nfs/FileTableNFSD.cpp ../ditool/DiskImage.cpp ../ditool/Partition.cpp ../ditool/UFS.cpp ../ditool/VirtualFS.cpp
 			)
 
-target_link_libraries(Slirp PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(Slirp PRIVATE ${SDL3_LIBRARIES})

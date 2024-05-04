@@ -22,7 +22,7 @@ class NDSDL {
     SDL_Window*   ndWindow;
     SDL_Renderer* ndRenderer;
     SDL_Texture*  ndTexture;
-    SDL_atomic_t  blitNDFB;
+    SDL_AtomicInt blitNDFB;
 
 #ifdef ENABLE_RENDERING_THREAD
     volatile bool doRepaint;

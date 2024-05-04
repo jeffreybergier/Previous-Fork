@@ -47,7 +47,7 @@ void NDSDL::repaint(void) {
         Screen_Blank(ndTexture);
     }
     SDL_RenderClear(ndRenderer);
-    SDL_RenderCopy(ndRenderer, ndTexture, NULL, NULL);
+    SDL_RenderTexture(ndRenderer, ndTexture, NULL, NULL);
     SDL_RenderPresent(ndRenderer);
 }
 
@@ -56,18 +56,12 @@ void NDSDL::init(void) {
     char title[32], name[32];
     SDL_Rect r = {0,0,1120,832};
 
-#ifdef ENABLE_RENDERING_THREAD
-    SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
-#else
-    uint32_t vsync_flag = 0;
-#endif
-
     if (!ndWindow) {
         SDL_GetWindowPosition(sdlWindow, &x, &y);
         SDL_GetWindowSize(sdlWindow, &w, &h);
         h = (w * 832) / 1120;
         snprintf(title, sizeof(title), "NeXTdimension (Slot %i)", slot);
-        ndWindow = SDL_CreateWindow(title, x+14*slot, y+14*slot, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI);
+        ndWindow = SDL_CreateWindow(title, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
         
         if (!ndWindow) {
             fprintf(stderr,"[ND] Slot %i: Failed to create window! (%s)\n", slot, SDL_GetError());
@@ -77,16 +71,16 @@ void NDSDL::init(void) {
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
-            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
+#ifdef ENABLE_RENDERING_THREAD
+            ndRenderer = SDL_CreateRenderer(ndWindow, NULL, SDL_RENDERER_PRESENTVSYNC);
+#else
+            ndRenderer = SDL_CreateRenderer(ndWindow, NULL, 0);
+#endif
             if (!ndRenderer) {
-                fprintf(stderr,"[ND] Slot %i: Failed to create accelerated renderer! (%s)\n", slot, SDL_GetError());
-                ndRenderer = SDL_CreateRenderer(ndWindow, -1, vsync_flag);
-                if (!ndRenderer) {
-                    fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
-                    exit(-1);
-                }
+                fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
+                exit(-1);
             }
-            SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
+            SDL_SetRenderLogicalPresentation(ndRenderer, r.w, r.h, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
             ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
 #ifdef ENABLE_RENDERING_THREAD
 

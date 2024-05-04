@@ -53,6 +53,7 @@ int sdlgui_fontheight;			/* Height of the actual font */
  */
 static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 {
+	SDL_PixelFormatEnum format;
 	SDL_Surface *bitmap;
 	Uint8 *dstbits;
 	const Uint8 *srcbits;
@@ -62,7 +63,8 @@ static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 	srcbits = pXbmBits;
 
 	/* Allocate the bitmap */
-	bitmap = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 8, 0, 0, 0, 0);
+	format = SDL_GetPixelFormatEnumForMasks(8, 0, 0, 0, 0);
+	bitmap = SDL_CreateSurface(w, h, format);
 	if (bitmap == NULL)
 	{
 		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate bitmap: %s", SDL_GetError());
@@ -119,8 +121,8 @@ int SDLGui_Init(void)
 	SDL_SetPaletteColors(pBigFontGfx->format->palette, blackWhiteColors, 0, 2);
 
 	/* Set font color 0 as transparent: */
-	SDL_SetColorKey(pSmallFontGfx, SDL_RLEACCEL, 0);
-	SDL_SetColorKey(pBigFontGfx, SDL_RLEACCEL, 0);
+	SDL_SetSurfaceColorKey(pSmallFontGfx, SDL_RLEACCEL, 0);
+	SDL_SetSurfaceColorKey(pBigFontGfx, SDL_RLEACCEL, 0);
 
 	return 0;
 }
@@ -134,13 +136,13 @@ int SDLGui_UnInit(void)
 {
 	if (pSmallFontGfx)
 	{
-		SDL_FreeSurface(pSmallFontGfx);
+		SDL_DestroySurface(pSmallFontGfx);
 		pSmallFontGfx = NULL;
 	}
 
 	if (pBigFontGfx)
 	{
-		SDL_FreeSurface(pBigFontGfx);
+		SDL_DestroySurface(pBigFontGfx);
 		pBigFontGfx = NULL;
 	}
 
@@ -263,7 +265,7 @@ static void SDLGui_TextInt(int x, int y, const char *txt, bool underline)
 		{
 			dr.h = 1;
 			dr.y += offset;
-			SDL_FillRect(pSdlGuiScrn, &dr, colors.underline);
+			SDL_FillSurfaceRect(pSdlGuiScrn, &dr, colors.underline);
 			continue;
 		}
 		/* for now, assume (only) Linux file paths are UTF-8 */
@@ -317,9 +319,9 @@ static void SDLGui_DrawText(const SGOBJ *tdlg, int objnum)
 		rect.w = tdlg[objnum].w * sdlgui_fontwidth;
 		rect.h = tdlg[objnum].h * sdlgui_fontheight;
 		if (tdlg[objnum].state & SG_FOCUSED)
-			SDL_FillRect(pSdlGuiScrn, &rect, colors.focus);
+			SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.focus);
 		else
-			SDL_FillRect(pSdlGuiScrn, &rect, colors.midgrey);
+			SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.midgrey);
 	}
 
 	SDLGui_Text(x, y, tdlg[objnum].txt);
@@ -343,7 +345,7 @@ static void SDLGui_DrawEditField(const SGOBJ *edlg, int objnum)
 	rect.y = y + edlg[objnum].h * sdlgui_fontheight;
 	rect.w = edlg[objnum].w * sdlgui_fontwidth;
 	rect.h = 1;
-	SDL_FillRect(pSdlGuiScrn, &rect, colors.editfield);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.editfield);
 }
 
 
@@ -395,35 +397,35 @@ static void SDLGui_DrawBox(const SGOBJ *bdlg, int objnum)
 	rect.y = y;
 	rect.w = w;
 	rect.h = h;
-	SDL_FillRect(pSdlGuiScrn, &rect, color);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, color);
 
 	/* Draw upper border: */
 	rect.x = x;
 	rect.y = y - offset;
 	rect.w = w;
 	rect.h = 1;
-	SDL_FillRect(pSdlGuiScrn, &rect, upleftc);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, upleftc);
 
 	/* Draw left border: */
 	rect.x = x - offset;
 	rect.y = y;
 	rect.w = 1;
 	rect.h = h;
-	SDL_FillRect(pSdlGuiScrn, &rect, upleftc);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, upleftc);
 
 	/* Draw bottom border: */
 	rect.x = x;
 	rect.y = y + h - 1 + offset;
 	rect.w = w;
 	rect.h = 1;
-	SDL_FillRect(pSdlGuiScrn, &rect, downrightc);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, downrightc);
 
 	/* Draw right border: */
 	rect.x = x + w - 1 + offset;
 	rect.y = y;
 	rect.w = 1;
 	rect.h = h;
-	SDL_FillRect(pSdlGuiScrn, &rect, downrightc);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, downrightc);
 }
 
 
@@ -469,7 +471,7 @@ static void SDLGui_DrawFocusBg(const SGOBJ *obj, int x, int y)
 	rect.w = obj->w * sdlgui_fontwidth;
 	rect.h = obj->h * sdlgui_fontheight;
 
-	SDL_FillRect(pSdlGuiScrn, &rect, color);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, color);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -543,21 +545,21 @@ static void SDLGui_DrawScrollbar(const SGOBJ *bdlg, int objnum)
 	rect.y = y;
 	rect.w = w;
 	rect.h = h;
-	SDL_FillRect(pSdlGuiScrn, &rect, colors.midbar);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.midbar);
 
 	/* Draw upper border: */
 	rect.x = x;
 	rect.y = y;
 	rect.w = w;
 	rect.h = 1;
-	SDL_FillRect(pSdlGuiScrn, &rect, colors.lightbar);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.lightbar);
 
 	/* Draw bottom border: */
 	rect.x = x;
 	rect.y = y + h - 1;
 	rect.w = w;
 	rect.h = 1;
-	SDL_FillRect(pSdlGuiScrn, &rect, colors.darkbar);
+	SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.darkbar);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -622,14 +624,14 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 			{
 				switch (event.type)
 				{
-				 case SDL_QUIT:                     /* User wants to quit */
+				 case SDL_EVENT_QUIT:                     /* User wants to quit */
 					bQuitProgram = true;
 					bStopEditing = true;
 					break;
-				 case SDL_MOUSEBUTTONDOWN:          /* Mouse pressed -> stop editing */
+				 case SDL_EVENT_MOUSE_BUTTON_DOWN:          /* Mouse pressed -> stop editing */
 					bStopEditing = true;
 					break;
-				 case SDL_TEXTINPUT:
+				 case SDL_EVENT_TEXT_INPUT:
 					if (strlen(txt) < (size_t)dlg[objnum].w)
 					{
 						memmove(&txt[cursorPos+1], &txt[cursorPos],
@@ -638,7 +640,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 						cursorPos += 1;
 					}
 					break;
-				 case SDL_KEYDOWN:                  /* Key pressed */
+				 case SDL_EVENT_KEY_DOWN:                  /* Key pressed */
 					switch (event.key.keysym.sym)
 					{
 					 case SDLK_RETURN:
@@ -676,7 +678,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 		}
 
 		/* Redraw the text field: */
-		SDL_FillRect(pSdlGuiScrn, &rect, colors.midgrey);  /* Draw background */
+		SDL_FillSurfaceRect(pSdlGuiScrn, &rect, colors.midgrey);  /* Draw background */
 		/* Draw the cursor: */
 		if (blinkState && !bStopEditing)
 		{
@@ -685,7 +687,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 			cursorrect.y = rect.y;
 			cursorrect.w = sdlgui_fontwidth;
 			cursorrect.h = rect.h;
-			SDL_FillRect(pSdlGuiScrn, &cursorrect, colors.cursor);
+			SDL_FillSurfaceRect(pSdlGuiScrn, &cursorrect, colors.cursor);
 		}
 		SDLGui_Text(rect.x, rect.y, dlg[objnum].txt);  /* Draw text */
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rect);
@@ -984,7 +986,7 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 			rct.y = (dlg[0].y+dlg[i].y)*sdlgui_fontheight;
 			rct.w = sdlgui_fontwidth;
 			rct.h = sdlgui_fontheight;
-			SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
+			SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 			SDLGui_DrawRadioButton(dlg, i);
 			Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
 		}
@@ -995,7 +997,7 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 			rct.y = (dlg[0].y+dlg[i].y)*sdlgui_fontheight;
 			rct.w = sdlgui_fontwidth;
 			rct.h = sdlgui_fontheight;
-			SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
+			SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 			SDLGui_DrawRadioButton(dlg, i);
 			Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
 		}
@@ -1004,7 +1006,7 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		rct.y = (dlg[0].y+dlg[obj].y)*sdlgui_fontheight;
 		rct.w = sdlgui_fontwidth;
 		rct.h = sdlgui_fontheight;
-		SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
+		SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawRadioButton(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
 		retbutton = obj; /* Added for Previous */
@@ -1015,7 +1017,7 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		rct.y = (dlg[0].y+dlg[obj].y)*sdlgui_fontheight;
 		rct.w = sdlgui_fontwidth;
 		rct.h = sdlgui_fontheight;
-		SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
+		SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawCheckBox(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
 		retbutton = obj; /* Added for Previous */
@@ -1076,7 +1078,7 @@ static int SDLGui_HandleShortcut(SGOBJ *dlg, int key)
  * resolutions, so typically fullscreen letterboxing borders are on
  * the sides => y-coord gets scaled OK, x-coord will be too small.
  */
-void SDLGui_ScaleMouseStateCoordinates(int *x, int *y)
+void SDLGui_ScaleMouseStateCoordinates(float *x, float *y)
 {
 	int win_width, win_height;
 	SDL_GetWindowSize(sdlWindow, &win_width, &win_height);
@@ -1123,7 +1125,8 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 {
 	int oldbutton = SDLGUI_NOTFOUND;
 	int retbutton = SDLGUI_NOTFOUND;
-	int b, x, y, value, obj;
+	float x, y;
+	int b, n, value, obj;
 	SDL_Keycode key;
 	int focused;
 	SDL_Event sdlEvent;
@@ -1150,8 +1153,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	bgrect.h = dlgrect.h;
 
 	/* Save background */
-	pBgSurface = SDL_CreateRGBSurface(SDL_SWSURFACE, dlgrect.w, dlgrect.h, pSdlGuiScrn->format->BitsPerPixel,
-	                                  pSdlGuiScrn->format->Rmask, pSdlGuiScrn->format->Gmask, pSdlGuiScrn->format->Bmask, pSdlGuiScrn->format->Amask);
+	pBgSurface = SDL_CreateSurface(dlgrect.w, dlgrect.h, pSdlGuiScrn->format->format);
 	if (pSdlGuiScrn->format->palette != NULL)
 	{
 		SDL_SetPaletteColors(pBgSurface->format->palette, pSdlGuiScrn->format->palette->colors, 0, pSdlGuiScrn->format->palette->ncolors-1);
@@ -1218,8 +1220,10 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 		}
 	}
 
-	if (SDL_NumJoysticks() > 0)
-		joy = SDL_JoystickOpen(0);
+	SDL_GetJoysticks(&n);
+
+	if (n > 0)
+		joy = SDL_OpenJoystick(0);
 
 	Dprintf(("ENTER - obj: %d, old: %d, ret: %d\n", obj, oldbutton, retbutton));
 
@@ -1230,11 +1234,11 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 		{
 			switch (sdlEvent.type)
 			{
-			 case SDL_QUIT:
+			 case SDL_EVENT_QUIT:
 				retbutton = SDLGUI_QUIT;
 				break;
 
-			 case SDL_MOUSEBUTTONDOWN:
+			 case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				if (sdlEvent.button.button != SDL_BUTTON_LEFT)
 				{
 					/* Not left mouse button -> unsupported event */
@@ -1267,7 +1271,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			 case SDL_MOUSEBUTTONUP:
+			 case SDL_EVENT_MOUSE_BUTTON_UP:
 				if (sdlEvent.button.button != SDL_BUTTON_LEFT)
 				{
 					/* Not left mouse button -> unsupported event */
@@ -1291,7 +1295,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			 case SDL_JOYAXISMOTION:
+			 case SDL_EVENT_JOYSTICK_AXIS_MOTION:
 				value = sdlEvent.jaxis.value;
 				if (value < -3200 || value > 3200)
 				{
@@ -1320,7 +1324,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			 case SDL_JOYHATMOTION:
+			 case SDL_EVENT_JOYSTICK_HAT_MOTION:
 				if (sdlEvent.jhat.value & SDL_HAT_LEFT)
 					retbutton = SDLGui_HandleShortcut(dlg, SG_SHORTCUT_LEFT);
 				else if (sdlEvent.jhat.value & SDL_HAT_RIGHT)
@@ -1337,23 +1341,23 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			 case SDL_JOYBUTTONDOWN:
+			 case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
 				retbutton = SDLGui_HandleSelection(dlg, focused, focused);
 				break;
 
-			 case SDL_JOYBALLMOTION:
-			 case SDL_MOUSEMOTION:
-			 case SDL_KEYMAPCHANGED:
+			 case SDL_EVENT_JOYSTICK_BALL_MOTION:
+			 case SDL_EVENT_MOUSE_MOTION:
+			 case SDL_EVENT_KEYMAP_CHANGED:
 				break;
 
-			 case SDL_KEYDOWN:                     /* Key pressed */
+			 case SDL_EVENT_KEY_DOWN:                     /* Key pressed */
 				/* keys that need to support repeat,
 				 * need to be checked on press
 				 */
 				key = sdlEvent.key.keysym.sym;
 				/* keyboard shortcuts are with modifiers */
-				if (sdlEvent.key.keysym.mod & KMOD_LALT
-				    || sdlEvent.key.keysym.mod & KMOD_RALT)
+				if (sdlEvent.key.keysym.mod & SDL_KMOD_LALT
+				    || sdlEvent.key.keysym.mod & SDL_KMOD_RALT)
 				{
 					if (key == SDLK_LEFT)
 						retbutton = SDLGui_HandleShortcut(dlg, SG_SHORTCUT_LEFT);
@@ -1399,7 +1403,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			case SDL_KEYUP:                     /* Key released */
+			case SDL_EVENT_KEY_UP:                     /* Key released */
 				/* keys potentially exiting dialog need
 				 * to be handed only on release, to avoid
 				 * leaking release events to emulation
@@ -1420,22 +1424,19 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			 case SDL_WINDOWEVENT:
-				if (sdlEvent.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
-					Screen_SizeChanged();
-				}
-				else if (sdlEvent.window.event == SDL_WINDOWEVENT_CLOSE)
-				{
-					SDL_FlushEvent(SDL_QUIT);
-					retbutton = SDLGUI_QUIT;
-				}
-				else if (sdlEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED
-				    || sdlEvent.window.event == SDL_WINDOWEVENT_RESTORED
-				    || sdlEvent.window.event == SDL_WINDOWEVENT_EXPOSED)
-				{
-					Screen_UpdateRect(pSdlGuiScrn, 0, 0, 0, 0);
-				}
+			case SDL_EVENT_WINDOW_RESIZED:
+				Screen_SizeChanged();
+				break;
+					
+			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+				SDL_FlushEvent(SDL_EVENT_QUIT);
+				retbutton = SDLGUI_QUIT;
+				break;
+					
+			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+			case SDL_EVENT_WINDOW_RESTORED:
+			case SDL_EVENT_WINDOW_EXPOSED:				
+				Screen_UpdateRect(pSdlGuiScrn, 0, 0, 0, 0);				
 				break;
 
 			 default:
@@ -1461,14 +1462,14 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	if (pBgSurface)
 	{
 		SDL_BlitSurface(pBgSurface, &bgrect, pSdlGuiScrn,  &dlgrect);
-		SDL_FreeSurface(pBgSurface);
+		SDL_DestroySurface(pBgSurface);
 	}
 
 	if (retbutton == SDLGUI_QUIT)
 		bQuitProgram = true;
 
 	if (joy)
-		SDL_JoystickClose(joy);
+		SDL_CloseJoystick(joy);
 
 	Dprintf(("EXIT - ret: %d\n", retbutton));
 	return retbutton;

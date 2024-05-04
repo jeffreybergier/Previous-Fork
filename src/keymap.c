@@ -336,28 +336,28 @@ static uint8_t Keymap_GetModifiers(uint16_t mod)
 {
 	uint8_t modifiers = 0;
 
-	if (mod & KMOD_CTRL) {
+	if (mod & SDL_KMOD_CTRL) {
 		modifiers |= NEXTKEY_MOD_META;
 	}
-	if (mod & KMOD_LSHIFT) {
+	if (mod & SDL_KMOD_LSHIFT) {
 		modifiers |= NEXTKEY_MOD_LSHIFT;
 	}
-	if (mod & KMOD_RSHIFT) {
+	if (mod & SDL_KMOD_RSHIFT) {
 		modifiers |= NEXTKEY_MOD_RSHIFT;
 	}
-	if (mod & KMOD_LGUI) {
+	if (mod & SDL_KMOD_LGUI) {
 		modifiers |= ConfigureParams.Keyboard.bSwapCmdAlt?NEXTKEY_MOD_LALT:NEXTKEY_MOD_LCTRL;
 	}
-	if (mod & KMOD_RGUI) {
+	if (mod & SDL_KMOD_RGUI) {
 		modifiers |= ConfigureParams.Keyboard.bSwapCmdAlt?NEXTKEY_MOD_RALT:NEXTKEY_MOD_RCTRL;
 	}
-	if (mod & KMOD_LALT) {
+	if (mod & SDL_KMOD_LALT) {
 		modifiers |= ConfigureParams.Keyboard.bSwapCmdAlt?NEXTKEY_MOD_LCTRL:NEXTKEY_MOD_LALT;
 	}
-	if (mod & KMOD_RALT) {
+	if (mod & SDL_KMOD_RALT) {
 		modifiers |= ConfigureParams.Keyboard.bSwapCmdAlt?NEXTKEY_MOD_RCTRL:NEXTKEY_MOD_RALT;
 	}
-	if (mod & KMOD_CAPS) {
+	if (mod & SDL_KMOD_CAPS) {
 		modifiers |= NEXTKEY_MOD_LSHIFT;
 	}
 	return modifiers;
@@ -371,15 +371,15 @@ static uint8_t Keymap_GetModifiers(uint16_t mod)
 static void post_key_event(int sym, int scan)
 {
 	SDL_Event sdlevent;
-	sdlevent.type = SDL_KEYDOWN;
+	sdlevent.type = SDL_EVENT_KEY_DOWN;
 	sdlevent.key.keysym.sym      = sym;
 	sdlevent.key.keysym.scancode = scan;
-	sdlevent.key.keysym.mod      = KMOD_NONE;
+	sdlevent.key.keysym.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&sdlevent);
-	sdlevent.type = SDL_KEYUP;
+	sdlevent.type = SDL_EVENT_KEY_UP;
 	sdlevent.key.keysym.sym      = sym;
 	sdlevent.key.keysym.scancode = scan;
-	sdlevent.key.keysym.mod      = KMOD_NONE;
+	sdlevent.key.keysym.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&sdlevent);
 }
 

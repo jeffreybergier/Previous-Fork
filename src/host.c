@@ -21,6 +21,7 @@ const char Host_fileid[] = "Previous host.c";
 #endif
 #endif
 #include <errno.h>
+#include <float.h>
 
 #include "host.h"
 #include "configuration.h"
@@ -31,9 +32,9 @@ const char Host_fileid[] = "Previous host.c";
 
 
 #define NUM_BLANKS 3
-static SDL_atomic_t vblCounter[NUM_BLANKS];
+static atomic_int  vblCounter[NUM_BLANKS];
 static const char* BLANKS[] = {
-  "main","nd_main","nd_video"  
+    "main","nd_main","nd_video"  
 };
 
 static int64_t      cycleCounterStart;
@@ -319,15 +320,15 @@ void host_sleep_ms(uint32_t ms) {
 }
 
 void host_lock(lock_t* lock) {
-  SDL_AtomicLock(lock);
+    SDL_LockSpinlock(lock);
 }
 
 int host_trylock(lock_t* lock) {
-  return SDL_AtomicTryLock(lock);
+    return SDL_TryLockSpinlock(lock);
 }
 
 void host_unlock(lock_t* lock) {
-  SDL_AtomicUnlock(lock);
+    SDL_UnlockSpinlock(lock);
 }
 
 int host_atomic_set(atomic_int* a, int newValue) {
@@ -343,17 +344,17 @@ int host_atomic_add(atomic_int* a, int value) {
 }
 
 bool host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
-    return SDL_AtomicCAS(a, oldValue, newValue);
+    return SDL_AtomicCompareAndSwap(a, oldValue, newValue);
 }
 
 thread_t* host_thread_create(thread_func_t func, const char* name, void* data) {
-  return SDL_CreateThread(func, name, data);
+    return SDL_CreateThread(func, name, data);
 }
 
 int host_thread_wait(thread_t* thread) {
-  int status;
-  SDL_WaitThread(thread, &status);
-  return status;
+    int status;
+    SDL_WaitThread(thread, &status);
+    return status;
 }
 
 mutex_t* host_mutex_create(void) {
@@ -373,11 +374,11 @@ void host_mutex_destroy(mutex_t* mutex) {
 }
 
 int host_num_cpus(void) {
-  return  SDL_GetCPUCount();
+    return SDL_GetCPUCount();
 }
 
 static uint64_t lastVT;
-static char   report[512];
+static char report[512];
 
 const char* host_report(uint64_t realTime, uint64_t hostTime) {
     int    nBlank    = 0;

@@ -159,13 +159,14 @@ static bool DlgAlert_ShowDlg(const char *text)
 	SDLGui_CenterDlg(alertdlg);
 
 	Main_SetMouseGrab(false);
-	bOldMouseVisibility = SDL_ShowCursor(SDL_QUERY);
-	SDL_ShowCursor(SDL_ENABLE);
+	bOldMouseVisibility = SDL_CursorVisible();
+	SDL_ShowCursor();
 
 	i = SDLGui_DoDialog(alertdlg);
 
 	Screen_UpdateRect(sdlscrn, 0,0, 0,0);
-	SDL_ShowCursor(bOldMouseVisibility);
+	if (!bOldMouseVisibility)
+		SDL_HideCursor();
 	Main_SetMouseGrab(bGrabMouse);
 
 	return (i == DLGALERT_OK);

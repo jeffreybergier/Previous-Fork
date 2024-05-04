@@ -304,7 +304,8 @@ static void DlgFileSelect_ScrollDown(void)
  */
 static void DlgFileSelect_ManageScrollbar(void)
 {
-	int b, x, y;
+	int b;
+	float x, y;
 	int scrollY, scrollYmin, scrollYmax, scrollH_half;
 	float scrollMove;
 
@@ -386,7 +387,7 @@ static void DlgFileSelect_ManageScrollbar(void)
  */
 static bool acceptEvents(SDL_EventType evtype)
 {
-	if (evtype == SDL_MOUSEWHEEL || evtype == SDL_KEYDOWN)
+	if (evtype == SDL_EVENT_MOUSE_WHEEL || evtype == SDL_EVENT_KEY_DOWN)
 		return true;
 	return false;
 }
@@ -400,13 +401,13 @@ static void DlgFileSelect_HandleSdlEvents(SDL_Event *pEvent)
 	int oldypos = ypos;
 	switch (pEvent->type)
 	{
-	 case SDL_MOUSEWHEEL:
+	 case SDL_EVENT_MOUSE_WHEEL:
 		if (pEvent->wheel.y>0)
 			DlgFileSelect_ScrollUp();
 		else if (pEvent->wheel.y<0)
 			DlgFileSelect_ScrollDown();
 		break;
-	 case SDL_KEYDOWN:
+	 case SDL_EVENT_KEY_DOWN:
 		switch (pEvent->key.keysym.sym)
 		{
 		 case SDLK_UP:
@@ -710,8 +711,8 @@ char* SDLGui_FileSelect(const char *title, const char *path_and_name, char **zip
 	fsdlg[SGFSDLG_TITLE].w = len;
 
 	/* Save mouse state and enable cursor */
-	bOldMouseVisibility = SDL_ShowCursor(SDL_QUERY);
-	SDL_ShowCursor(SDL_ENABLE);
+	bOldMouseVisibility = SDL_CursorVisible();
+	SDL_ShowCursor();
 
 	SDLGui_CenterDlg(fsdlg);
 	if (bAllowNew)
@@ -1104,7 +1105,9 @@ char* SDLGui_FileSelect(const char *title, const char *path_and_name, char **zip
 		retpath = NULL;
 
 clean_exit:
-	SDL_ShowCursor(bOldMouseVisibility);
+	if (!bOldMouseVisibility) {
+		SDL_HideCursor();
+	}
 
 	if (browsingzip && zipfiles != NULL)
 	{
