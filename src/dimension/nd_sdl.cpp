@@ -67,6 +67,7 @@ void NDSDL::init(void) {
             fprintf(stderr,"[ND] Slot %i: Failed to create window! (%s)\n", slot, SDL_GetError());
             exit(-1);
         }
+        SDL_SetWindowPosition(ndWindow, x+14*slot, y+14*slot);
     }
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {

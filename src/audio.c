@@ -83,10 +83,10 @@ static void Audio_Input_CallBack(void *userdata, uint8_t *stream, int len) {
 
 static void Audio_New_Input_CallBack(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
 	if (additional_amount > 0) {
-		uint8_t *data = SDL_stack_alloc(Uint8, additional_amount);
+		uint8_t *data = SDL_stack_alloc(uint8_t, additional_amount);
 		if (data) {
+			SDL_GetAudioStreamData(stream, data, additional_amount);
 			Audio_Input_CallBack(userdata, data, additional_amount);
-			SDL_PutAudioStreamData(stream, data, additional_amount);
 			SDL_stack_free(data);
 		}
 	}
