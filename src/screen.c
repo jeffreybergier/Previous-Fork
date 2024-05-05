@@ -317,7 +317,7 @@ void Screen_Pause(bool pause) {
  */
 void Screen_Init(void) {
 	uint32_t format, r, g, b, a;
-	int      d;
+	int      d, i;
 
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
@@ -351,15 +351,15 @@ void Screen_Init(void) {
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
 	int x = SDL_WINDOWPOS_UNDEFINED;
-	if(ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
+		for (i = 0; i < SDL_GetNumVideoDisplays(); i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
 			if(r.w >= width * 2) {
 				x = r.x + width + ((r.w - width * 2) / 2);
 				break;
 			}
-			if(r.x >= 0 && SDL_GetNumVideoDisplays() == 1) x = r.x + 8;
+			if (r.x >= 0 && SDL_GetNumVideoDisplays() == 1) x = r.x + 8;
 		}
 	}
 	sdlWindow  = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -423,14 +423,14 @@ void Screen_Init(void) {
 	/* Setup lookup tables */
 	SDL_PixelFormat* pformat = SDL_AllocFormat(format);
 	/* initialize BW lookup table */
-	for(int i = 0; i < 0x100; i++) {
+	for (i = 0; i < 0x100; i++) {
 		BW2RGB[i*4+0] = bw2rgb(pformat, i>>6);
 		BW2RGB[i*4+1] = bw2rgb(pformat, i>>4);
 		BW2RGB[i*4+2] = bw2rgb(pformat, i>>2);
 		BW2RGB[i*4+3] = bw2rgb(pformat, i>>0);
 	}
 	/* initialize color lookup table */
-	for(int i = 0; i < 0x10000; i++)
+	for (i = 0; i < 0x10000; i++)
 		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
 
 #ifdef ENABLE_RENDERING_THREAD

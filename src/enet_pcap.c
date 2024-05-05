@@ -30,11 +30,11 @@ const char Enet_pcap_fileid[] = "Previous enet_pcap.c";
 pcap_t *pcap_handle;
 
 /* queue prototypes */
-queueADT	pcapq;
+queueADT pcapq;
 
 int pcap_started;
-static SDL_mutex *pcap_mutex = NULL;
-SDL_Thread *pcap_tick_func_handle;
+static mutex_t *pcap_mutex = NULL;
+thread_t *pcap_tick_func_handle;
 
 //This function is to be periodically called
 //to keep the internal packet state flowing.
@@ -44,9 +44,9 @@ static void pcap_tick(void)
     const unsigned char *data;
     
     if (pcap_started) {
-        SDL_LockMutex(pcap_mutex);
+        host_mutex_lock(pcap_mutex);
         data = pcap_next(pcap_handle,&h);
-        SDL_UnlockMutex(pcap_mutex);
+        host_mutex_unlock(pcap_mutex);
 
         if (data && h.caplen > 0) {
             if (h.caplen > 1516)
@@ -54,11 +54,11 @@ static void pcap_tick(void)
             
             struct queuepacket *p;
             p=(struct queuepacket *)malloc(sizeof(struct queuepacket));
-            SDL_LockMutex(pcap_mutex);
+            host_mutex_lock(pcap_mutex);
             p->len=h.caplen;
             memcpy(p->data,data,h.caplen);
             QueueEnter(pcapq,p);
-            SDL_UnlockMutex(pcap_mutex);
+            host_mutex_unlock(pcap_mutex);
             Log_Printf(LOG_EN_PCAP_LEVEL, "[PCAP] Output packet with %i bytes to queue",h.caplen);
         }
     }
@@ -78,7 +78,7 @@ static int tick_func(void *arg)
 void enet_pcap_queue_poll(void)
 {
     if (pcap_started) {
-        SDL_LockMutex(pcap_mutex);
+        host_mutex_lock(pcap_mutex);
         if (QueuePeek(pcapq)>0)
         {
             struct queuepacket *qp;
@@ -87,30 +87,28 @@ void enet_pcap_queue_poll(void)
             enet_receive(qp->data,qp->len);
             free(qp);
         }
-        SDL_UnlockMutex(pcap_mutex);
+        host_mutex_unlock(pcap_mutex);
     }
 }
 
 void enet_pcap_input(uint8_t *pkt, int pkt_len) {
     if (pcap_started) {
         Log_Printf(LOG_EN_PCAP_LEVEL, "[PCAP] Input packet with %i bytes",enet_tx_buffer.size);
-        SDL_LockMutex(pcap_mutex);
+        host_mutex_lock(pcap_mutex);
         if (pcap_sendpacket(pcap_handle, pkt, pkt_len) < 0) {
             Log_Printf(LOG_WARN, "[PCAP] Error: Couldn't transmit packet!");
         }
-        SDL_UnlockMutex(pcap_mutex);
+        host_mutex_unlock(pcap_mutex);
     }
 }
 
 void enet_pcap_stop(void) {
-    int ret;
-    
     if (pcap_started) {
         Log_Printf(LOG_WARN, "Stopping PCAP");
         pcap_started=0;
         QueueDestroy(pcapq);
-        SDL_DestroyMutex(pcap_mutex);
-        SDL_WaitThread(pcap_tick_func_handle, &ret);
+        host_mutex_destroy(pcap_mutex);
+        host_thread_wait(pcap_tick_func_handle);
         pcap_close(pcap_handle);
     }
 }
@@ -170,8 +168,8 @@ void enet_pcap_start(uint8_t *mac) {
 #endif
         pcap_started=1;
         pcapq = QueueCreate();
-        pcap_mutex=SDL_CreateMutex();
-        pcap_tick_func_handle=SDL_CreateThread(tick_func,"PCAPTickThread", (void *)NULL);
+        pcap_mutex=host_mutex_create();
+        pcap_tick_func_handle=host_thread_create(tick_func,"PCAPTickThread", (void *)NULL);
     }
 }
 #endif
