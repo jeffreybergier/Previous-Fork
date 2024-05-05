@@ -349,14 +349,14 @@ void Screen_Init(void) {
 		for (i = 0; i < n; i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
-			if(r.w >= width * 2) {
+			if (r.w >= width * 2) {
 				x = r.x + width + ((r.w - width * 2) / 2);
 				break;
 			}
 			if (r.x >= 0 && n == 1) x = r.x + 8;
 		}
 	}
-	sdlWindow  = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE);
+	sdlWindow  = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!sdlWindow) {
 		fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
@@ -374,7 +374,7 @@ void Screen_Init(void) {
 
 	SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
 	if (nWindowWidth > 0) {
-		dpiFactor = (float)width / nWindowWidth;
+		dpiFactor = (float)nWindowWidth / width;
 		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
 	} else {
 		dpiFactor = 1.0;
@@ -382,6 +382,7 @@ void Screen_Init(void) {
 	}
 
 	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
+	SDL_SetRenderScale(sdlRenderer, dpiFactor, dpiFactor);
 
 	uiTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
@@ -508,10 +509,10 @@ void Screen_ReturnFromFullScreen(void) {
 		bWasRunning = Main_PauseEmulation(false);
 		bInFullScreen = false;
 
-		SDL_SetWindowFullscreen(sdlWindow, 0);
+		SDL_SetWindowFullscreen(sdlWindow, SDL_FALSE);
 		SDL_Delay(100);                /* To give monitor time to switch resolution */
-		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 		SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
+		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 
 		/* Return to windowed monitor mode */
 		if (saveMonitorType == MONITOR_TYPE_DUAL) {
@@ -549,12 +550,15 @@ void Screen_ShowMainWindow(void) {
  */
 void Screen_SizeChanged(void) {
 	float scale;
+	int h;
 
 	if (!bInFullScreen) {
-		SDL_GetRenderScale(sdlRenderer, &scale, &scale);
-		SDL_SetWindowSize(sdlWindow, width*scale*dpiFactor, height*scale*dpiFactor);
+		SDL_GetWindowSize(sdlWindow, NULL, &h);
+		scale = (float)h / height;
+		SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
+		SDL_SetRenderScale(sdlRenderer, scale*dpiFactor, scale*dpiFactor);
 
-		nd_sdl_resize(scale*dpiFactor);
+		nd_sdl_resize(scale);
 	}
 
 	/* Make sure screen is painted in case emulation is paused */
@@ -591,6 +595,7 @@ void Screen_ModeChanged(void) {
  */
 void Screen_StatusbarChanged(void) {
 	float scale;
+	int w;
 
 	if (!sdlscrn) {
 		/* screen not yet initialized */
@@ -605,10 +610,9 @@ void Screen_StatusbarChanged(void) {
 		saveWindowBounds.h = height * scale;
 		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
 	} else {
-		SDL_GetRenderScale(sdlRenderer, &scale, &scale);
-		SDL_SetWindowSize(sdlWindow, width*scale*dpiFactor, height*scale*dpiFactor);
-		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
-		SDL_SetRenderScale(sdlRenderer, scale, scale);
+		SDL_GetWindowSize(sdlWindow, &w, NULL);
+		scale = (float)w / width;
+		SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
 	}
 
 	/* Make sure screen is painted in case emulation is paused */

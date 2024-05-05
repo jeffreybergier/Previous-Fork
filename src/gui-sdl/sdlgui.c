@@ -1087,21 +1087,6 @@ void SDLGui_ScaleMouseStateCoordinates(float *x, float *y)
 	*y = *y * pSdlGuiScrn->h / win_height;
 }
 
-/**
- * Scale mouse event coordinates in case we've got a re-sized SDL2 window
- */
-static void SDLGui_ScaleMouseButtonCoordinates(SDL_MouseButtonEvent *bev)
-{
-#if 0 /* This causes problems with Previous */
-	if (bInFullScreen)
-		return;
-
-	int x = bev->x, y = bev->y;
-	SDLGui_ScaleMouseStateCoordinates(&x, &y);
-	bev->x = x; bev->y = y;
-#endif
-}
-
 /*-----------------------------------------------------------------------*/
 /**
  * Show and process a dialog.
@@ -1246,7 +1231,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 					break;
 				}
 				/* It was the left button: Find the object under the mouse cursor */
-				SDLGui_ScaleMouseButtonCoordinates(&sdlEvent.button);
+				SDL_ConvertEventToRenderCoordinates(SDL_GetRenderer(sdlWindow), &sdlEvent);
 				obj = SDLGui_FindObj(dlg, sdlEvent.button.x, sdlEvent.button.y);
 				if (obj != SDLGUI_NOTFOUND)
 				{
@@ -1279,7 +1264,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 					break;
 				}
 				/* It was the left button: Find the object under the mouse cursor */
-				SDLGui_ScaleMouseButtonCoordinates(&sdlEvent.button);
+				SDL_ConvertEventToRenderCoordinates(SDL_GetRenderer(sdlWindow), &sdlEvent);
 				obj = SDLGui_FindObj(dlg, sdlEvent.button.x, sdlEvent.button.y);
 				if (obj != SDLGUI_NOTFOUND)
 				{
