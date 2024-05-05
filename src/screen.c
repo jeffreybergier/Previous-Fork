@@ -355,7 +355,7 @@ void Screen_Init(void) {
 		for (i = 0; i < SDL_GetNumVideoDisplays(); i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
-			if(r.w >= width * 2) {
+			if (r.w >= width * 2) {
 				x = r.x + width + ((r.w - width * 2) / 2);
 				break;
 			}
@@ -516,8 +516,8 @@ void Screen_ReturnFromFullScreen(void) {
 
 		SDL_SetWindowFullscreen(sdlWindow, 0);
 		SDL_Delay(100);                /* To give monitor time to switch resolution */
-		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 		SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
+		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 
 		/* Return to windowed monitor mode */
 		if (saveMonitorType == MONITOR_TYPE_DUAL) {
