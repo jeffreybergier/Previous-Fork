@@ -290,8 +290,8 @@ void Screen_Repaint(void) {
 	if (updateFB) {
 		SDL_RenderClear(sdlRenderer);
 		// Render NeXT framebuffer texture
-		SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
-		SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
+		SDL_RenderTexture(sdlRenderer, fbTexture, NULL, &screenRect);
+		SDL_RenderTexture(sdlRenderer, uiTexture, NULL, &screenRect);
 		SDL_RenderPresent(sdlRenderer);
 	}
 }

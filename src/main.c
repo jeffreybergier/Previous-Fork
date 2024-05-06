@@ -55,8 +55,8 @@ static bool   bAccurateDelays;                 /* Host system has an accurate SD
 static bool   bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
 #ifndef ENABLE_RENDERING_THREAD
-static SDL_Thread* nextThread;
-static SDL_sem*    pauseFlag;
+static SDL_Thread*    nextThread;
+static SDL_Semaphore* pauseFlag;
 #endif
 
 static uint32_t SPECIAL_EVENT;
@@ -127,7 +127,7 @@ bool Main_PauseEmulation(bool visualize) {
 	bEmulationActive = false;
 #ifndef ENABLE_RENDERING_THREAD
 	/* Wait until 68k thread is paused */
-	if (SDL_SemWaitTimeout(pauseFlag, 1000))
+	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000))
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	host_pause_time(true);
@@ -313,7 +313,7 @@ static void Main_PutEvent(SDL_Event* event) {
 	if (!bEmulationActive)
 		return;
 
-	SDL_AtomicLock(&mainEventLock);
+	SDL_LockSpinlock(&mainEventLock);
 	mainEventNext = mainEventWrite + 1;
 	if (mainEventNext >= MAX_EVENTS) {
 		mainEventNext = 0;
@@ -324,7 +324,7 @@ static void Main_PutEvent(SDL_Event* event) {
 		mainEvent[mainEventWrite] = *event;
 		mainEventWrite = mainEventNext;
 	}
-	SDL_AtomicUnlock(&mainEventLock);
+	SDL_UnlockSpinlock(&mainEventLock);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -334,7 +334,7 @@ static void Main_PutEvent(SDL_Event* event) {
 static bool Main_GetEvent(SDL_Event* event) {
 	bool valid = false;
 
-	SDL_AtomicLock(&mainEventLock);
+	SDL_LockSpinlock(&mainEventLock);
 	if (mainEventWrite != mainEventRead) {
 		mainEventNext = mainEventRead + 1;
 		if (mainEventNext >= MAX_EVENTS) {
@@ -344,7 +344,7 @@ static bool Main_GetEvent(SDL_Event* event) {
 		valid = true;
 		mainEventRead = mainEventNext;
 	}
-	SDL_AtomicUnlock(&mainEventLock);
+	SDL_UnlockSpinlock(&mainEventLock);
 
 	return valid;
 }
@@ -493,7 +493,7 @@ void Main_EventHandlerInterrupt(void) {
 
 #ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
-		SDL_SemPost(pauseFlag);
+		SDL_PostSemaphore(pauseFlag);
 		do {
 			host_sleep_ms(20);
 		} while(!bEmulationActive);
@@ -522,22 +522,22 @@ void Main_EventHandlerInterrupt(void) {
 #else
 	if (Main_GetEvent(&event)) {
 		switch (event.type) {
-			case SDL_MOUSEMOTION:
+			case SDL_EVENT_MOUSE_MOTION:
 				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
 				break;
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
 				break;
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
 				break;
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 				Keymap_MouseWheel(&event.wheel);
 				break;
-			case SDL_KEYDOWN:
+			case SDL_EVENT_KEY_DOWN:
 				Keymap_KeyDown(&event.key.keysym);
 				break;
-			case SDL_KEYUP:
+			case SDL_EVENT_KEY_UP:
 				Keymap_KeyUp(&event.key.keysym);
 				break;
 			default:
