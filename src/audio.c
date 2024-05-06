@@ -29,22 +29,24 @@ static bool            bSoundOutputWorking  = false; /* Is sound output OK */
 static bool            bSoundInputWorking   = false; /* Is sound input OK */
 static bool            bPlayingBuffer       = false; /* Is playing buffer? */
 static bool            bRecordingBuffer     = false; /* Is recording buffer? */
-#define                REC_BUFFER_SZ        16       /* Recording buffer size in power of two */
-static const uint32_t  REC_BUFFER_MASK      = (1<<REC_BUFFER_SZ) - 1;
-static uint8_t         recBuffer[1<<REC_BUFFER_SZ];
+static const uint32_t  REC_BUFFER_SIZE      = 1<<16; /* Recording buffer size in power of two */
+static const uint32_t  REC_BUFFER_MASK      = REC_BUFFER_SIZE-1;
+static uint8_t         recBuffer[REC_BUFFER_SIZE];
 static uint32_t        recBufferWr          = 0;
 static uint32_t        recBufferRd          = 0;
 static lock_t          recBufferLock;
 
 void Audio_Output_Queue(uint8_t* data, int len) {
-	int chunkSize = SOUND_BUFFER_SAMPLES;
-	Grab_Sound(data, len);
-	if (bSoundOutputWorking) {
-		while (len > 0) {
-			if (len < chunkSize) chunkSize = len;
-			SDL_QueueAudio(Audio_Output_Device, data, chunkSize);
-			data += chunkSize;
-			len  -= chunkSize;
+	if (len > 0) {
+		Grab_Sound(data, len);
+		if (bSoundOutputWorking) {
+			int chunkSize = SOUND_BUFFER_SAMPLES;
+			do {
+				if (len < chunkSize) chunkSize = len;
+				SDL_QueueAudio(Audio_Output_Device, data, chunkSize);
+				data += chunkSize;
+				len  -= chunkSize;
+			} while (len > 0);
 		}
 	}
 }
@@ -104,7 +106,7 @@ int Audio_Input_BufSize(void) {
 		if (recBufferRd <= recBufferWr) {
 			return recBufferWr - recBufferRd;
 		} else {
-			return (1<<REC_BUFFER_SZ) - (recBufferRd - recBufferWr);
+			return REC_BUFFER_SIZE - (recBufferRd - recBufferWr);
 		}
 	} else {
 		return 0;
