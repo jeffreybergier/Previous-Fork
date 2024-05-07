@@ -36,6 +36,11 @@ static uint32_t        recBufferWr          = 0;
 static uint32_t        recBufferRd          = 0;
 static lock_t          recBufferLock;
 
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Sound output functions.
+ */
 void Audio_Output_Queue(uint8_t* data, int len) {
 	if (len > 0) {
 		Grab_Sound(data, len);
@@ -67,35 +72,16 @@ void Audio_Output_Queue_Clear(void) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * SDL audio callback functions - move sound between emulation and audio system.
- * Note: These functions will run in a separate thread.
- */
-
-static void Audio_Input_CallBack(void *userdata, uint8_t *stream, int len) {
-	Log_Printf(LOG_WARN, "Audio_Input_CallBack %d", len);
-	if(len == 0) return;
-	Audio_Input_Lock();
-	while(len--) {
-		recBuffer[recBufferWr++&REC_BUFFER_MASK] = *stream++;
-	}
-	recBufferWr &= REC_BUFFER_MASK;
-	recBufferWr &= ~1; /* Just to be sure */
-	Audio_Input_Unlock();
-}
-
-void Audio_Input_Lock(void) {
-	host_lock(&recBufferLock);
-}
-
-/* 
+ * Sound input functions.
+ *
  * Initialize recording buffer with silence to compensate for time gap
- * between Audio_Input_Enable and first call of Audio_Input_CallBack.
+ * between Audio_Input_Enable and first availability of recorded data.
  */
 #define AUDIO_RECBUF_INIT 32 /* 16000 byte = 1 second */
 
 static void Audio_Input_InitBuf(void) {
-	recBufferRd = 0;
 	Log_Printf(LOG_WARN, "[Audio] Initializing input buffer with %d ms of silence.", AUDIO_RECBUF_INIT>>4);
+	recBufferRd = 0;
 	for (recBufferWr = 0; recBufferWr < AUDIO_RECBUF_INIT; recBufferWr++) {
 		recBuffer[recBufferWr] = 0;
 	}
@@ -108,9 +94,8 @@ int Audio_Input_BufSize(void) {
 		} else {
 			return REC_BUFFER_SIZE - (recBufferRd - recBufferWr);
 		}
-	} else {
-		return 0;
 	}
+	return 0;
 }
 
 int Audio_Input_Read(int16_t* sample) {
@@ -126,6 +111,22 @@ int Audio_Input_Read(int16_t* sample) {
 		*sample = 0; /* silence */
 	}
 	return 0;
+}
+
+static void Audio_Input_CallBack(void *userdata, uint8_t *stream, int len) {
+	Log_Printf(LOG_WARN, "Audio_Input_CallBack %d", len);
+	if(len == 0) return;
+	Audio_Input_Lock();
+	while(len--) {
+		recBuffer[recBufferWr++&REC_BUFFER_MASK] = *stream++;
+	}
+	recBufferWr &= REC_BUFFER_MASK;
+	recBufferWr &= ~1; /* Just to be sure */
+	Audio_Input_Unlock();
+}
+
+void Audio_Input_Lock(void) {
+	host_lock(&recBufferLock);
 }
 
 void Audio_Input_Unlock(void) {
@@ -147,12 +148,13 @@ void Audio_Output_Init(void)
 	SDL_AudioSpec request;    /* We fill in the desired SDL audio options here */
 	SDL_AudioSpec granted;
 
+	bSoundOutputWorking = false;
+
 	/* Init the SDL's audio subsystem: */
 	if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
 		if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
 			Log_Printf(LOG_WARN, "[Audio] Could not init audio output: %s\n", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open SDL audio subsystem.", 5000);
-			bSoundOutputWorking = false;
 			return;
 		}
 	}
@@ -171,9 +173,9 @@ void Audio_Output_Init(void)
 	if (Audio_Output_Device == 0) {
 		Log_Printf(LOG_WARN, "[Audio] Could not open audio output device: %s\n", SDL_GetError());
 		Statusbar_AddMessage("Error: Can't open audio output device. No sound output.", 5000);
-		bSoundOutputWorking = false;
 		return;
 	}
+
 	bSoundOutputWorking  = true;
 	bSoundOutputWorking &= check_audio(request.freq,     granted.freq,     "freq");
 	bSoundOutputWorking &= check_audio(request.format,   granted.format,   "format");
@@ -191,12 +193,13 @@ void Audio_Input_Init(void) {
 	SDL_AudioSpec request;    /* We fill in the desired SDL audio options here */
 	SDL_AudioSpec granted;
 
+	bSoundInputWorking = false;
+
 	/* Init the SDL's audio subsystem: */
 	if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
 		if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
 			Log_Printf(LOG_WARN, "[Audio] Could not init audio input: %s\n", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open SDL audio subsystem.", 5000);
-			bSoundInputWorking = false;
 			return;
 		}
 	}
@@ -215,7 +218,6 @@ void Audio_Input_Init(void) {
 	if (Audio_Input_Device == 0) {
 		Log_Printf(LOG_WARN, "[Audio] Could not open audio input device: %s\n", SDL_GetError());
 		Statusbar_AddMessage("Error: Can't open audio input device. Recording silence.", 5000);
-		bSoundInputWorking = false;
 		return;
 	}
 
@@ -231,7 +233,6 @@ void Audio_Input_Init(void) {
 		Statusbar_AddMessage("Error: Can't open audio input device. Recording silence.", 5000);
 	}
 }
-
 
 /*-----------------------------------------------------------------------*/
 /**
