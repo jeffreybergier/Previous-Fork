@@ -18,9 +18,7 @@ extern uint32_t Audio_Output_Queue_Size(void);
 extern void     Audio_Input_Enable(bool bEnable);
 extern void     Audio_Input_Init(void);
 extern void     Audio_Input_UnInit(void);
-extern void     Audio_Input_Lock(void);
 extern int      Audio_Input_Read(int16_t* sample);
 extern int      Audio_Input_BufSize(void);
-extern void     Audio_Input_Unlock(void);
 
 #endif /* PREV_AUDIO_H */
