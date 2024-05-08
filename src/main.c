@@ -368,11 +368,11 @@ void Main_SendSpecialEvent(int type) {
 static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	static SDL_Event mouse_event[100];
 
-	int nEvents;
+	int i, nEvents;
 
 	static float fSavedDeltaX = 0.0;
 	static float fSavedDeltaY = 0.0;
-	
+
 	float fDeltaX;
 	float fDeltaY;
 	int   nDeltaX;
@@ -386,54 +386,47 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 		return;
 	}
 
-	nDeltaX = pEvent->motion.xrel;
-	nDeltaY = pEvent->motion.yrel;
+	fDeltaX = pEvent->motion.xrel;
+	fDeltaY = pEvent->motion.yrel;
 
 	/* Get all mouse event to clean the queue and sum them */
 	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_MOTION);
 
-	for (int i = 0; i < nEvents; i++) {
-		nDeltaX += mouse_event[i].motion.xrel;
-		nDeltaY += mouse_event[i].motion.yrel;
+	for (i = 0; i < nEvents; i++) {
+		fDeltaX += mouse_event[i].motion.xrel;
+		fDeltaY += mouse_event[i].motion.yrel;
 	}
 
-	if (nDeltaX || nDeltaY) {
-		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 0)) {
-			/* Initialize float values from integers */
-			fDeltaX = (float)nDeltaX;
-			fDeltaY = (float)nDeltaY;
-
-			/* Exponential adjustmend */
-			if (fExp != 1.0) {
-				fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
-				fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
-			}
-
-			/* Linear adjustment */
-			if (fLin != 1.0) {
-				fDeltaX *= fLin;
-				fDeltaY *= fLin;
-			}
-
-			/* Add residuals */
-			if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
-				fSavedDeltaX += fDeltaX;
-			} else {
-				fSavedDeltaX  = fDeltaX;
-			}
-			if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
-				fSavedDeltaY += fDeltaY;
-			} else {
-				fSavedDeltaY  = fDeltaY;
-			}
-
-			/* Convert to integer and save residuals */
-			nDeltaX = (int)fSavedDeltaX;
-			nDeltaY = (int)fSavedDeltaY;
-			fSavedDeltaX -= (float)nDeltaX;
-			fSavedDeltaY -= (float)nDeltaY;
+	if ((fDeltaX != 0.0) || (fDeltaY != 0.0)) {
+		/* Exponential adjustmend */
+		if (fExp != 1.0) {
+			fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
+			fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
 		}
+
+		/* Linear adjustment */
+		if (fLin != 1.0) {
+			fDeltaX *= fLin;
+			fDeltaY *= fLin;
+		}
+
+		/* Add residuals */
+		if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
+			fSavedDeltaX += fDeltaX;
+		} else {
+			fSavedDeltaX  = fDeltaX;
+		}
+		if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
+			fSavedDeltaY += fDeltaY;
+		} else {
+			fSavedDeltaY  = fDeltaY;
+		}
+
+		/* Convert to integer and save residuals */
+		nDeltaX = (int)fSavedDeltaX;
+		nDeltaY = (int)fSavedDeltaY;
+		fSavedDeltaX -= (float)nDeltaX;
+		fSavedDeltaY -= (float)nDeltaY;
 
 		/* Done */
 #ifdef ENABLE_RENDERING_THREAD
