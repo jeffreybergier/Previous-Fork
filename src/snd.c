@@ -177,19 +177,19 @@ static int snd_send_samples(uint8_t* buffer, int len) {
         case SND_MODE_NORMAL:
             snd_make_normal_samples(buffer, len);
             snd_adjust_volume_and_lowpass(buffer, len);
-            Audio_Output_Queue(buffer, len);
+            Audio_Output_Queue_Put(buffer, len);
             return len;
         case SND_MODE_DBL_RP:
             snd_make_double_samples(buffer, len, true);
             snd_adjust_volume_and_lowpass(buffer, 2*len);
-            Audio_Output_Queue(buffer, len);
-            Audio_Output_Queue(buffer+len, len);
+            Audio_Output_Queue_Put(buffer, len);
+            Audio_Output_Queue_Put(buffer+len, len);
             return 2*len;
         case SND_MODE_DBL_ZF:
             snd_make_double_samples(buffer, len, false);
             snd_adjust_volume_and_lowpass(buffer, 2*len);
-            Audio_Output_Queue(buffer, len);
-            Audio_Output_Queue(buffer+len, len);
+            Audio_Output_Queue_Put(buffer, len);
+            Audio_Output_Queue_Put(buffer+len, len);
             return 2*len;
         default:
             Log_Printf(LOG_WARN, "[Sound] Error: Unknown sound output mode!");
@@ -470,7 +470,7 @@ void SND_In_Handler(void) {
     
     /* Process 256 samples at a time and then sync */
     while (size<256) {
-        if (Audio_Input_Read(&sample) < 0) {
+        if (Audio_Input_Buffer_Get(&sample) < 0) {
             Log_Printf(LOG_WARN, "[Sound] Waiting for sound input data");
             size = 256;
             break;
@@ -490,7 +490,7 @@ void SND_In_Handler(void) {
     }
     
     /* If we accumulated too much data write it fast */
-    if (Audio_Input_BufSize() > 8192) { /* this is 4096 ulaw samples equaling about 0.5 seconds */
+    if (Audio_Input_Buffer_Size() > 8192) { /* this is 4096 ulaw samples equaling about 0.5 seconds */
         Log_Printf(LOG_WARN, "[Sound] Writing input data fast");
         size = 16; /* Short delay */
     }
