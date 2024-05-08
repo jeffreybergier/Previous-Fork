@@ -368,11 +368,11 @@ void Main_SendSpecialEvent(int type) {
 static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	static SDL_Event mouse_event[100];
 
-	int nEvents;
+	int i, nEvents;
 
 	static float fSavedDeltaX = 0.0;
 	static float fSavedDeltaY = 0.0;
-	
+
 	float fDeltaX;
 	float fDeltaY;
 	int   nDeltaX;
@@ -392,14 +392,14 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	/* Get all mouse event to clean the queue and sum them */
 	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
 
-	for (int i = 0; i < nEvents; i++) {
+	for (i = 0; i < nEvents; i++) {
 		nDeltaX += mouse_event[i].motion.xrel;
 		nDeltaY += mouse_event[i].motion.yrel;
 	}
 
 	if (nDeltaX || nDeltaY) {
 		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 0)) {
+		if ((fExp != 1.0) || (fLin != 0.0)) {
 			/* Initialize float values from integers */
 			fDeltaX = (float)nDeltaX;
 			fDeltaY = (float)nDeltaY;
