@@ -41,7 +41,7 @@ static lock_t          recBufferLock;
 /**
  * Sound output functions.
  */
-void Audio_Output_Queue(uint8_t* data, int len) {
+void Audio_Output_Queue_Put(uint8_t* data, int len) {
 	if (len > 0) {
 		Grab_Sound(data, len);
 		if (bSoundOutputWorking) {
@@ -56,7 +56,7 @@ void Audio_Output_Queue(uint8_t* data, int len) {
 	}
 }
 
-uint32_t Audio_Output_Queue_Size(void) {
+int Audio_Output_Queue_Size(void) {
 	if (bSoundOutputWorking) {
 		return SDL_GetQueuedAudioSize(Audio_Output_Device) / 4;
 	} else {
@@ -87,7 +87,7 @@ static void Audio_Input_InitBuf(void) {
 	}
 }
 
-int Audio_Input_BufSize(void) {
+int Audio_Input_Buffer_Size(void) {
 	if (bSoundInputWorking) {
 		if (recBufferRd <= recBufferWr) {
 			return recBufferWr - recBufferRd;
@@ -98,7 +98,7 @@ int Audio_Input_BufSize(void) {
 	return 0;
 }
 
-int Audio_Input_Read(int16_t* sample) {
+int Audio_Input_Buffer_Get(int16_t* sample) {
 	if (bSoundInputWorking) {
 		if ((recBufferRd&REC_BUFFER_MASK)==(recBufferWr&REC_BUFFER_MASK)) {
 			return -1;
