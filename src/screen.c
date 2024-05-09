@@ -26,9 +26,9 @@ const char Screen_fileid[] = "Previous screen.c";
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-int           nWindowWidth;          /* Width of SDL window in physical pixels */
-int           nWindowHeight;         /* Height of SDL window in physical pixels */
-float         dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
+static int    nWindowWidth;          /* Width of SDL window in physical pixels */
+static int    nWindowHeight;         /* Height of SDL window in physical pixels */
+static float  dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
 volatile bool bGrabMouse    = false; /* Grab the mouse cursor in the window */
@@ -36,8 +36,8 @@ volatile bool bInFullScreen = false; /* true if in full screen */
 
 static const int NeXT_SCRN_WIDTH  = 1120;
 static const int NeXT_SCRN_HEIGHT = 832;
-int width;   /* guest framebuffer */
-int height;  /* guest framebuffer */
+static int width;   /* guest framebuffer */
+static int height;  /* guest framebuffer */
 
 static SDL_Renderer* sdlRenderer;
 static SDL_Texture*  uiTexture;
@@ -318,7 +318,8 @@ void Screen_Pause(bool pause) {
 void Screen_Init(void) {
 	SDL_PixelFormatEnum format;
 	uint32_t r, g, b, a;
-	int d, i, n, bpp;
+	int      d, i, n;
+	int      bpp;
 
 	/* Set initial window resolution */
 	width  = NeXT_SCRN_WIDTH;
@@ -552,7 +553,7 @@ void Screen_SizeChanged(void) {
 	float scale;
 	int h;
 
-	if (!bInFullScreen) {
+	if (1 || !bInFullScreen) {
 		SDL_GetWindowSize(sdlWindow, NULL, &h);
 		scale = (float)h / height;
 		SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
@@ -608,7 +609,7 @@ void Screen_StatusbarChanged(void) {
 	if (bInFullScreen) {
 		scale = (float)saveWindowBounds.w / NeXT_SCRN_WIDTH;
 		saveWindowBounds.h = height * scale;
-		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
+		Screen_SizeChanged();
 	} else {
 		SDL_GetWindowSize(sdlWindow, &w, NULL);
 		scale = (float)w / width;
