@@ -26,9 +26,9 @@ const char Screen_fileid[] = "Previous screen.c";
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-int           nWindowWidth;          /* Width of SDL window in physical pixels */
-int           nWindowHeight;         /* Height of SDL window in physical pixels */
-float         dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
+static int    nWindowWidth;          /* Width of SDL window in physical pixels */
+static int    nWindowHeight;         /* Height of SDL window in physical pixels */
+static float  dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
 volatile bool bGrabMouse    = false; /* Grab the mouse cursor in the window */
@@ -36,8 +36,8 @@ volatile bool bInFullScreen = false; /* true if in full screen */
 
 static const int NeXT_SCRN_WIDTH  = 1120;
 static const int NeXT_SCRN_HEIGHT = 832;
-int width;   /* guest framebuffer */
-int height;  /* guest framebuffer */
+static int width;   /* guest framebuffer */
+static int height;  /* guest framebuffer */
 
 static SDL_Renderer* sdlRenderer;
 static SDL_Texture*  uiTexture;
@@ -316,8 +316,9 @@ void Screen_Pause(bool pause) {
  * Init Screen, creates window, renderer and textures
  */
 void Screen_Init(void) {
-	uint32_t format, r, g, b, a;
-	int      d, i;
+	uint32_t format;
+	uint32_t r, g, b, a;
+	int      d, i, n;
 
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
@@ -352,14 +353,15 @@ void Screen_Init(void) {
 
 	int x = SDL_WINDOWPOS_UNDEFINED;
 	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		for (i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+		n = SDL_GetNumVideoDisplays();
+		for (i = 0; i < n; i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
 			if (r.w >= width * 2) {
 				x = r.x + width + ((r.w - width * 2) / 2);
 				break;
 			}
-			if (r.x >= 0 && SDL_GetNumVideoDisplays() == 1) x = r.x + 8;
+			if (r.x >= 0 && n == 1) x = r.x + 8;
 		}
 	}
 	sdlWindow  = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
