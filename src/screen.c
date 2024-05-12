@@ -357,11 +357,18 @@ void Screen_Init(void) {
 			if (r.x >= 0 && n == 1) x = r.x + 8;
 		}
 	}
-	sdlWindow  = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+	sdlWindow = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!sdlWindow) {
 		fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
 	}
+
+	dpiFactor = SDL_GetWindowDisplayScale(sdlWindow);
+	if (dpiFactor == 0.0) {
+		fprintf(stderr, "Failed to set screen scale\n");
+		dpiFactor = 1.0;
+	}
+	fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
 
 #ifdef ENABLE_RENDERING_THREAD
 	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL, SDL_RENDERER_PRESENTVSYNC);
@@ -371,15 +378,6 @@ void Screen_Init(void) {
 	if (!sdlRenderer) {
 		fprintf(stderr,"Failed to create renderer: %s!\n", SDL_GetError());
 		exit(-1);
-	}
-
-	SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
-	if (nWindowWidth > 0) {
-		dpiFactor = (float)nWindowWidth / width;
-		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
-	} else {
-		dpiFactor = 1.0;
-		fprintf(stderr,"Failed to set screen scale\n");
 	}
 
 	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
@@ -553,12 +551,11 @@ void Screen_SizeChanged(void) {
 	float scale;
 	int h;
 
-	if (1 || !bInFullScreen) {
-		SDL_GetWindowSize(sdlWindow, NULL, &h);
-		scale = (float)h / height;
-		SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
-		SDL_SetRenderScale(sdlRenderer, scale*dpiFactor, scale*dpiFactor);
-
+	SDL_GetWindowSize(sdlWindow, NULL, &h);
+	scale = (float)h / height;
+	SDL_SetWindowSize(sdlWindow, width*scale, h);
+	SDL_SetRenderScale(sdlRenderer, scale*dpiFactor, scale*dpiFactor);
+	if (!bInFullScreen) {
 		nd_sdl_resize(scale);
 	}
 
@@ -595,7 +592,6 @@ void Screen_ModeChanged(void) {
  * Force things associated with changing statusbar visibility
  */
 void Screen_StatusbarChanged(void) {
-	float scale;
 	int w;
 
 	if (!sdlscrn) {
@@ -607,13 +603,11 @@ void Screen_StatusbarChanged(void) {
 	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
 
 	if (bInFullScreen) {
-		scale = (float)saveWindowBounds.w / NeXT_SCRN_WIDTH;
-		saveWindowBounds.h = height * scale;
+		saveWindowBounds.h = (height * saveWindowBounds.w) / width;
 		Screen_SizeChanged();
 	} else {
 		SDL_GetWindowSize(sdlWindow, &w, NULL);
-		scale = (float)w / width;
-		SDL_SetWindowSize(sdlWindow, width*scale, height*scale);
+		SDL_SetWindowSize(sdlWindow, w, (height * w) / width);
 	}
 
 	/* Make sure screen is painted in case emulation is paused */
