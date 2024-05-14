@@ -68,7 +68,7 @@ static int tick_func(void *arg)
 {
     while(pcap_started)
     {
-        host_sleep_ms(10);
+        host_sleep_us(1230);
         pcap_tick();
     }
     return 0;
@@ -135,12 +135,14 @@ void enet_pcap_start(uint8_t *mac) {
         }
         Log_Printf(LOG_WARN, "Device: %s", dev);
         
-        pcap_handle = pcap_open_live(dev, 1518, 1, 1000, errbuf);
+        pcap_handle = pcap_open_live(dev, 1518, 1, 1, errbuf);
         
         if (pcap_handle == NULL) {
             Log_Printf(LOG_WARN, "[PCAP] Error: Couldn't open device %s: %s", dev, errbuf);
             return;
         }
+        
+        pcap_set_immediate_mode(pcap_handle, 1);
         
         if (pcap_getnonblock(pcap_handle, errbuf) == 0) {
             Log_Printf(LOG_WARN, "[PCAP] Setting interface to non-blocking mode.");

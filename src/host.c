@@ -297,22 +297,7 @@ void host_pause_time(bool pausing) {
  * Sleep for a given number of micro seconds.
  */
 void host_sleep_us(uint64_t us) {
-#if HAVE_NANOSLEEP
-    struct timespec	ts;
-    int		ret;
-    ts.tv_sec = us / 1000000ULL;
-    ts.tv_nsec = (us % 1000000ULL) * 1000;	/* micro sec -> nano sec */
-    /* wait until all the delay is elapsed, including possible interruptions by signals */
-    do {
-        errno = 0;
-        ret = nanosleep(&ts, &ts);
-    } while ( ret && ( errno == EINTR ) );		/* keep on sleeping if we were interrupted */
-#else
-    uint64_t timeout = us;
-    timeout += real_time();
-    host_sleep_ms( (uint32_t)(us / 1000ULL) );
-    while(real_time() < timeout) {}
-#endif
+    SDL_DelayNS(us * 1000);
 }
 
 void host_sleep_ms(uint32_t ms) {
