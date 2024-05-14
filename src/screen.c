@@ -366,27 +366,27 @@ void Screen_Init(void) {
 	}
 	sdlWindow = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	if (!sdlWindow) {
-		fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
+		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
-	}
-
-	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
-	if (!sdlRenderer) {
-		fprintf(stderr,"Failed to create accelerated renderer: %s!\n", SDL_GetError());
-		sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, vsync_flag);
-		if (!sdlRenderer) {
-			fprintf(stderr,"Failed to create renderer: %s!\n", SDL_GetError());
-			exit(-1);
-		}
 	}
 
 	SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
 	if (nWindowWidth > 0) {
 		dpiFactor = (float)width / nWindowWidth;
-		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
 	} else {
+		fprintf(stderr, "Failed to set screen scale\n");
 		dpiFactor = 1.0;
-		fprintf(stderr,"Failed to set screen scale\n");
+	}
+	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
+
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
+	if (!sdlRenderer) {
+		fprintf(stderr, "Failed to create accelerated renderer: %s!\n", SDL_GetError());
+		sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, vsync_flag);
+		if (!sdlRenderer) {
+			fprintf(stderr, "Failed to create renderer: %s!\n", SDL_GetError());
+			exit(-1);
+		}
 	}
 
 	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
@@ -609,8 +609,7 @@ void Screen_StatusbarChanged(void) {
 	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
 
 	if (bInFullScreen) {
-		scale = (float)saveWindowBounds.w / NeXT_SCRN_WIDTH;
-		saveWindowBounds.h = height * scale;
+		saveWindowBounds.h = (height * saveWindowBounds.w) / width;
 		SDL_RenderSetLogicalSize(sdlRenderer, width, height);
 	} else {
 		SDL_RenderGetScale(sdlRenderer, &scale, &scale);
