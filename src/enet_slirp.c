@@ -106,7 +106,7 @@ static void slirp_rip_tick(void)
 }
 
 
-#define SLIRP_TICK_MS   10
+#define SLIRP_TICK_US   1230
 #define SLIRP_RIP_SEC   30
 
 static int tick_func(void *arg)
@@ -117,7 +117,7 @@ static int tick_func(void *arg)
 
     while(slirp_started)
     {
-        host_sleep_ms(SLIRP_TICK_MS);
+        host_sleep_us(SLIRP_TICK_US);
         slirp_tick();
         
         // for routing information protocol
