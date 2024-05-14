@@ -359,7 +359,7 @@ void Screen_Init(void) {
 	}
 	sdlWindow = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!sdlWindow) {
-		fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
+		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
 	}
 
@@ -368,7 +368,7 @@ void Screen_Init(void) {
 		fprintf(stderr, "Failed to set screen scale\n");
 		dpiFactor = 1.0;
 	}
-	fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
+	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
 
 #ifdef ENABLE_RENDERING_THREAD
 	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL, SDL_RENDERER_PRESENTVSYNC);
@@ -376,7 +376,7 @@ void Screen_Init(void) {
 	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL, 0);
 #endif
 	if (!sdlRenderer) {
-		fprintf(stderr,"Failed to create renderer: %s!\n", SDL_GetError());
+		fprintf(stderr, "Failed to create renderer: %s!\n", SDL_GetError());
 		exit(-1);
 	}
 
