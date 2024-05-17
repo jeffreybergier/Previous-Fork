@@ -25,16 +25,10 @@ const char Audio_fileid[] = "Previous audio.c";
 static SDL_AudioDeviceID Audio_Input_Device  = 0;
 static SDL_AudioDeviceID Audio_Output_Device = 0;
 
-static bool            bSoundOutputWorking  = false; /* Is sound output OK */
-static bool            bSoundInputWorking   = false; /* Is sound input OK */
-static bool            bPlayingBuffer       = false; /* Is playing buffer? */
-static bool            bRecordingBuffer     = false; /* Is recording buffer? */
-static const uint32_t  REC_BUFFER_SIZE      = 1<<16; /* Recording buffer size in power of two */
-static const uint32_t  REC_BUFFER_MASK      = REC_BUFFER_SIZE-1;
-static uint8_t         recBuffer[REC_BUFFER_SIZE];
-static uint32_t        recBufferWr          = 0;
-static uint32_t        recBufferRd          = 0;
-static lock_t          recBufferLock;
+static bool bSoundOutputWorking = false; /* Is sound output OK */
+static bool bSoundInputWorking  = false; /* Is sound input OK */
+static bool bPlayingBuffer      = false; /* Is playing buffer? */
+static bool bRecordingBuffer    = false; /* Is recording buffer? */
 
 
 /*-----------------------------------------------------------------------*/
@@ -78,6 +72,13 @@ void Audio_Output_Queue_Clear(void) {
  * between Audio_Input_Enable and first availability of recorded data.
  */
 #define AUDIO_RECBUF_INIT 32 /* 16000 byte = 1 second */
+
+#define REC_BUFFER_SIZE (1<<16)
+#define REC_BUFFER_MASK (REC_BUFFER_SIZE-1)
+static uint8_t  recBuffer[REC_BUFFER_SIZE];
+static uint32_t recBufferWr = 0;
+static uint32_t recBufferRd = 0;
+static lock_t   recBufferLock;
 
 static void Audio_Input_InitBuf(void) {
 	Log_Printf(LOG_WARN, "[Audio] Initializing input buffer with %d ms of silence.", AUDIO_RECBUF_INIT>>4);
