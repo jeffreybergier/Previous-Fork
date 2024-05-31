@@ -25,6 +25,7 @@ const char Host_fileid[] = "Previous host.c";
 
 #include "host.h"
 #include "configuration.h"
+#include "cycInt.h"
 #include "main.h"
 #include "log.h"
 #include "memory.h"
@@ -54,9 +55,6 @@ static time_t       unixTimeStart;
 static lock_t       timeLock;
 static uint64_t     saveTime;
 
-// external
-extern int64_t      nCyclesMainCounter;
-extern struct regstruct regs;
 
 static inline uint64_t real_time(void) {
     uint64_t rt = (SDL_GetPerformanceCounter() - perfCounterStart);

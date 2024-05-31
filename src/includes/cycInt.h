@@ -50,7 +50,7 @@ enum {
 
 typedef struct
 {
-    int    type;   /* Type of time (CPU Cycles, microseconds) or NONE for inactive */
+    int     type;   /* Type of time (CPU Cycles, microseconds) or NONE for inactive */
     int64_t time;   /* number of CPU cycles to go until interupt or absolute microsecond timeout until interrupt */
     void (*pFunction)(void);
 } INTERRUPTHANDLER;
