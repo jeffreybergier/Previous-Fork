@@ -406,6 +406,9 @@ Previous v3.2:
   > Improves accuracy of the memory map for devices.
   > Fixes bug in DSP modulo addressing mode that could cause bad results.
 
+Previous v3.3 (unreleased):
+  > Improves throughput of simulated Ethernet connection.
+
 
  7) Running Previous
  -------------------

@@ -318,7 +318,7 @@ void Screen_Pause(bool pause) {
 void Screen_Init(void) {
 	SDL_PixelFormatEnum format;
 	uint32_t r, g, b, a;
-	int      d, i, n;
+	int      d, i, n, x;
 	int      bpp;
 
 	/* Set initial window resolution */
@@ -344,7 +344,7 @@ void Screen_Init(void) {
 	/* Set new video mode */
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-	int x = SDL_WINDOWPOS_UNDEFINED;
+	x = SDL_WINDOWPOS_UNDEFINED;
 	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
 		SDL_GetDisplays(&n);
 		for (i = 0; i < n; i++) {
