@@ -318,7 +318,7 @@ void Screen_Pause(bool pause) {
 void Screen_Init(void) {
 	uint32_t format;
 	uint32_t r, g, b, a;
-	int      d, i, n;
+	int      d, i, n, x;
 
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
@@ -351,7 +351,7 @@ void Screen_Init(void) {
 
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-	int x = SDL_WINDOWPOS_UNDEFINED;
+	x = SDL_WINDOWPOS_UNDEFINED;
 	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
 		n = SDL_GetNumVideoDisplays();
 		for (i = 0; i < n; i++) {
