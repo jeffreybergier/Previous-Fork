@@ -370,16 +370,14 @@ void Screen_Init(void) {
 	}
 	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
 
-#ifdef ENABLE_RENDERING_THREAD
-	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL, SDL_RENDERER_PRESENTVSYNC);
-#else
-	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL, 0);
-#endif
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
 	if (!sdlRenderer) {
 		fprintf(stderr, "Failed to create renderer: %s!\n", SDL_GetError());
 		exit(-1);
 	}
-
+#ifdef ENABLE_RENDERING_THREAD
+	SDL_SetRenderVSync(sdlRenderer, 1);
+#endif
 	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
 	SDL_SetRenderScale(sdlRenderer, dpiFactor, dpiFactor);
 

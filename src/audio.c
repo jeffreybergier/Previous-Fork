@@ -200,12 +200,12 @@ void Audio_Input_UnInit(void) {
 void Audio_Output_Enable(bool bEnable) {
 	if (bEnable && !bPlayingBuffer) {
 		/* Start playing */
-		SDL_ResumeAudioDevice(SDL_GetAudioStreamDevice(Audio_Output_Stream));
+		SDL_ResumeAudioStreamDevice(Audio_Output_Stream);
 		bPlayingBuffer = true;
 	}
 	else if (!bEnable && bPlayingBuffer) {
 		/* Stop from playing */
-		SDL_PauseAudioDevice(SDL_GetAudioStreamDevice(Audio_Output_Stream));
+		SDL_PauseAudioStreamDevice(Audio_Output_Stream);
 		bPlayingBuffer = false;
 	}
 }
@@ -214,12 +214,12 @@ void Audio_Input_Enable(bool bEnable) {
 	if (bEnable && !bRecordingBuffer) {
 		/* Start recording */
 		Audio_Input_InitBuf();
-		SDL_ResumeAudioDevice(SDL_GetAudioStreamDevice(Audio_Input_Stream));
+		SDL_ResumeAudioStreamDevice(Audio_Input_Stream);
 		bRecordingBuffer = true;
 	}
 	else if (!bEnable && bRecordingBuffer) {
 		/* Stop recording */
-		SDL_PauseAudioDevice(SDL_GetAudioStreamDevice(Audio_Input_Stream));
+		SDL_PauseAudioStreamDevice(Audio_Input_Stream);
 		bRecordingBuffer = false;
 	}
 }

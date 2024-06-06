@@ -931,11 +931,11 @@ static uint8_t ADB_GetKeyFromSymbol(SDL_Keycode sdlkey)
 		case SDLK_KP_MINUS:               return APPLEKEY_KEYPAD_MINUS;
 		case SDLK_KP_MULTIPLY:            return APPLEKEY_KEYPAD_MULTIPLY;
 		case SDLK_NUMLOCKCLEAR:           return APPLEKEY_BACKQUOTE;
-		case SDLK_BACKQUOTE:              return APPLEKEY_BACKQUOTE;
+		case SDLK_GRAVE:                  return APPLEKEY_BACKQUOTE;
 		case SDLK_KP_EQUALS:              return APPLEKEY_KEYPAD_EQUALS;
 		case SDLK_KP_DIVIDE:              return APPLEKEY_KEYPAD_DIVIDE;
 		case SDLK_RETURN:                 return APPLEKEY_RETURN;
-		case SDLK_QUOTE:                  return APPLEKEY_QUOTE;
+		case SDLK_APOSTROPHE:             return APPLEKEY_QUOTE;
 		case SDLK_SEMICOLON:              return APPLEKEY_SEMICOLON;
 		case SDLK_l:                      return APPLEKEY_l;
 		case SDLK_COMMA:                  return APPLEKEY_COMMA;

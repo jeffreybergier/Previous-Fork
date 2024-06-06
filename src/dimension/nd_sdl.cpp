@@ -72,11 +72,7 @@ void NDSDL::init(void) {
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
-#ifdef ENABLE_RENDERING_THREAD
-            ndRenderer = SDL_CreateRenderer(ndWindow, NULL, SDL_RENDERER_PRESENTVSYNC);
-#else
-            ndRenderer = SDL_CreateRenderer(ndWindow, NULL, 0);
-#endif
+            ndRenderer = SDL_CreateRenderer(ndWindow, NULL);
             if (!ndRenderer) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
                 exit(-1);
@@ -84,6 +80,7 @@ void NDSDL::init(void) {
             SDL_SetRenderLogicalPresentation(ndRenderer, r.w, r.h, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
             ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
 #ifdef ENABLE_RENDERING_THREAD
+            SDL_SetRenderVSync(ndRenderer, 1);
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
             SDL_AtomicSet(&blitNDFB, 0);

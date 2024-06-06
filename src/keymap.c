@@ -267,11 +267,11 @@ static uint8_t Keymap_GetKeyFromSymbol(SDL_Keycode sdlkey)
 		case SDLK_KP_MINUS:               return NEXTKEY_KEYPAD_MINUS;
 		case SDLK_KP_MULTIPLY:            return NEXTKEY_KEYPAD_MULTIPLY;
 		case SDLK_NUMLOCKCLEAR:           return NEXTKEY_BACKQUOTE;
-		case SDLK_BACKQUOTE:              return NEXTKEY_BACKQUOTE;
+		case SDLK_GRAVE:                  return NEXTKEY_BACKQUOTE;
 		case SDLK_KP_EQUALS:              return NEXTKEY_KEYPAD_EQUALS;
 		case SDLK_KP_DIVIDE:              return NEXTKEY_KEYPAD_DIVIDE;
 		case SDLK_RETURN:                 return NEXTKEY_RETURN;
-		case SDLK_QUOTE:                  return NEXTKEY_QUOTE;
+		case SDLK_APOSTROPHE:             return NEXTKEY_QUOTE;
 		case SDLK_SEMICOLON:              return NEXTKEY_SEMICOLON;
 		case SDLK_l:                      return NEXTKEY_l;
 		case SDLK_COMMA:                  return NEXTKEY_COMMA;
