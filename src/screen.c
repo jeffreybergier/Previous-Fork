@@ -129,8 +129,7 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 	uint32_t* src = &vram[4];
 #endif
 	int       d;
-	uint32_t  format;
-	SDL_QueryTexture(tex, &format, &d, &d, &d);
+	SDL_PixelFormatEnum format = SDL_GetNumberProperty(SDL_GetTextureProperties(tex), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
 	if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
 		/* Add big-endian accelerated blit loops as needed here */
 		switch (format) {
@@ -319,7 +318,6 @@ void Screen_Init(void) {
 	SDL_PixelFormatEnum format;
 	uint32_t r, g, b, a;
 	int      d, i, n, x;
-	int      bpp;
 
 	/* Set initial window resolution */
 	width  = NeXT_SCRN_WIDTH;
@@ -387,7 +385,8 @@ void Screen_Init(void) {
 	fbTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
 
-	SDL_QueryTexture(uiTexture, &format, &d, &d, &d);
+	format = SDL_GetNumberProperty(SDL_GetTextureProperties(uiTexture), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
+	SDL_GetMasksForPixelFormatEnum(format, &d, &r, &g, &b, &a);
 
 	sdlscrn = SDL_CreateSurface(width, height, format);
 
@@ -399,7 +398,6 @@ void Screen_Init(void) {
 	}
 
 	/* Clear UI with mask */
-	SDL_GetMasksForPixelFormatEnum(format, &bpp, &r, &g, &b, &a);
 	mask = g | a;
 	SDL_FillSurfaceRect(sdlscrn, NULL, mask);
 

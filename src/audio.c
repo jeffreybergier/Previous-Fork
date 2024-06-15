@@ -128,7 +128,7 @@ void Audio_Output_Init(void)
 	}
 
 	if (Audio_Output_Stream == NULL) {
-		Audio_Output_Stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_OUTPUT, &request, NULL, NULL);
+		Audio_Output_Stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &request, NULL, NULL);
 	}
 	if (Audio_Output_Stream == NULL) {
 		Log_Printf(LOG_WARN, "[Audio] Could not open audio output device: %s\n", SDL_GetError());
@@ -154,7 +154,7 @@ void Audio_Input_Init(void) {
 	}
 
 	if (Audio_Input_Stream == NULL) {
-		Audio_Input_Stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_CAPTURE, &request, NULL, NULL);
+		Audio_Input_Stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &request, NULL, NULL);
 	}
 	if (Audio_Input_Stream == NULL) {
 		Log_Printf(LOG_WARN, "[Audio] Could not open audio input device: %s\n", SDL_GetError());
