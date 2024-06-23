@@ -8,7 +8,6 @@
 */
 const char DlgFileSelect_fileid[] = "Hatari dlgFileSelect.c";
 
-#include <SDL.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -408,7 +407,7 @@ static void DlgFileSelect_HandleSdlEvents(SDL_Event *pEvent)
 			DlgFileSelect_ScrollDown();
 		break;
 	 case SDL_EVENT_KEY_DOWN:
-		switch (pEvent->key.keysym.sym)
+		switch (pEvent->key.key)
 		{
 		 case SDLK_UP:
 			DlgFileSelect_ScrollUp();

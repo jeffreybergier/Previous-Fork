@@ -8,7 +8,7 @@
 */
 const char SDLGui_fileid[] = "Hatari sdlgui.c";
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -53,7 +53,6 @@ int sdlgui_fontheight;			/* Height of the actual font */
  */
 static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 {
-	SDL_PixelFormatEnum format;
 	SDL_Surface *bitmap;
 	Uint8 *dstbits;
 	const Uint8 *srcbits;
@@ -63,8 +62,7 @@ static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 	srcbits = pXbmBits;
 
 	/* Allocate the bitmap */
-	format = SDL_GetPixelFormatEnumForMasks(8, 0, 0, 0, 0);
-	bitmap = SDL_CreateSurface(w, h, format);
+	bitmap = SDL_CreateSurface(w, h, SDL_GetPixelFormatEnumForMasks(8, 0, 0, 0, 0));
 	if (bitmap == NULL)
 	{
 		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate bitmap: %s", SDL_GetError());
@@ -641,7 +639,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 					}
 					break;
 				 case SDL_EVENT_KEY_DOWN:                  /* Key pressed */
-					switch (event.key.keysym.sym)
+					switch (event.key.key)
 					{
 					 case SDLK_RETURN:
 					 case SDLK_KP_ENTER:
@@ -1339,10 +1337,10 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				/* keys that need to support repeat,
 				 * need to be checked on press
 				 */
-				key = sdlEvent.key.keysym.sym;
+				key = sdlEvent.key.key;
 				/* keyboard shortcuts are with modifiers */
-				if (sdlEvent.key.keysym.mod & SDL_KMOD_LALT
-				    || sdlEvent.key.keysym.mod & SDL_KMOD_RALT)
+				if (sdlEvent.key.mod & SDL_KMOD_LALT
+				    || sdlEvent.key.mod & SDL_KMOD_RALT)
 				{
 					if (key == SDLK_LEFT)
 						retbutton = SDLGui_HandleShortcut(dlg, SG_SHORTCUT_LEFT);
@@ -1393,7 +1391,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				 * to be handed only on release, to avoid
 				 * leaking release events to emulation
 				 */
-				switch (sdlEvent.key.keysym.sym)
+				switch (sdlEvent.key.key)
 				{
 				 case SDLK_SPACE:
 				 case SDLK_RETURN:

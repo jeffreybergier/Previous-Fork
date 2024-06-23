@@ -10,7 +10,7 @@
 #ifndef __ND_SDL_H__
 #define __ND_SDL_H__
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "config.h"
 

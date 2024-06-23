@@ -8,7 +8,7 @@
 */
 const char ShortCut_fileid[] = "Hatari shortcut.c";
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "main.h"
 #include "dialog.h"

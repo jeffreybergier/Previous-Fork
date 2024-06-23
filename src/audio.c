@@ -19,7 +19,7 @@ const char Audio_fileid[] = "Previous audio.c";
 #include "host.h"
 #include "grab.h"
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 
 static SDL_AudioStream *Audio_Input_Stream  = NULL;

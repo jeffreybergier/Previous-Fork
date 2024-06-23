@@ -23,7 +23,7 @@ const char Configuration_fileid[] = "Previous configuration.c";
 #include "video.h"
 #include "68kDisass.h"
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 
 CNF_PARAMS ConfigureParams;                 /* List of configuration for the emulator */

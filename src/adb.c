@@ -1003,12 +1003,12 @@ static uint8_t ADB_GetKeyFromSymbol(SDL_Keycode sdlkey)
 }
 
 
-void ADB_KeyDown(const SDL_Keysym *sdlkey)
+void ADB_KeyDown(const SDL_KeyboardEvent *sdlkey)
 {
 	uint8_t adb_key;
 	
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
-		adb_key = ADB_GetKeyFromSymbol(sdlkey->sym);
+		adb_key = ADB_GetKeyFromSymbol(sdlkey->key);
 	} else {
 		adb_key = ADB_GetKeyFromScancode(sdlkey->scancode);
 	}
@@ -1018,12 +1018,12 @@ void ADB_KeyDown(const SDL_Keysym *sdlkey)
 	adb_keydown(adb_key);
 }
 
-void ADB_KeyUp(const SDL_Keysym *sdlkey)
+void ADB_KeyUp(const SDL_KeyboardEvent *sdlkey)
 {
 	uint8_t adb_key;
 	
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
-		adb_key = ADB_GetKeyFromSymbol(sdlkey->sym);
+		adb_key = ADB_GetKeyFromSymbol(sdlkey->key);
 	} else {
 		adb_key = ADB_GetKeyFromScancode(sdlkey->scancode);
 	}

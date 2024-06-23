@@ -40,9 +40,6 @@ const char Statusbar_fileid[] = "Hatari statusbar.c";
 #include "dimension.hpp"
 #include "str.h"
 
-#include <SDL.h>
-
-
 #define DEBUG 0
 #if DEBUG
 # include <execinfo.h>

@@ -12,7 +12,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 extern volatile bool bGrabMouse;
 extern volatile bool bInFullScreen;

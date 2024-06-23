@@ -13,8 +13,6 @@
 #include "host.h"
 #include "cycInt.h"
 
-#include <SDL.h>
-
 
 #ifdef ENABLE_RENDERING_THREAD
 NDSDL::NDSDL(int slot, uint32_t* vram) : slot(slot), vram(vram), ndWindow(NULL), ndRenderer(NULL), ndTexture(NULL), doRepaint(true), repaintThread(NULL) {}

@@ -12,7 +12,7 @@ const char Main_fileid[] = "Previous main.c";
 #include <errno.h>
 #include <signal.h>
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "main.h"
 #include "configuration.h"
@@ -450,24 +450,24 @@ void Main_ResetKeys(void) {
 	SDL_ResetKeyboard();
 
 	/* Send magic key sequence to avoid stuck keys */
-	event.type                = SDL_EVENT_KEY_DOWN;
-	event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
-	event.key.keysym.sym      = SDLK_LCTRL;
-	event.key.keysym.mod      = SDL_KMOD_LCTRL;
+	event.type         = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_LCTRL;
+	event.key.key      = SDLK_LCTRL;
+	event.key.mod      = SDL_KMOD_LCTRL;
 	SDL_PushEvent(&event);
 
 	if (ConfigureParams.System.bADB) {
-		event.type                = SDL_EVENT_KEY_UP;
-		event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
-		event.key.keysym.sym      = SDLK_LCTRL;
-		event.key.keysym.mod      = SDL_KMOD_LCTRL;
+		event.type         = SDL_EVENT_KEY_UP;
+		event.key.scancode = SDL_SCANCODE_LCTRL;
+		event.key.key      = SDLK_LCTRL;
+		event.key.mod      = SDL_KMOD_LCTRL;
 		SDL_PushEvent(&event);
 	}
 	
-	event.type                = SDL_EVENT_KEY_UP;
-	event.key.keysym.scancode = SDL_SCANCODE_Q;
-	event.key.keysym.sym      = SDLK_q;
-	event.key.keysym.mod      = SDL_KMOD_NONE;
+	event.type         = SDL_EVENT_KEY_UP;
+	event.key.scancode = SDL_SCANCODE_Q;
+	event.key.key      = SDLK_q;
+	event.key.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&event);
 }
 
@@ -682,23 +682,23 @@ void Main_EventHandler(void) {
 				if (event.key.repeat) {
 					break;
 				}
-				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, true)) {
+				if (ShortCut_CheckKeys(event.key.mod, event.key.key, true)) {
 					ShortCut_ActKey();
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
-				Keymap_KeyDown(&event.key.keysym);
+				Keymap_KeyDown(&event.key);
 #else
 				Main_PutEvent(&event);
 #endif
 				break;
 
 			case SDL_EVENT_KEY_UP:
-				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, false)) {
+				if (ShortCut_CheckKeys(event.key.mod, event.key.key, false)) {
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
-				Keymap_KeyUp(&event.key.keysym);
+				Keymap_KeyUp(&event.key);
 #else
 				Main_PutEvent(&event);
 #endif

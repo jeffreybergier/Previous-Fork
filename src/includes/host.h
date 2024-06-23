@@ -10,7 +10,7 @@
 #ifndef PREV_HOST_H
 #define PREV_HOST_H
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus

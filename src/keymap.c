@@ -115,7 +115,10 @@ const char Keymap_fileid[] = "Previous keymap.c";
 #define NEXTKEY_MOD_RALT        0x40
 
 
-void Keymap_Init(void) {}
+void Keymap_Init(void)
+{
+	SDL_SetHint(SDL_HINT_KEYCODE_OPTIONS, "unmodified");
+}
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -372,26 +375,26 @@ static void post_key_event(int sym, int scan)
 {
 	SDL_Event sdlevent;
 	sdlevent.type = SDL_EVENT_KEY_DOWN;
-	sdlevent.key.keysym.sym      = sym;
-	sdlevent.key.keysym.scancode = scan;
-	sdlevent.key.keysym.mod      = SDL_KMOD_NONE;
+	sdlevent.key.key      = sym;
+	sdlevent.key.scancode = scan;
+	sdlevent.key.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&sdlevent);
 	sdlevent.type = SDL_EVENT_KEY_UP;
-	sdlevent.key.keysym.sym      = sym;
-	sdlevent.key.keysym.scancode = scan;
-	sdlevent.key.keysym.mod      = SDL_KMOD_NONE;
+	sdlevent.key.key      = sym;
+	sdlevent.key.scancode = scan;
+	sdlevent.key.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&sdlevent);
 }
 
-void Keymap_MouseWheel(SDL_MouseWheelEvent* event)
+void Keymap_MouseWheel(const SDL_MouseWheelEvent *sdlwheel)
 {
 	int32_t x, y;
 	
 	if (ConfigureParams.Mouse.bEnableMapToKey) {
-		x = event->x;
-		y = event->y;
+		x = sdlwheel->x;
+		y = sdlwheel->y;
 		
-		if (event->direction == SDL_MOUSEWHEEL_FLIPPED) {
+		if (sdlwheel->direction == SDL_MOUSEWHEEL_FLIPPED) {
 			x = -x;
 			y = -y;
 		}
@@ -411,7 +414,7 @@ void Keymap_MouseWheel(SDL_MouseWheelEvent* event)
 /**
  * User pressed key down
  */
-void Keymap_KeyDown(const SDL_Keysym *sdlkey)
+void Keymap_KeyDown(const SDL_KeyboardEvent *sdlkey)
 {
 	uint8_t next_mod, next_key;
 
@@ -420,7 +423,7 @@ void Keymap_KeyDown(const SDL_Keysym *sdlkey)
 		return;
 	}
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
-		next_key = Keymap_GetKeyFromSymbol(sdlkey->sym);
+		next_key = Keymap_GetKeyFromSymbol(sdlkey->key);
 	} else {
 		next_key = Keymap_GetKeyFromScancode(sdlkey->scancode);
 	}
@@ -437,7 +440,7 @@ void Keymap_KeyDown(const SDL_Keysym *sdlkey)
 /**
  * User released key
  */
-void Keymap_KeyUp(const SDL_Keysym *sdlkey)
+void Keymap_KeyUp(const SDL_KeyboardEvent *sdlkey)
 {
 	uint8_t next_mod, next_key;
 
@@ -446,7 +449,7 @@ void Keymap_KeyUp(const SDL_Keysym *sdlkey)
 		return;
 	}
 	if (ConfigureParams.Keyboard.nKeymapType == KEYMAP_SYMBOLIC) {
-		next_key = Keymap_GetKeyFromSymbol(sdlkey->sym);
+		next_key = Keymap_GetKeyFromSymbol(sdlkey->key);
 	} else {
 		next_key = Keymap_GetKeyFromScancode(sdlkey->scancode);
 	}
