@@ -12,7 +12,7 @@
 
 extern void Keymap_Init(void);
 
-extern void Keymap_MouseWheel(SDL_MouseWheelEvent* event);
+extern void Keymap_MouseWheel(const SDL_MouseWheelEvent *sdlwheel);
 extern void Keymap_MouseMove(int dx, int dy);
 extern void Keymap_MouseDown(bool left);
 extern void Keymap_MouseUp(bool left);

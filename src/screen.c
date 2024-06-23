@@ -21,8 +21,6 @@ const char Screen_fileid[] = "Previous screen.c";
 #include "video.h"
 #include "m68000.h"
 
-#include <SDL.h>
-
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
