@@ -528,10 +528,10 @@ void Main_EventHandlerInterrupt(void) {
 				Keymap_MouseWheel(&event.wheel);
 				break;
 			case SDL_EVENT_KEY_DOWN:
-				Keymap_KeyDown(&event.key.keysym);
+				Keymap_KeyDown(&event.key);
 				break;
 			case SDL_EVENT_KEY_UP:
-				Keymap_KeyUp(&event.key.keysym);
+				Keymap_KeyUp(&event.key);
 				break;
 			default:
 				break;

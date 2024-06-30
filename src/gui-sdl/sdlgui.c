@@ -600,8 +600,8 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 	rect.w = (dlg[objnum].w + 1) * sdlgui_fontwidth - 1;
 	rect.h = dlg[objnum].h * sdlgui_fontheight;
 
-	SDL_SetTextInputRect(&rect);
-	SDL_StartTextInput();
+	SDL_SetTextInputArea(sdlWindow, &rect, 0);
+	SDL_StartTextInput(sdlWindow);
 
 	txt = dlg[objnum].txt;
 	cursorPos = strlen(txt);
@@ -692,7 +692,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 	}
 	while (!bStopEditing);
 
-	SDL_StopTextInput();
+	SDL_StopTextInput(sdlWindow);
 }
 
 
