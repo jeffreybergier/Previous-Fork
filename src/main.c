@@ -466,7 +466,7 @@ void Main_ResetKeys(void) {
 	
 	event.type         = SDL_EVENT_KEY_UP;
 	event.key.scancode = SDL_SCANCODE_Q;
-	event.key.key      = SDLK_q;
+	event.key.key      = SDLK_Q;
 	event.key.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&event);
 }

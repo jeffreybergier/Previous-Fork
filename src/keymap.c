@@ -115,10 +115,7 @@ const char Keymap_fileid[] = "Previous keymap.c";
 #define NEXTKEY_MOD_RALT        0x40
 
 
-void Keymap_Init(void)
-{
-	SDL_SetHint(SDL_HINT_KEYCODE_OPTIONS, "unmodified");
-}
+void Keymap_Init(void) {}
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -241,9 +238,9 @@ static uint8_t Keymap_GetKeyFromSymbol(SDL_Keycode sdlkey)
 		case SDLK_BACKSLASH:              return NEXTKEY_BACKSLASH;
 		case SDLK_RIGHTBRACKET:           return NEXTKEY_CLOSEBRACKET;
 		case SDLK_LEFTBRACKET:            return NEXTKEY_OPENBRACKET;
-		case SDLK_i:                      return NEXTKEY_i;
-		case SDLK_o:                      return NEXTKEY_o;
-		case SDLK_p:                      return NEXTKEY_p;
+		case SDLK_I:                      return NEXTKEY_i;
+		case SDLK_O:                      return NEXTKEY_o;
+		case SDLK_P:                      return NEXTKEY_p;
 		case SDLK_LEFT:                   return NEXTKEY_LEFT_ARROW;
 		case SDLK_KP_0:                   return NEXTKEY_KEYPAD_0;
 		case SDLK_KP_PERIOD:              return NEXTKEY_KEYPAD_PERIOD;
@@ -276,34 +273,34 @@ static uint8_t Keymap_GetKeyFromSymbol(SDL_Keycode sdlkey)
 		case SDLK_RETURN:                 return NEXTKEY_RETURN;
 		case SDLK_APOSTROPHE:             return NEXTKEY_QUOTE;
 		case SDLK_SEMICOLON:              return NEXTKEY_SEMICOLON;
-		case SDLK_l:                      return NEXTKEY_l;
+		case SDLK_L:                      return NEXTKEY_l;
 		case SDLK_COMMA:                  return NEXTKEY_COMMA;
 		case SDLK_PERIOD:                 return NEXTKEY_PERIOD;
 		case SDLK_SLASH:                  return NEXTKEY_SLASH;
-		case SDLK_z:                      return NEXTKEY_z;
-		case SDLK_x:                      return NEXTKEY_x;
-		case SDLK_c:                      return NEXTKEY_c;
-		case SDLK_v:                      return NEXTKEY_v;
-		case SDLK_b:                      return NEXTKEY_b;
-		case SDLK_m:                      return NEXTKEY_m;
-		case SDLK_n:                      return NEXTKEY_n;
+		case SDLK_Z:                      return NEXTKEY_z;
+		case SDLK_X:                      return NEXTKEY_x;
+		case SDLK_C:                      return NEXTKEY_c;
+		case SDLK_V:                      return NEXTKEY_v;
+		case SDLK_B:                      return NEXTKEY_b;
+		case SDLK_M:                      return NEXTKEY_m;
+		case SDLK_N:                      return NEXTKEY_n;
 		case SDLK_SPACE:                  return NEXTKEY_SPACE;
-		case SDLK_a:                      return NEXTKEY_a;
-		case SDLK_s:                      return NEXTKEY_s;
-		case SDLK_d:                      return NEXTKEY_d;
-		case SDLK_f:                      return NEXTKEY_f;
-		case SDLK_g:                      return NEXTKEY_g;
-		case SDLK_k:                      return NEXTKEY_k;
-		case SDLK_j:                      return NEXTKEY_j;
-		case SDLK_h:                      return NEXTKEY_h;
+		case SDLK_A:                      return NEXTKEY_a;
+		case SDLK_S:                      return NEXTKEY_s;
+		case SDLK_D:                      return NEXTKEY_d;
+		case SDLK_F:                      return NEXTKEY_f;
+		case SDLK_G:                      return NEXTKEY_g;
+		case SDLK_K:                      return NEXTKEY_k;
+		case SDLK_J:                      return NEXTKEY_j;
+		case SDLK_H:                      return NEXTKEY_h;
 		case SDLK_TAB:                    return NEXTKEY_TAB;
-		case SDLK_q:                      return NEXTKEY_q;
-		case SDLK_w:                      return NEXTKEY_w;
-		case SDLK_e:                      return NEXTKEY_e;
-		case SDLK_r:                      return NEXTKEY_r;
-		case SDLK_u:                      return NEXTKEY_u;
-		case SDLK_y:                      return NEXTKEY_y;
-		case SDLK_t:                      return NEXTKEY_t;
+		case SDLK_Q:                      return NEXTKEY_q;
+		case SDLK_W:                      return NEXTKEY_w;
+		case SDLK_E:                      return NEXTKEY_e;
+		case SDLK_R:                      return NEXTKEY_r;
+		case SDLK_U:                      return NEXTKEY_u;
+		case SDLK_Y:                      return NEXTKEY_y;
+		case SDLK_T:                      return NEXTKEY_t;
 		case SDLK_ESCAPE:                 return NEXTKEY_ESC;
 		case SDLK_1:                      return NEXTKEY_1;
 		case SDLK_2:                      return NEXTKEY_2;
