@@ -41,10 +41,6 @@ const char Main_fileid[] = "Previous main.c";
 #include "hatari-glue.h"
 #include "NextBus.hpp"
 
-#if HAVE_GETTIMEOFDAY
-#include <sys/time.h>
-#endif
-
 #ifdef WIN32
 #include "gui-win/opencon.h"
 #endif

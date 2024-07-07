@@ -177,7 +177,11 @@ void enet_slirp_start(uint8_t *mac) {
         Log_Printf(LOG_WARN, "Initializing SLIRP");
         slirp_inited=1;
         slirp_init(&guest_addr);
-        slirp_redir(0, 42323, guest_addr, 23);
+        slirp_redir(0, 42320, guest_addr, 20); /* ftp data */
+        slirp_redir(0, 42321, guest_addr, 21); /* ftp control */
+        slirp_redir(0, 42322, guest_addr, 22); /* ssh */
+        slirp_redir(0, 42323, guest_addr, 23); /* telnet */
+        slirp_redir(0, 42380, guest_addr, 80); /* http */
     }
     if (slirp_inited && !slirp_started) {
         Log_Printf(LOG_WARN, "Starting SLIRP (%02x:%02x:%02x:%02x:%02x:%02x)",
