@@ -80,6 +80,9 @@ with the host system. It also includes an internal time server that makes it
 possible to automatically synchronise host and guest system time. Please note 
 that only NeXTstep 2.0 and later support automatic time synchronisation.
 
+Previous listens on some TCP ports and will forward connections to the emulated 
+machine. See the file networking.howto.txt for details.
+
 Previous comes with a command line utility called "ditool" (disk image tool). It
 can be used to extract raw disk image files into a directory on the host system. 
 You can get further informations about ditool's features and how to use it by 
@@ -407,6 +410,7 @@ Previous v3.2:
   > Fixes bug in DSP modulo addressing mode that could cause bad results.
 
 Previous v3.3 (unreleased):
+  > Adds support for FTP, SSH, Telnet and HTTP port forwarding via SLiRP.
   > Improves throughput of simulated Ethernet connection.
 
 
