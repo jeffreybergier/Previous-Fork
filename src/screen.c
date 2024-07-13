@@ -74,7 +74,7 @@ static uint32_t col2rgb(SDL_PixelFormat* format, int col) {
 	int r = col & 0xF000; r >>= 12; r |= r << 4;
 	int g = col & 0x0F00; g >>= 8;  g |= g << 4;
 	int b = col & 0x00F0; b >>= 4;  b |= b << 4;
-	return SDL_MapRGB(format, r,   g,   b);
+	return SDL_MapRGB(format, r, g, b);
 }
 
 /*
