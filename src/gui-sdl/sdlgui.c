@@ -62,7 +62,7 @@ static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 	srcbits = pXbmBits;
 
 	/* Allocate the bitmap */
-	bitmap = SDL_CreateSurface(w, h, SDL_GetPixelFormatEnumForMasks(8, 0, 0, 0, 0));
+	bitmap = SDL_CreateSurface(w, h, SDL_GetPixelFormatForMasks(8, 0, 0, 0, 0));
 	if (bitmap == NULL)
 	{
 		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate bitmap: %s", SDL_GetError());
@@ -115,12 +115,16 @@ int SDLGui_Init(void)
 	}
 
 	/* Set color palette of the font graphics: */
-	SDL_SetPaletteColors(pSmallFontGfx->format->palette, blackWhiteColors, 0, 2);
-	SDL_SetPaletteColors(pBigFontGfx->format->palette, blackWhiteColors, 0, 2);
+	SDL_SetPaletteColors(SDL_GetSurfacePalette(pSmallFontGfx), blackWhiteColors, 0, 2);
+	SDL_SetPaletteColors(SDL_GetSurfacePalette(pBigFontGfx), blackWhiteColors, 0, 2);
 
 	/* Set font color 0 as transparent: */
-	SDL_SetSurfaceColorKey(pSmallFontGfx, SDL_RLEACCEL, 0);
-	SDL_SetSurfaceColorKey(pBigFontGfx, SDL_RLEACCEL, 0);
+	SDL_SetSurfaceColorKey(pSmallFontGfx, SDL_TRUE, 0);
+	SDL_SetSurfaceColorKey(pBigFontGfx, SDL_TRUE, 0);
+
+	/* Enable accerlation */
+	SDL_SetSurfaceRLE(pSmallFontGfx, SDL_TRUE);
+	SDL_SetSurfaceRLE(pBigFontGfx, SDL_TRUE);
 
 	return 0;
 }
@@ -178,21 +182,21 @@ int SDLGui_SetScreen(SDL_Surface *pScrn)
 	sdlgui_fontheight = pFontGfx->h/16;
 
 	/* scrollbar */
-	colors.darkbar   = SDL_MapRGB(pSdlGuiScrn->format, 73, 72, 85);
-	colors.midbar    = SDL_MapRGB(pSdlGuiScrn->format,147,145,170);
-	colors.lightbar  = SDL_MapRGB(pSdlGuiScrn->format,181,183,170);
+	colors.darkbar   = SDL_MapSurfaceRGB(pSdlGuiScrn, 73, 72, 85);
+	colors.midbar    = SDL_MapSurfaceRGB(pSdlGuiScrn,147,145,170);
+	colors.lightbar  = SDL_MapSurfaceRGB(pSdlGuiScrn,181,183,170);
 	/* buttons, midgray is also normal bg color */
-	colors.darkgrey  = SDL_MapRGB(pSdlGuiScrn->format,147,145,170);
-	colors.midgrey   = SDL_MapRGB(pSdlGuiScrn->format,181,183,170);
-	colors.lightgrey = SDL_MapRGB(pSdlGuiScrn->format,255,255,255);
+	colors.darkgrey  = SDL_MapSurfaceRGB(pSdlGuiScrn,147,145,170);
+	colors.midgrey   = SDL_MapSurfaceRGB(pSdlGuiScrn,181,183,170);
+	colors.lightgrey = SDL_MapSurfaceRGB(pSdlGuiScrn,255,255,255);
 	/* others */
-	colors.focus     = SDL_MapRGB(pSdlGuiScrn->format,181,183,170);
-	colors.cursor    = SDL_MapRGB(pSdlGuiScrn->format,147,145,170);
+	colors.focus     = SDL_MapSurfaceRGB(pSdlGuiScrn,181,183,170);
+	colors.cursor    = SDL_MapSurfaceRGB(pSdlGuiScrn,147,145,170);
 	if (sdlgui_fontheight < 16)
-		colors.underline = SDL_MapRGB(pSdlGuiScrn->format,255,0,255);
+		colors.underline = SDL_MapSurfaceRGB(pSdlGuiScrn,255,0,255);
 	else
-		colors.underline = SDL_MapRGB(pSdlGuiScrn->format,0,0,0);
-	colors.editfield = SDL_MapRGB(pSdlGuiScrn->format,160,160,160);
+		colors.underline = SDL_MapSurfaceRGB(pSdlGuiScrn,0,0,0);
+	colors.editfield = SDL_MapSurfaceRGB(pSdlGuiScrn,160,160,160);
 
 	return 0;
 }
@@ -1136,14 +1140,10 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	bgrect.h = dlgrect.h;
 
 	/* Save background */
-	pBgSurface = SDL_CreateSurface(dlgrect.w, dlgrect.h, pSdlGuiScrn->format->format);
-	if (pSdlGuiScrn->format->palette != NULL)
-	{
-		SDL_SetPaletteColors(pBgSurface->format->palette, pSdlGuiScrn->format->palette->colors, 0, pSdlGuiScrn->format->palette->ncolors-1);
-	}
-
+	pBgSurface = SDL_CreateSurface(dlgrect.w, dlgrect.h, pSdlGuiScrn->format);
 	if (pBgSurface != NULL)
 	{
+		SDL_SetSurfacePalette(pBgSurface, SDL_GetSurfacePalette(pSdlGuiScrn));
 		SDL_BlitSurface(pSdlGuiScrn,  &dlgrect, pBgSurface, &bgrect);
 	}
 	else

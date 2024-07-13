@@ -60,21 +60,21 @@ static SDL_Thread*   repaintThread;
 static uint32_t BW2RGB[0x400];
 static uint32_t COL2RGB[0x10000];
 
-static uint32_t bw2rgb(SDL_PixelFormat* format, int bw) {
+static uint32_t bw2rgb(SDL_Surface* surf, int bw) {
 	switch(bw & 3) {
-		case 3:  return SDL_MapRGB(format, 0,   0,   0);
-		case 2:  return SDL_MapRGB(format, 85,  85,  85);
-		case 1:  return SDL_MapRGB(format, 170, 170, 170);
-		case 0:  return SDL_MapRGB(format, 255, 255, 255);
+		case 3:  return SDL_MapSurfaceRGB(surf, 0,   0,   0);
+		case 2:  return SDL_MapSurfaceRGB(surf, 85,  85,  85);
+		case 1:  return SDL_MapSurfaceRGB(surf, 170, 170, 170);
+		case 0:  return SDL_MapSurfaceRGB(surf, 255, 255, 255);
 		default: return 0;
 	}
 }
 
-static uint32_t col2rgb(SDL_PixelFormat* format, int col) {
+static uint32_t col2rgb(SDL_Surface* surf, int col) {
 	int r = col & 0xF000; r >>= 12; r |= r << 4;
 	int g = col & 0x0F00; g >>= 8;  g |= g << 4;
 	int b = col & 0x00F0; b >>= 4;  b |= b << 4;
-	return SDL_MapRGB(format, r,   g,   b);
+	return SDL_MapSurfaceRGB(sdlscrn, r, g, b);
 }
 
 /*
@@ -127,7 +127,7 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 	uint32_t* src = &vram[4];
 #endif
 	int       d;
-	SDL_PixelFormatEnum format = SDL_GetNumberProperty(SDL_GetTextureProperties(tex), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
+	SDL_PixelFormat format = SDL_GetNumberProperty(SDL_GetTextureProperties(tex), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
 	if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
 		/* Add big-endian accelerated blit loops as needed here */
 		switch (format) {
@@ -137,15 +137,14 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 				uint32_t* dst = (uint32_t*)pixels;
 
 				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_CreatePixelFormat(format);
+				const SDL_PixelFormatDetails* pformat = SDL_GetPixelFormatDetails(format);
 				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
 					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
 						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 8) & 0xFF, (v>>16) & 0xFF, (v>>24) & 0xFF);
+						*dst++ = SDL_MapRGB(pformat, NULL, (v >> 8) & 0xFF, (v>>16) & 0xFF, (v>>24) & 0xFF);
 					}
 					src += 32;
 				}
-				SDL_DestroyPixelFormat(pformat);
 				SDL_UnlockTexture(tex);
 				break;
 			}
@@ -163,15 +162,14 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 				uint32_t* dst = (uint32_t*)pixels;
 
 				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_CreatePixelFormat(format);
+				const SDL_PixelFormatDetails* pformat = SDL_GetPixelFormatDetails(format);
 				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
 					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
 						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 16) & 0xFF, (v>>8) & 0xFF, (v>>0) & 0xFF);
+						*dst++ = SDL_MapRGB(pformat, NULL, (v >> 16) & 0xFF, (v>>8) & 0xFF, (v>>0) & 0xFF);
 					}
 					src += 32;
 				}
-				SDL_DestroyPixelFormat(pformat);
 				SDL_UnlockTexture(tex);
 				break;
 			}
@@ -313,7 +311,7 @@ void Screen_Pause(bool pause) {
  * Init Screen, creates window, renderer and textures
  */
 void Screen_Init(void) {
-	SDL_PixelFormatEnum format;
+	SDL_PixelFormat format;
 	uint32_t r, g, b, a;
 	int      d, i, n, x;
 
@@ -384,7 +382,7 @@ void Screen_Init(void) {
 	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
 
 	format = SDL_GetNumberProperty(SDL_GetTextureProperties(uiTexture), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
-	SDL_GetMasksForPixelFormatEnum(format, &d, &r, &g, &b, &a);
+	SDL_GetMasksForPixelFormat(format, &d, &r, &g, &b, &a);
 
 	sdlscrn = SDL_CreateSurface(width, height, format);
 
@@ -409,17 +407,16 @@ void Screen_Init(void) {
 	Statusbar_Init(sdlscrn);
 
 	/* Setup lookup tables */
-	SDL_PixelFormat* pformat = SDL_CreatePixelFormat(format);
 	/* initialize BW lookup table */
 	for (i = 0; i < 0x100; i++) {
-		BW2RGB[i*4+0] = bw2rgb(pformat, i>>6);
-		BW2RGB[i*4+1] = bw2rgb(pformat, i>>4);
-		BW2RGB[i*4+2] = bw2rgb(pformat, i>>2);
-		BW2RGB[i*4+3] = bw2rgb(pformat, i>>0);
+		BW2RGB[i*4+0] = bw2rgb(sdlscrn, i>>6);
+		BW2RGB[i*4+1] = bw2rgb(sdlscrn, i>>4);
+		BW2RGB[i*4+2] = bw2rgb(sdlscrn, i>>2);
+		BW2RGB[i*4+3] = bw2rgb(sdlscrn, i>>0);
 	}
 	/* initialize color lookup table */
 	for (i = 0; i < 0x10000; i++)
-		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
+		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(sdlscrn, i);
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread with framebuffer blit disabled */

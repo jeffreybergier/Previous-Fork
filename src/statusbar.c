@@ -208,7 +208,7 @@ static void Statusbar_OverlayInit(const SDL_Surface *surf)
 	if (OverlayUnderside && (
 	    OverlayUnderside->w != OverlayLedRect.w ||
 	    OverlayUnderside->h != OverlayLedRect.h ||
-	    OverlayUnderside->format->bits_per_pixel != surf->format->bits_per_pixel))
+	    OverlayUnderside->format != surf->format))
 	{
 		SDL_DestroySurface(OverlayUnderside);
 		OverlayUnderside = NULL;
@@ -233,18 +233,18 @@ void Statusbar_Init(SDL_Surface *surf)
 	assert(surf);
 
 	/* dark green and light green for leds themselves */
-	LedColor[ LED_STATE_OFF ]     = SDL_MapRGB(surf->format, 0x00, 0x40, 0x00);
-	LedColor[ LED_STATE_ON ]      = SDL_MapRGB(surf->format, 0x00, 0xe0, 0x00);
-	LedColor[ LED_STATE_ON_BUSY ] = SDL_MapRGB(surf->format, 0xff, 0xe0, 0x00);
-	LedColorBg   = SDL_MapRGB(surf->format, 0x00, 0x00, 0x00);
-	SysColorOff  = SDL_MapRGB(surf->format, 0x40, 0x00, 0x00);
-	SysColorOn   = SDL_MapRGB(surf->format, 0xe0, 0x00, 0x00);
-	DspColorOff  = SDL_MapRGB(surf->format, 0x00, 0x00, 0x40);
-	DspColorOn   = SDL_MapRGB(surf->format, 0x00, 0x00, 0xe0);
-	NdColorOff   = SDL_MapRGB(surf->format, 0x00, 0x00, 0x40);
-	NdColorCS8   = SDL_MapRGB(surf->format, 0xe0, 0x00, 0x00);
-	NdColorOn    = SDL_MapRGB(surf->format, 0x00, 0x00, 0xe0);
-	GrayBg       = SDL_MapRGB(surf->format, 0xb5, 0xb7, 0xaa);
+	LedColor[ LED_STATE_OFF ]     = SDL_MapSurfaceRGB(surf, 0x00, 0x40, 0x00);
+	LedColor[ LED_STATE_ON ]      = SDL_MapSurfaceRGB(surf, 0x00, 0xe0, 0x00);
+	LedColor[ LED_STATE_ON_BUSY ] = SDL_MapSurfaceRGB(surf, 0xff, 0xe0, 0x00);
+	LedColorBg   = SDL_MapSurfaceRGB(surf, 0x00, 0x00, 0x00);
+	SysColorOff  = SDL_MapSurfaceRGB(surf, 0x40, 0x00, 0x00);
+	SysColorOn   = SDL_MapSurfaceRGB(surf, 0xe0, 0x00, 0x00);
+	DspColorOff  = SDL_MapSurfaceRGB(surf, 0x00, 0x00, 0x40);
+	DspColorOn   = SDL_MapSurfaceRGB(surf, 0x00, 0x00, 0xe0);
+	NdColorOff   = SDL_MapSurfaceRGB(surf, 0x00, 0x00, 0x40);
+	NdColorCS8   = SDL_MapSurfaceRGB(surf, 0xe0, 0x00, 0x00);
+	NdColorOn    = SDL_MapSurfaceRGB(surf, 0x00, 0x00, 0xe0);
+	GrayBg       = SDL_MapSurfaceRGB(surf, 0xb5, 0xb7, 0xaa);
 
 	/* disable leds */
 	for (i = 0; i < NUM_DEVICE_LEDS; i++)
@@ -576,8 +576,7 @@ void Statusbar_OverlayBackup(SDL_Surface *surf)
 	if (!OverlayUnderside)
 	{
 		SDL_Surface *bak;
-		SDL_PixelFormat *fmt = surf->format;
-		bak = SDL_CreateSurface(OverlayLedRect.w, OverlayLedRect.h, fmt->format);
+		bak = SDL_CreateSurface(OverlayLedRect.w, OverlayLedRect.h, surf->format);
 		assert(bak);
 		OverlayUnderside = bak;
 	}
