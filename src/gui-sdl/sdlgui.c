@@ -72,6 +72,7 @@ static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 	/* Add a palette to the bitmap surface */
 	if (SDL_CreateSurfacePalette(bitmap) == NULL) {
 		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate palette: %s", SDL_GetError());
+		SDL_DestroySurface(bitmap);
 		return NULL;
 	}
 
