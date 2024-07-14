@@ -68,6 +68,12 @@ static SDL_Surface *SDLGui_LoadXBM(int w, int h, const Uint8 *pXbmBits)
 		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate bitmap: %s", SDL_GetError());
 		return NULL;
 	}
+	
+	/* Add a palette to the bitmap surface */
+	if (SDL_CreateSurfacePalette(bitmap) == NULL) {
+		Log_Printf(LOG_ERROR, "SDLGui: failed to allocate palette: %s", SDL_GetError());
+		return NULL;
+	}
 
 	srcpitch = ((w + 7) / 8);
 	dstbits = (Uint8 *)bitmap->pixels;
@@ -122,7 +128,7 @@ int SDLGui_Init(void)
 	SDL_SetSurfaceColorKey(pSmallFontGfx, SDL_TRUE, 0);
 	SDL_SetSurfaceColorKey(pBigFontGfx, SDL_TRUE, 0);
 
-	/* Enable accerlation */
+	/* Enable acceleration: */
 	SDL_SetSurfaceRLE(pSmallFontGfx, SDL_TRUE);
 	SDL_SetSurfaceRLE(pBigFontGfx, SDL_TRUE);
 
