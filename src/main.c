@@ -183,10 +183,6 @@ bool Main_UnPauseEmulation(void) {
 static void Main_HaltDialog(void) {
 	Main_PauseEmulation(true);
 	Log_Printf(LOG_WARN, "Fatal error: CPU halted!");
-	/* flush key up events to avoid unintendedly exiting the alert dialog */
-	SDL_ResetKeyboard();
-	SDL_PumpEvents();
-	SDL_FlushEvent(SDL_KEYUP);
 	if (!DlgAlert_Query("Fatal error: CPU halted!\n\nPress OK to restart CPU or cancel to quit.")) {
 		Main_RequestQuit(false);
 	}
