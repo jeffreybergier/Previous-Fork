@@ -78,7 +78,7 @@ static uint32_t col2rgb(SDL_PixelFormat* format, int col) {
 }
 
 /*
- BW format is 2bit per pixel
+ BW format is 2 bit per pixel
  */
 static void blitBW(SDL_Texture* tex) {
 	void* pixels;
@@ -100,7 +100,7 @@ static void blitBW(SDL_Texture* tex) {
 }
 
 /*
- Color format is 4bit per pixel, big-endian: RGBx
+ Color format is 4 bit per pixel, big-endian: RGBX
  */
 static void blitColor(SDL_Texture* tex) {
 	void* pixels;
@@ -118,66 +118,26 @@ static void blitColor(SDL_Texture* tex) {
 }
 
 /*
- Dimension format is 8bit per pixel, big-endian: RRGGBBAA
+ Dimension format is 8 bit per pixel, big-endian: BBGGRRAA
  */
 void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
+	void* src;
+	void* dst;
+	int src_pitch, dst_pitch;
+	uint32_t src_format, dst_format;
+
 #if ND_STEP
-	uint32_t* src = &vram[0];
+	src = &vram[0];
 #else
-	uint32_t* src = &vram[4];
+	src = &vram[4];
 #endif
-	int       d;
-	uint32_t  format;
-	SDL_QueryTexture(tex, &format, &d, &d, &d);
-	if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
-		/* Add big-endian accelerated blit loops as needed here */
-		switch (format) {
-			default: {
-				void*   pixels;
-				SDL_LockTexture(tex, NULL, &pixels, &d);
-				uint32_t* dst = (uint32_t*)pixels;
+	src_pitch  = (NeXT_SCRN_WIDTH + 32) * 4;
+	src_format = SDL_PIXELFORMAT_BGRA32;
+	SDL_QueryTexture(tex, &dst_format, NULL, NULL, NULL);
 
-				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_AllocFormat(format);
-				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
-					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
-						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 8) & 0xFF, (v>>16) & 0xFF, (v>>24) & 0xFF);
-					}
-					src += 32;
-				}
-				SDL_FreeFormat(pformat);
-				SDL_UnlockTexture(tex);
-				break;
-			}
-		}
-	} else {
-		/* Add little-endian accelerated blit loops as needed here */
-		switch (format) {
-			case SDL_PIXELFORMAT_ARGB8888: {
-				SDL_UpdateTexture(tex, NULL, src, (NeXT_SCRN_WIDTH+32)*4);
-				break;
-			}
-			default: {
-				void*   pixels;
-				SDL_LockTexture(tex, NULL, &pixels, &d);
-				uint32_t* dst = (uint32_t*)pixels;
-
-				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_AllocFormat(format);
-				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
-					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
-						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 16) & 0xFF, (v>>8) & 0xFF, (v>>0) & 0xFF);
-					}
-					src += 32;
-				}
-				SDL_FreeFormat(pformat);
-				SDL_UnlockTexture(tex);
-				break;
-			}
-		}
-	}
+	SDL_LockTexture(tex, NULL, &dst, &dst_pitch);
+	SDL_ConvertPixels(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, src_format, src, src_pitch, dst_format, dst, dst_pitch);
+	SDL_UnlockTexture(tex);
 }
 
 /*
