@@ -82,18 +82,20 @@ static uint32_t col2rgb(SDL_PixelFormat* format, int col) {
  */
 static void blitBW(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	int   pitch = (NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int y = 0; y < NeXT_SCRN_HEIGHT; y++) {
-		int src     = y * pitch;
-		for(int x = 0; x < NeXT_SCRN_WIDTH/4; x++, src++) {
-			int idx = NEXTVideo[src] * 4;
-			*dst++  = BW2RGB[idx+0];
-			*dst++  = BW2RGB[idx+1];
-			*dst++  = BW2RGB[idx+2];
-			*dst++  = BW2RGB[idx+3];
+	uint32_t* dst;
+	int src, idx, src_pitch, dst_pitch, x, y;
+
+	src_pitch = (NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
+	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
+	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+		src = y * src_pitch;
+		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
+		for (x = 0; x < NeXT_SCRN_WIDTH / 4; x++) {
+			idx = NEXTVideo[src++] * 4;
+			*dst++ = BW2RGB[idx+0];
+			*dst++ = BW2RGB[idx+1];
+			*dst++ = BW2RGB[idx+2];
+			*dst++ = BW2RGB[idx+3];
 		}
 	}
 	SDL_UnlockTexture(tex);
@@ -104,13 +106,16 @@ static void blitBW(SDL_Texture* tex) {
  */
 static void blitColor(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	int pitch = NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32);
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int y = 0; y < NeXT_SCRN_HEIGHT; y++) {
-		uint16_t* src = (uint16_t*)NEXTVideo + (y*pitch);
-		for(int x = 0; x < NeXT_SCRN_WIDTH; x++) {
+	uint16_t* src;
+	uint32_t* dst;
+	int src_pitch, dst_pitch, x, y;
+
+	src_pitch = NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32);
+	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
+	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+		src = (uint16_t*)NEXTVideo + (y * src_pitch);
+		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
+		for (x = 0; x < NeXT_SCRN_WIDTH; x++) {
 			*dst++ = COL2RGB[*src++];
 		}
 	}
@@ -145,12 +150,9 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
  */
 void Screen_Blank(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int i = 0; i < (NeXT_SCRN_WIDTH * NeXT_SCRN_HEIGHT); i++) {
-		*dst++ = 0;
-	}
+	int   pitch;
+	SDL_LockTexture(tex, NULL, &pixels, &pitch);
+	SDL_memset4(pixels, COL2RGB[0], pitch * NeXT_SCRN_HEIGHT / 4);
 	SDL_UnlockTexture(tex);
 }
 
@@ -349,16 +351,17 @@ void Screen_Init(void) {
 
 	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
 
-	uiTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	format = SDL_PIXELFORMAT_BGRA32;
+
+	uiTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
 
-	fbTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	fbTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
 
-	SDL_QueryTexture(uiTexture, &format, &d, &d, &d);
 	SDL_PixelFormatEnumToMasks(format, &d, &r, &g, &b, &a);
 
-	sdlscrn = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32, r, g, b, a);
+	sdlscrn = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, d, r, g, b, a);
 
 	/* Exit if we can not open a screen */
 	if (!sdlscrn) {
@@ -392,6 +395,8 @@ void Screen_Init(void) {
 	/* initialize color lookup table */
 	for (i = 0; i < 0x10000; i++)
 		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
+
+	SDL_FreeFormat(pformat);
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread with framebuffer blit disabled */

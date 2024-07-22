@@ -85,7 +85,7 @@ void NDSDL::init(void) {
                 }
             }
             SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
-            ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
+            ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
 #ifdef ENABLE_RENDERING_THREAD
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
