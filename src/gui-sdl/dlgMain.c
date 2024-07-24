@@ -82,8 +82,7 @@ int Dialog_MainDlg(bool *bReset, bool *bLoadedSnapshot)
 	if (SDLGui_SetScreen(sdlscrn))
 		return false;
 
-	bOldMouseVisibility = SDL_CursorVisible();
-	SDL_ShowCursor();
+	bOldMouseVisibility = Main_ShowCursor(true);
 
 	SDLGui_CenterDlg(maindlg);
 
@@ -176,9 +175,7 @@ int Dialog_MainDlg(bool *bReset, bool *bLoadedSnapshot)
 		*bReset = true;
 
 	Screen_UpdateRect(sdlscrn, 0, 0, 0, 0);
-	if (!bOldMouseVisibility) {
-		SDL_HideCursor();
-	}
+	Main_ShowCursor(bOldMouseVisibility);
 
 	return (retbut == MAINDLG_OK);
 }

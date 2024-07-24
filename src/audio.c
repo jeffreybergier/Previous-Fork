@@ -22,8 +22,8 @@ const char Audio_fileid[] = "Previous audio.c";
 #include <SDL3/SDL.h>
 
 
-static SDL_AudioStream *Audio_Input_Stream  = NULL;
-static SDL_AudioStream *Audio_Output_Stream = NULL;
+static SDL_AudioStream* Audio_Input_Stream  = NULL;
+static SDL_AudioStream* Audio_Output_Stream = NULL;
 
 static bool bSoundOutputWorking = false; /* Is sound output OK */
 static bool bSoundInputWorking  = false; /* Is sound input OK */
