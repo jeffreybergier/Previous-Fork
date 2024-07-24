@@ -264,10 +264,12 @@ bool Main_ShowCursor(bool show) {
 	bool bOldVisibility;
 
 	bOldVisibility = SDL_CursorVisible() == SDL_TRUE;
-	if (show) {
-		SDL_ShowCursor();
-	} else {
-		SDL_HideCursor();
+	if (bOldVisibility != show) {
+		if (show) {
+			SDL_ShowCursor();
+		} else {
+			SDL_HideCursor();
+		}
 	}
 	return bOldVisibility;
 }
