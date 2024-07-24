@@ -1436,18 +1436,18 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 				}
 				break;
 
-			case SDL_EVENT_WINDOW_RESIZED:
+			 case SDL_EVENT_WINDOW_RESIZED:
 				Screen_SizeChanged();
 				break;
 					
-			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+			 case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 				SDL_FlushEvent(SDL_EVENT_QUIT);
 				retbutton = SDLGUI_QUIT;
 				break;
 					
-			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-			case SDL_EVENT_WINDOW_RESTORED:
-			case SDL_EVENT_WINDOW_EXPOSED:				
+			 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+			 case SDL_EVENT_WINDOW_RESTORED:
+			 case SDL_EVENT_WINDOW_EXPOSED:				
 				Screen_UpdateRect(pSdlGuiScrn, 0, 0, 0, 0);				
 				break;
 
