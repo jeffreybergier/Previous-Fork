@@ -405,7 +405,7 @@ void Screen_Init(void) {
 #endif
 
 	/* Configure some SDL stuff: */
-	SDL_ShowCursor(SDL_DISABLE);
+	Main_ShowCursor(false);
 	Main_SetMouseGrab(bGrabMouse);
 
 	if (ConfigureParams.Screen.bFullScreen) {

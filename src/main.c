@@ -141,7 +141,7 @@ bool Main_PauseEmulation(bool visualize) {
 	}
 
 	/* Show mouse pointer and set it to the middle of the screen */
-	SDL_ShowCursor(SDL_ENABLE);
+	Main_ShowCursor(true);
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
 
 	return true;
@@ -164,7 +164,7 @@ bool Main_UnPauseEmulation(void) {
 
 	/* Set mouse pointer to the middle of the screen and hide it */
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
-	SDL_ShowCursor(SDL_DISABLE);
+	Main_ShowCursor(false);
 
 	Main_ResetKeys();
 
@@ -253,6 +253,23 @@ static void Main_CheckForAccurateDelays(void) {
 void Main_WarpMouse(int x, int y) {
 	SDL_WarpMouseInWindow(sdlWindow, x, y); /* Set mouse pointer to new position */
 	bIgnoreNextMouseMotion = true;          /* Ignore mouse motion event from SDL_WarpMouse */
+}
+
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Set mouse cursor visibility and return if it was visible before.
+ */
+bool Main_ShowCursor(bool show) {
+	bool bOldVisibility;
+
+	bOldVisibility = SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE;
+	if (show) {
+		SDL_ShowCursor(SDL_ENABLE);
+	} else {
+		SDL_ShowCursor(SDL_DISABLE);
+	}
+	return bOldVisibility;
 }
 
 
