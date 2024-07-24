@@ -41,10 +41,6 @@ const char Main_fileid[] = "Previous main.c";
 #include "hatari-glue.h"
 #include "NextBus.hpp"
 
-#if HAVE_GETTIMEOFDAY
-#include <sys/time.h>
-#endif
-
 #ifdef WIN32
 #include "gui-win/opencon.h"
 #endif
@@ -145,7 +141,7 @@ bool Main_PauseEmulation(bool visualize) {
 	}
 
 	/* Show mouse pointer and set it to the middle of the screen */
-	SDL_ShowCursor(SDL_ENABLE);
+	Main_ShowCursor(true);
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
 
 	return true;
@@ -168,7 +164,7 @@ bool Main_UnPauseEmulation(void) {
 
 	/* Set mouse pointer to the middle of the screen and hide it */
 	Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2);
-	SDL_ShowCursor(SDL_DISABLE);
+	Main_ShowCursor(false);
 
 	Main_ResetKeys();
 
@@ -187,10 +183,6 @@ bool Main_UnPauseEmulation(void) {
 static void Main_HaltDialog(void) {
 	Main_PauseEmulation(true);
 	Log_Printf(LOG_WARN, "Fatal error: CPU halted!");
-	/* flush key up events to avoid unintendedly exiting the alert dialog */
-	SDL_ResetKeyboard();
-	SDL_PumpEvents();
-	SDL_FlushEvent(SDL_KEYUP);
 	if (!DlgAlert_Query("Fatal error: CPU halted!\n\nPress OK to restart CPU or cancel to quit.")) {
 		Main_RequestQuit(false);
 	}
@@ -261,6 +253,25 @@ static void Main_CheckForAccurateDelays(void) {
 void Main_WarpMouse(int x, int y) {
 	SDL_WarpMouseInWindow(sdlWindow, x, y); /* Set mouse pointer to new position */
 	bIgnoreNextMouseMotion = true;          /* Ignore mouse motion event from SDL_WarpMouse */
+}
+
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Set mouse cursor visibility and return if it was visible before.
+ */
+bool Main_ShowCursor(bool show) {
+	bool bOldVisibility;
+
+	bOldVisibility = SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE;
+	if (bOldVisibility != show) {
+		if (show) {
+			SDL_ShowCursor(SDL_ENABLE);
+		} else {
+			SDL_ShowCursor(SDL_DISABLE);
+		}
+	}
+	return bOldVisibility;
 }
 
 
@@ -368,11 +379,11 @@ void Main_SendSpecialEvent(int type) {
 static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	static SDL_Event mouse_event[100];
 
-	int nEvents;
+	int i, nEvents;
 
 	static float fSavedDeltaX = 0.0;
 	static float fSavedDeltaY = 0.0;
-	
+
 	float fDeltaX;
 	float fDeltaY;
 	int   nDeltaX;
@@ -392,14 +403,14 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 	/* Get all mouse event to clean the queue and sum them */
 	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
 
-	for (int i = 0; i < nEvents; i++) {
+	for (i = 0; i < nEvents; i++) {
 		nDeltaX += mouse_event[i].motion.xrel;
 		nDeltaY += mouse_event[i].motion.yrel;
 	}
 
 	if (nDeltaX || nDeltaY) {
 		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 0)) {
+		if ((fExp != 1.0) || (fLin != 0.0)) {
 			/* Initialize float values from integers */
 			fDeltaX = (float)nDeltaX;
 			fDeltaY = (float)nDeltaY;

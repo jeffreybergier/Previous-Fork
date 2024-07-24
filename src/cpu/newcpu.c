@@ -502,8 +502,9 @@ static bool get_trace(uaecptr addr, int accessmode, int size, uae_u32 *data)
 		x_do_cycles(c);
 		return false;
 	}
-	if (cputrace.memoryoffset > 0 || cputrace.cyclecounter_pre) {
-		gui_message(_T("CPU trace: GET %08x %d %d NOT FOUND!\n"), addr, accessmode, size);
+	if ((cputrace.writecounter > 0 || cputrace.readcounter > 0) && cputrace.cyclecounter_pre) {
+		gui_message(_T("CPU trace: GET %08x %d %d (%d %d %d) NOT FOUND!\n"),
+			addr, accessmode, size, cputrace.readcounter, cputrace.writecounter, cputrace.cyclecounter_pre);
 	}
 	check_trace();
 	*data = 0;
@@ -2911,7 +2912,7 @@ static int iack_cycle(int nr)
 			/* will never be processed. If there's no DSP IRQ, we clear level 6 pending bit now */
 			/* and if there's a lower MFP pending int, level 6 will be set again at the next instruction */
 			if ( DSP_GetHREQ() == 0 )
-				pendingInterrupts &= ~( 1 << 6 );
+				M68000_ClearIRQ ( 6 );
 		}
 	}
 	if ( nr == 29 )								/* SCC (level 5) */
@@ -2957,7 +2958,7 @@ static int iack_cycle(int nr)
 		CycInt_Process();
 		if ( MFP_UpdateNeeded == true )
 			MFP_UpdateIRQ_All ( 0 );				/* update MFP's state if some internal timers related to MFP expired */
-		pendingInterrupts &= ~( 1 << ( nr - 24 ) );			/* clear HBL or VBL pending bit (even if an MFP timer occurred during IACK) */
+		M68000_ClearIRQ ( nr - 24 );					/* clear HBL or VBL pending bit (even if an MFP timer occurred during IACK) */
 		CPU_IACK = false;
 
 		/* Add the cycles used by the IACK sequence (IACK to DTACK transition) */
@@ -8532,6 +8533,8 @@ uae_u8 *restore_mmu(uae_u8 *src)
 
 	changed_prefs.mmu_model = model = restore_u32 ();
 	flags = restore_u32 ();
+	if ( model == 68030 )
+		restore_mmu030_finish();
 	write_log (_T("MMU: %d\n"), model);
 	return src;
 }
@@ -8576,7 +8579,7 @@ static void exception3_read_special(uae_u32 opcode, uaecptr addr, int size, int 
 }
 
 // 68010 special prefetch handling
-void exception3_read_prefetch_only(uae_u32 opcode, uae_u32 addr)
+void exception3_read_prefetch_only(uae_u32 opcode, uaecptr addr)
 {
 	if (currprefs.cpu_model == 68010) {
 		uae_u16 prev = regs.read_buffer;

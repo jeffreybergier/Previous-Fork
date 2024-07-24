@@ -16,7 +16,7 @@ extern "C" {
 
 extern volatile bool bGrabMouse;
 extern volatile bool bInFullScreen;
-extern SDL_Window *sdlWindow;
+extern SDL_Window  *sdlWindow;
 extern SDL_Surface *sdlscrn;
 
 extern void Screen_Init(void);

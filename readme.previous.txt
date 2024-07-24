@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.2
+                                  Previous 3.3
 
 
 
@@ -80,6 +80,9 @@ with the host system. It also includes an internal time server that makes it
 possible to automatically synchronise host and guest system time. Please note 
 that only NeXTstep 2.0 and later support automatic time synchronisation.
 
+Previous listens on some TCP ports and will forward connections to the emulated 
+machine. See the file networking.howto.txt for details.
+
 Previous comes with a command line utility called "ditool" (disk image tool). It
 can be used to extract raw disk image files into a directory on the host system. 
 You can get further informations about ditool's features and how to use it by 
@@ -116,7 +119,7 @@ header files)!
 For compiling Previous, you need C and C++ compilers and a working CMake (v3.3 
 or later) installation (see http://www.cmake.org/ for details).
 
-CMake can generate makefiles for various flavors of "Make" (like GNU-Make) and 
+CMake can generate makefiles for various flavours of "Make" (like GNU-Make) and 
 various IDEs like Xcode on macOS. To run CMake, you have to pass the path to the 
 sources of Previous as parameter. For example, run the following command 
 sequence to configure the build of Previous in a separate build directory 
@@ -183,7 +186,7 @@ input devices.
  ---------------
 
 Issues in Previous:
-  > Un-emulated hardware may cause problems when attempted to being used.
+  > Un-emulated hardware may cause problems when attempting to use it.
   > NeXTdimension emulation does not work on hosts with big endian byte order.
   > Shortcuts do not work properly or overlap with host commands on some 
     platforms.
@@ -207,7 +210,7 @@ Issues in NeXTstep:
     a bug in the NeXT ROM.
   > Trying to netboot a non-Turbo 68040 machine while no Ethernet cable is 
     connected causes a hang. "ben" stops the system immediately while "btp" 
-    shows one dot before it stops. This is the exact same behavior as seen on 
+    shows one dot before it stops. This is the exact same behaviour as seen on 
     real hardware. This is confirmed to be a bug in the NeXT ROM.
   > When accessing bus error locations from ROM Monitor using the 'e' command 
     there might occur a double fault on the second or a subsequent access. This 
@@ -239,7 +242,7 @@ Previous v1.3:
 Previous v1.4:
   > Adds NeXTdimension emulation, including emulated i860 CPU.
   > Improves timings and adds a mode for higher than real speed.
-  > Improves emulator efficiency through optimizations and threads.
+  > Improves emulator efficiency through optimisations and threads.
   > Improves mouse movement handling.
   > Improves Real Time Clock. Time is now handled correctly.
 
@@ -346,8 +349,8 @@ Previous v2.7:
   > Adds compile-time option to do all rendering from the main thread.
   > Improves accuracy of Ethernet controller on Turbo systems.
   > Improves handling of caps lock and modifier keys when using shortcuts.
-  > Improves behavior of file selection dialog in certain situations.
-  > Improves behavior of user interface in some edge cases.
+  > Improves behaviour of file selection dialog in certain situations.
+  > Improves behaviour of user interface in some edge cases.
   > Fixes bug that caused Daydream to hang on start up.
   > Fixes bug that caused errors when formatting floppy disks.
   > Fixes bug that prevented sound recording on newer versions of macOS.
@@ -405,6 +408,10 @@ Previous v3.2:
   > Adds RAMDAC to CPU board.
   > Improves accuracy of the memory map for devices.
   > Fixes bug in DSP modulo addressing mode that could cause bad results.
+
+Previous v3.3:
+  > Adds support for FTP, SSH, Telnet and HTTP port forwarding via SLiRP.
+  > Improves throughput of simulated Ethernet connection.
 
 
  7) Running Previous

@@ -33,6 +33,17 @@ static int nBusErrorAccesses;                        /* Needed to count bus erro
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Set the read and write functions associated with a given 'addr' in IO mem
+ */
+void IoMem_Intercept ( uint32_t addr , void (*read_f)(void) , void (*write_f)(void) )
+{
+	pInterceptReadTable[addr] = read_f;
+	pInterceptWriteTable[addr] = write_f;
+}
+
+
+/*-----------------------------------------------------------------------*/
+/**
  * Fill a region with bus error handlers.
  */
 static void IoMem_SetBusErrorRegion(uint32_t startaddr, uint32_t endaddr)
@@ -42,15 +53,10 @@ static void IoMem_SetBusErrorRegion(uint32_t startaddr, uint32_t endaddr)
 	for (a = startaddr; a <= endaddr; a++)
 	{
 		if (a & 1)
-		{
-			pInterceptReadTable[a] = IoMem_BusErrorOddReadAccess;     /* For 'read' */
-			pInterceptWriteTable[a] = IoMem_BusErrorOddWriteAccess;   /* and 'write' */
-		}
+			IoMem_Intercept ( a , IoMem_BusErrorOddReadAccess , IoMem_BusErrorOddWriteAccess );
 		else
-		{
-			pInterceptReadTable[a] = IoMem_BusErrorEvenReadAccess;    /* For 'read' */
-			pInterceptWriteTable[a] = IoMem_BusErrorEvenWriteAccess;  /* and 'write' */
-		}
+			IoMem_Intercept ( a , IoMem_BusErrorEvenReadAccess , IoMem_BusErrorEvenWriteAccess );
+
 		nAccessSize[a] = 1;
 		nAccessMask[a] = IO_MASK;
 	}
@@ -89,13 +95,12 @@ void IoMem_Init(void)
 			{
 				/* Security checks... */
 				if (pInterceptReadTable[addr] != IoMem_BusErrorEvenReadAccess && pInterceptReadTable[addr] != IoMem_BusErrorOddReadAccess)
-					fprintf(stderr, "IoMem_Init: Warning: $%x (R) already defined\n", addr);
+					Log_Printf(LOG_WARN, "IoMem_Init: Warning: $%x (R) already defined\n", addr);
 				if (pInterceptWriteTable[addr] != IoMem_BusErrorEvenWriteAccess && pInterceptWriteTable[addr] != IoMem_BusErrorOddWriteAccess)
-					fprintf(stderr, "IoMem_Init: Warning: $%x (W) already defined\n", addr);
+					Log_Printf(LOG_WARN, "IoMem_Init: Warning: $%x (W) already defined\n", addr);
 
 				/* This location needs to be intercepted, so add entry to list */
-				pInterceptReadTable[addr] = pInterceptAccessFuncs[i].ReadFunc;
-				pInterceptWriteTable[addr] = pInterceptAccessFuncs[i].WriteFunc;
+				IoMem_Intercept ( addr , pInterceptAccessFuncs[i].ReadFunc , pInterceptAccessFuncs[i].WriteFunc );
 				nAccessSize[addr] = pInterceptAccessFuncs[i].SpanInBytes;
 				nAccessMask[addr] = pInterceptAccessFuncs[i].Mask;
 			}
@@ -104,7 +109,6 @@ void IoMem_Init(void)
 }
 
 
-/*-----------------------------------------------------------------------*/
 /**
  * Uninitialize the IoMem code (currently unused).
  */

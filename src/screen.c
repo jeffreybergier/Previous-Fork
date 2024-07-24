@@ -21,14 +21,12 @@ const char Screen_fileid[] = "Previous screen.c";
 #include "video.h"
 #include "m68000.h"
 
-#include <SDL.h>
-
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-int           nWindowWidth;          /* Width of SDL window in physical pixels */
-int           nWindowHeight;         /* Height of SDL window in physical pixels */
-float         dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
+static int    nWindowWidth;          /* Width of SDL window in physical pixels */
+static int    nWindowHeight;         /* Height of SDL window in physical pixels */
+static float  dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
 volatile bool bGrabMouse    = false; /* Grab the mouse cursor in the window */
@@ -36,8 +34,8 @@ volatile bool bInFullScreen = false; /* true if in full screen */
 
 static const int NeXT_SCRN_WIDTH  = 1120;
 static const int NeXT_SCRN_HEIGHT = 832;
-int width;   /* guest framebuffer */
-int height;  /* guest framebuffer */
+static int width;   /* guest framebuffer */
+static int height;  /* guest framebuffer */
 
 static SDL_Renderer* sdlRenderer;
 static SDL_Texture*  uiTexture;
@@ -76,43 +74,48 @@ static uint32_t col2rgb(SDL_PixelFormat* format, int col) {
 	int r = col & 0xF000; r >>= 12; r |= r << 4;
 	int g = col & 0x0F00; g >>= 8;  g |= g << 4;
 	int b = col & 0x00F0; b >>= 4;  b |= b << 4;
-	return SDL_MapRGB(format, r,   g,   b);
+	return SDL_MapRGB(format, r, g, b);
 }
 
 /*
- BW format is 2bit per pixel
+ BW format is 2 bit per pixel
  */
 static void blitBW(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	int   pitch = (NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int y = 0; y < NeXT_SCRN_HEIGHT; y++) {
-		int src     = y * pitch;
-		for(int x = 0; x < NeXT_SCRN_WIDTH/4; x++, src++) {
-			int idx = NEXTVideo[src] * 4;
-			*dst++  = BW2RGB[idx+0];
-			*dst++  = BW2RGB[idx+1];
-			*dst++  = BW2RGB[idx+2];
-			*dst++  = BW2RGB[idx+3];
+	uint32_t* dst;
+	int src, idx, src_pitch, dst_pitch, x, y;
+
+	src_pitch = (NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
+	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
+	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+		src = y * src_pitch;
+		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
+		for (x = 0; x < NeXT_SCRN_WIDTH / 4; x++) {
+			idx = NEXTVideo[src++] * 4;
+			*dst++ = BW2RGB[idx+0];
+			*dst++ = BW2RGB[idx+1];
+			*dst++ = BW2RGB[idx+2];
+			*dst++ = BW2RGB[idx+3];
 		}
 	}
 	SDL_UnlockTexture(tex);
 }
 
 /*
- Color format is 4bit per pixel, big-endian: RGBx
+ Color format is 4 bit per pixel, big-endian: RGBX
  */
 static void blitColor(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	int pitch = NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32);
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int y = 0; y < NeXT_SCRN_HEIGHT; y++) {
-		uint16_t* src = (uint16_t*)NEXTVideo + (y*pitch);
-		for(int x = 0; x < NeXT_SCRN_WIDTH; x++) {
+	uint16_t* src;
+	uint32_t* dst;
+	int src_pitch, dst_pitch, x, y;
+
+	src_pitch = NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32);
+	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
+	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+		src = (uint16_t*)NEXTVideo + (y * src_pitch);
+		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
+		for (x = 0; x < NeXT_SCRN_WIDTH; x++) {
 			*dst++ = COL2RGB[*src++];
 		}
 	}
@@ -120,66 +123,26 @@ static void blitColor(SDL_Texture* tex) {
 }
 
 /*
- Dimension format is 8bit per pixel, big-endian: RRGGBBAA
+ Dimension format is 8 bit per pixel, big-endian: BBGGRRAA
  */
 void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
+	void* src;
+	void* dst;
+	int src_pitch, dst_pitch;
+	uint32_t src_format, dst_format;
+
 #if ND_STEP
-	uint32_t* src = &vram[0];
+	src = &vram[0];
 #else
-	uint32_t* src = &vram[4];
+	src = &vram[4];
 #endif
-	int       d;
-	uint32_t  format;
-	SDL_QueryTexture(tex, &format, &d, &d, &d);
-	if(SDL_BYTEORDER == SDL_BIG_ENDIAN) {
-		/* Add big-endian accelerated blit loops as needed here */
-		switch (format) {
-			default: {
-				void*   pixels;
-				SDL_LockTexture(tex, NULL, &pixels, &d);
-				uint32_t* dst = (uint32_t*)pixels;
+	src_pitch  = (NeXT_SCRN_WIDTH + 32) * 4;
+	src_format = SDL_PIXELFORMAT_BGRA32;
+	SDL_QueryTexture(tex, &dst_format, NULL, NULL, NULL);
 
-				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_AllocFormat(format);
-				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
-					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
-						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 8) & 0xFF, (v>>16) & 0xFF, (v>>24) & 0xFF);
-					}
-					src += 32;
-				}
-				SDL_FreeFormat(pformat);
-				SDL_UnlockTexture(tex);
-				break;
-			}
-		}
-	} else {
-		/* Add little-endian accelerated blit loops as needed here */
-		switch (format) {
-			case SDL_PIXELFORMAT_ARGB8888: {
-				SDL_UpdateTexture(tex, NULL, src, (NeXT_SCRN_WIDTH+32)*4);
-				break;
-			}
-			default: {
-				void*   pixels;
-				SDL_LockTexture(tex, NULL, &pixels, &d);
-				uint32_t* dst = (uint32_t*)pixels;
-
-				/* fallback to SDL_MapRGB */
-				SDL_PixelFormat* pformat = SDL_AllocFormat(format);
-				for(int y = NeXT_SCRN_HEIGHT; --y >= 0;) {
-					for(int x = NeXT_SCRN_WIDTH; --x >= 0;) {
-						uint32_t v = *src++;
-						*dst++ = SDL_MapRGB(pformat, (v >> 16) & 0xFF, (v>>8) & 0xFF, (v>>0) & 0xFF);
-					}
-					src += 32;
-				}
-				SDL_FreeFormat(pformat);
-				SDL_UnlockTexture(tex);
-				break;
-			}
-		}
-	}
+	SDL_LockTexture(tex, NULL, &dst, &dst_pitch);
+	SDL_ConvertPixels(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, src_format, src, src_pitch, dst_format, dst, dst_pitch);
+	SDL_UnlockTexture(tex);
 }
 
 /*
@@ -187,12 +150,9 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
  */
 void Screen_Blank(SDL_Texture* tex) {
 	void* pixels;
-	int   d;
-	SDL_LockTexture(tex, NULL, &pixels, &d);
-	uint32_t* dst = (uint32_t*)pixels;
-	for(int i = 0; i < (NeXT_SCRN_WIDTH * NeXT_SCRN_HEIGHT); i++) {
-		*dst++ = 0;
-	}
+	int   pitch;
+	SDL_LockTexture(tex, NULL, &pixels, &pitch);
+	SDL_memset4(pixels, COL2RGB[0], pitch * NeXT_SCRN_HEIGHT / 4);
 	SDL_UnlockTexture(tex);
 }
 
@@ -316,8 +276,9 @@ void Screen_Pause(bool pause) {
  * Init Screen, creates window, renderer and textures
  */
 void Screen_Init(void) {
-	uint32_t format, r, g, b, a;
-	int      d;
+	uint32_t format;
+	uint32_t r, g, b, a;
+	int      d, i, n, x;
 
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
@@ -350,55 +311,57 @@ void Screen_Init(void) {
 
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-	int x = SDL_WINDOWPOS_UNDEFINED;
-	if(ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		for(int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
+	x = SDL_WINDOWPOS_UNDEFINED;
+	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
+		n = SDL_GetNumVideoDisplays();
+		for (i = 0; i < n; i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
-			if(r.w >= width * 2) {
+			if (r.w >= width * 2) {
 				x = r.x + width + ((r.w - width * 2) / 2);
 				break;
 			}
-			if(r.x >= 0 && SDL_GetNumVideoDisplays() == 1) x = r.x + 8;
+			if (r.x >= 0 && n == 1) x = r.x + 8;
 		}
 	}
-	sdlWindow  = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+	sdlWindow = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	if (!sdlWindow) {
-		fprintf(stderr,"Failed to create window: %s!\n", SDL_GetError());
+		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
-	}
-
-	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
-	if (!sdlRenderer) {
-		fprintf(stderr,"Failed to create accelerated renderer: %s!\n", SDL_GetError());
-		sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, vsync_flag);
-		if (!sdlRenderer) {
-			fprintf(stderr,"Failed to create renderer: %s!\n", SDL_GetError());
-			exit(-1);
-		}
 	}
 
 	SDL_GetWindowSizeInPixels(sdlWindow, &nWindowWidth, &nWindowHeight);
 	if (nWindowWidth > 0) {
 		dpiFactor = (float)width / nWindowWidth;
-		fprintf(stderr,"SDL screen scale: %.3f\n", dpiFactor);
 	} else {
+		fprintf(stderr, "Failed to set screen scale\n");
 		dpiFactor = 1.0;
-		fprintf(stderr,"Failed to set screen scale\n");
+	}
+	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
+
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
+	if (!sdlRenderer) {
+		fprintf(stderr, "Failed to create accelerated renderer: %s!\n", SDL_GetError());
+		sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, vsync_flag);
+		if (!sdlRenderer) {
+			fprintf(stderr, "Failed to create renderer: %s!\n", SDL_GetError());
+			exit(-1);
+		}
 	}
 
 	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
 
-	uiTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	format = SDL_PIXELFORMAT_BGRA32;
+
+	uiTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
 
-	fbTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_UNKNOWN, SDL_TEXTUREACCESS_STREAMING, width, height);
+	fbTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
 	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
 
-	SDL_QueryTexture(uiTexture, &format, &d, &d, &d);
 	SDL_PixelFormatEnumToMasks(format, &d, &r, &g, &b, &a);
 
-	sdlscrn = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32, r, g, b, a);
+	sdlscrn = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, d, r, g, b, a);
 
 	/* Exit if we can not open a screen */
 	if (!sdlscrn) {
@@ -423,15 +386,17 @@ void Screen_Init(void) {
 	/* Setup lookup tables */
 	SDL_PixelFormat* pformat = SDL_AllocFormat(format);
 	/* initialize BW lookup table */
-	for(int i = 0; i < 0x100; i++) {
+	for (i = 0; i < 0x100; i++) {
 		BW2RGB[i*4+0] = bw2rgb(pformat, i>>6);
 		BW2RGB[i*4+1] = bw2rgb(pformat, i>>4);
 		BW2RGB[i*4+2] = bw2rgb(pformat, i>>2);
 		BW2RGB[i*4+3] = bw2rgb(pformat, i>>0);
 	}
 	/* initialize color lookup table */
-	for(int i = 0; i < 0x10000; i++)
+	for (i = 0; i < 0x10000; i++)
 		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(pformat, i);
+
+	SDL_FreeFormat(pformat);
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread with framebuffer blit disabled */
@@ -440,7 +405,7 @@ void Screen_Init(void) {
 #endif
 
 	/* Configure some SDL stuff: */
-	SDL_ShowCursor(SDL_DISABLE);
+	Main_ShowCursor(false);
 	Main_SetMouseGrab(bGrabMouse);
 
 	if (ConfigureParams.Screen.bFullScreen) {
@@ -516,8 +481,8 @@ void Screen_ReturnFromFullScreen(void) {
 
 		SDL_SetWindowFullscreen(sdlWindow, 0);
 		SDL_Delay(100);                /* To give monitor time to switch resolution */
-		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 		SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
+		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
 
 		/* Return to windowed monitor mode */
 		if (saveMonitorType == MONITOR_TYPE_DUAL) {
@@ -607,8 +572,7 @@ void Screen_StatusbarChanged(void) {
 	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
 
 	if (bInFullScreen) {
-		scale = (float)saveWindowBounds.w / NeXT_SCRN_WIDTH;
-		saveWindowBounds.h = height * scale;
+		saveWindowBounds.h = (height * saveWindowBounds.w) / width;
 		SDL_RenderSetLogicalSize(sdlRenderer, width, height);
 	} else {
 		SDL_RenderGetScale(sdlRenderer, &scale, &scale);

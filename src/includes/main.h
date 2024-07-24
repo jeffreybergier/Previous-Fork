@@ -13,7 +13,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 /* Name and version for window title: */
-#define PROG_NAME "Previous 3.2"
+#define PROG_NAME "Previous 3.3"
 
 #include "config.h"
 
@@ -78,6 +78,7 @@ extern bool Main_UnPauseEmulation(void);
 extern void Main_Halt(void);
 extern void Main_RequestQuit(bool confirm);
 extern void Main_WarpMouse(int x, int y);
+extern bool Main_ShowCursor(bool show);
 extern void Main_SetMouseGrab(bool grab);
 extern void Main_SendSpecialEvent(int type);
 extern void Main_ResetKeys(void);

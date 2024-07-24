@@ -383,15 +383,15 @@ static void post_key_event(int sym, int scan)
 	SDL_PushEvent(&sdlevent);
 }
 
-void Keymap_MouseWheel(SDL_MouseWheelEvent* event)
+void Keymap_MouseWheel(const SDL_MouseWheelEvent *sdlwheel)
 {
 	int32_t x, y;
 	
 	if (ConfigureParams.Mouse.bEnableMapToKey) {
-		x = event->x;
-		y = event->y;
+		x = sdlwheel->x;
+		y = sdlwheel->y;
 		
-		if (event->direction == SDL_MOUSEWHEEL_FLIPPED) {
+		if (sdlwheel->direction == SDL_MOUSEWHEEL_FLIPPED) {
 			x = -x;
 			y = -y;
 		}

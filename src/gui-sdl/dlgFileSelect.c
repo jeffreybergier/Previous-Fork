@@ -8,7 +8,6 @@
 */
 const char DlgFileSelect_fileid[] = "Hatari dlgFileSelect.c";
 
-#include <SDL.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -710,8 +709,7 @@ char* SDLGui_FileSelect(const char *title, const char *path_and_name, char **zip
 	fsdlg[SGFSDLG_TITLE].w = len;
 
 	/* Save mouse state and enable cursor */
-	bOldMouseVisibility = SDL_ShowCursor(SDL_QUERY);
-	SDL_ShowCursor(SDL_ENABLE);
+	bOldMouseVisibility = Main_ShowCursor(true);
 
 	SDLGui_CenterDlg(fsdlg);
 	if (bAllowNew)
@@ -1104,7 +1102,7 @@ char* SDLGui_FileSelect(const char *title, const char *path_and_name, char **zip
 		retpath = NULL;
 
 clean_exit:
-	SDL_ShowCursor(bOldMouseVisibility);
+	Main_ShowCursor(bOldMouseVisibility);
 
 	if (browsingzip && zipfiles != NULL)
 	{
