@@ -36,15 +36,17 @@ set(ENABLE_DSP_EMU 1
     CACHE BOOL "Enable DSP 56k emulator")
 set(ENABLE_TRACING 1
     CACHE BOOL "Enable tracing messages for debugging")
-set(ENABLE_RENDERING_THREAD 1
-    CACHE BOOL "Enable rendering threads")
 
 if(APPLE)
+	set(ENABLE_RENDERING_THREAD 1
+		CACHE BOOL "Enable rendering threads")
 	set(ENABLE_OSX_BUNDLE 1
 	    CACHE BOOL "Built Previous as macOS application bundle")
 	set(ADDITIONAL_INCLUDES ${FRAMEWORKS})
 	set_source_files_properties(${FRAMEWORKS} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)
 else()
+	set(ENABLE_RENDERING_THREAD 0
+		CACHE BOOL "Enable rendering threads")
 	set(ENABLE_OSX_BUNDLE 0
 	    CACHE BOOL "Built Previous as macOS application bundle")
 endif(APPLE)
