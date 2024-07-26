@@ -43,7 +43,7 @@ static SGOBJ maindlg[] =
 {
 	{ SGBOX, 0, 0, 0,0, 50,19, NULL },
 	{ SGTEXT, 0, 0, 15,1, 20,1, "Previous - Main menu" },
-	{ SGHIDDEN, 0, 0, 15,1, 8,1, "Previous" },
+	{ SGTEXT, SG_EXIT, 0, 15,1, 8,1, "Previous" },
 	{ SGBUTTON, 0, 0, 2,4, 13,1, "System" },
 	{ SGBUTTON, 0, 0, 2,6, 13,1, "ROM" },
 	{ SGBUTTON, 0, 0, 2,8, 13,1, "Display" },

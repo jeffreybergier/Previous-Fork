@@ -1030,9 +1030,6 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 			       dlg[obj].h*sdlgui_fontheight+4);
 		retbutton=obj;
 		break;
-	case SGHIDDEN: /* Added for Previous */
-		retbutton=obj;
-		break;
 	}
 
 	if (retbutton == SDLGUI_NOTFOUND && (dlg[obj].flags & SG_EXIT) != 0)
