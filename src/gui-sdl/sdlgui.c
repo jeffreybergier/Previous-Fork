@@ -1219,7 +1219,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 		}
 	}
 
-	SDL_GetJoysticks(&n);
+	SDL_free(SDL_GetJoysticks(&n));
 
 	if (n > 0)
 		joy = SDL_OpenJoystick(0);

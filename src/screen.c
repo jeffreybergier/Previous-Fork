@@ -305,7 +305,7 @@ void Screen_Init(void) {
 
 	x = SDL_WINDOWPOS_UNDEFINED;
 	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		SDL_GetDisplays(&n);
+		SDL_free(SDL_GetDisplays(&n));
 		for (i = 0; i < n; i++) {
 			SDL_Rect r;
 			SDL_GetDisplayBounds(i, &r);
