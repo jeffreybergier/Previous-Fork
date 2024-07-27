@@ -497,7 +497,7 @@ void Main_EventHandlerInterrupt(void) {
 
 #ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
-		SDL_PostSemaphore(pauseFlag);
+		SDL_SignalSemaphore(pauseFlag);
 		do {
 			host_sleep_ms(20);
 		} while(!bEmulationActive);
