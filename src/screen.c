@@ -278,7 +278,7 @@ void Screen_Pause(bool pause) {
 void Screen_Init(void) {
 	uint32_t format;
 	uint32_t r, g, b, a;
-	int      d, i, n, x;
+	int      d, i;
 
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
@@ -311,20 +311,7 @@ void Screen_Init(void) {
 
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-	x = SDL_WINDOWPOS_UNDEFINED;
-	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		n = SDL_GetNumVideoDisplays();
-		for (i = 0; i < n; i++) {
-			SDL_Rect r;
-			SDL_GetDisplayBounds(i, &r);
-			if (r.w >= width * 2) {
-				x = r.x + width + ((r.w - width * 2) / 2);
-				break;
-			}
-			if (r.x >= 0 && n == 1) x = r.x + 8;
-		}
-	}
-	sdlWindow = SDL_CreateWindow(PROG_NAME, x, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+	sdlWindow = SDL_CreateWindow(PROG_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 	if (!sdlWindow) {
 		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
