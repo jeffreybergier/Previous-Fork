@@ -278,7 +278,7 @@ void Screen_Pause(bool pause) {
 void Screen_Init(void) {
 	SDL_PixelFormat format;
 	uint32_t r, g, b, a;
-	int      d, i, n, x;
+	int      d, i;
 
 	/* Set initial window resolution */
 	width  = NeXT_SCRN_WIDTH;
@@ -303,19 +303,6 @@ void Screen_Init(void) {
 	/* Set new video mode */
 	fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-	x = SDL_WINDOWPOS_UNDEFINED;
-	if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-		SDL_free(SDL_GetDisplays(&n));
-		for (i = 0; i < n; i++) {
-			SDL_Rect r;
-			SDL_GetDisplayBounds(i, &r);
-			if (r.w >= width * 2) {
-				x = r.x + width + ((r.w - width * 2) / 2);
-				break;
-			}
-			if (r.x >= 0 && n == 1) x = r.x + 8;
-		}
-	}
 	sdlWindow = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!sdlWindow) {
 		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
