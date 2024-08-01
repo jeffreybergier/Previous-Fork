@@ -1018,7 +1018,6 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawRadioButton(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
-		retbutton = obj; /* Added for Previous */
 		break;
 	case SGCHECKBOX:
 		dlg[obj].state ^= SG_SELECTED;
@@ -1029,7 +1028,6 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		SDL_FillSurfaceRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawCheckBox(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
-		retbutton = obj; /* Added for Previous */
 		break;
 	case SGPOPUP:
 		dlg[obj].state |= SG_SELECTED;
