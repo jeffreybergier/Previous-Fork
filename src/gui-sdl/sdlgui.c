@@ -1007,7 +1007,6 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawRadioButton(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
-		retbutton = obj; /* Added for Previous */
 		break;
 	case SGCHECKBOX:
 		dlg[obj].state ^= SG_SELECTED;
@@ -1018,7 +1017,6 @@ static int SDLGui_HandleSelection(SGOBJ *dlg, int obj, int oldbutton)
 		SDL_FillRect(pSdlGuiScrn, &rct, colors.midgrey); /* Clear old */
 		SDLGui_DrawCheckBox(dlg, obj);
 		Screen_UpdateRects(pSdlGuiScrn, 1, &rct);
-		retbutton = obj; /* Added for Previous */
 		break;
 	case SGPOPUP:
 		dlg[obj].state |= SG_SELECTED;
@@ -1087,14 +1085,7 @@ void SDLGui_ScaleMouseStateCoordinates(int *x, int *y)
  */
 static void SDLGui_ScaleMouseButtonCoordinates(SDL_MouseButtonEvent *bev)
 {
-#if 0 /* This causes problems with Previous */
-	if (bInFullScreen)
-		return;
-
-	int x = bev->x, y = bev->y;
-	SDLGui_ScaleMouseStateCoordinates(&x, &y);
-	bev->x = x; bev->y = y;
-#endif
+	/* This is not necessary for Previous */
 }
 
 /*-----------------------------------------------------------------------*/

@@ -46,15 +46,15 @@ static SGOBJ enetdlg[] =
 	
 	{ SGBOX, 0, 0, 1,3, 24,9, NULL },
 	{ SGTEXT, 0, 0, 3,4, 15,1, "Guest interface" },
-	{ SGCHECKBOX, 0, 0, 3,6, 20,1, "Ethernet connected" },
-	{ SGRADIOBUT, 0, 0, 5,8, 11,1, "Thin wire" },
-	{ SGRADIOBUT, 0, 0, 5,10, 14,1, "Twisted pair" },
+	{ SGCHECKBOX, SG_EXIT, 0, 3,6, 20,1, "Ethernet connected" },
+	{ SGRADIOBUT, SG_EXIT, 0, 5,8, 11,1, "Thin wire" },
+	{ SGRADIOBUT, SG_EXIT, 0, 5,10, 14,1, "Twisted pair" },
 	
 	{ SGBOX, 0, 0, 26,3, 24,9, NULL },
 	{ SGTEXT, 0, 0, 28,4, 14,1, "Host interface" },
-	{ SGRADIOBUT, 0, 0, 29,6, PCAP_INTERFACE_LEN,1, pcap_interface },
-	{ SGRADIOBUT, 0, 0, 29,8, 7,1, "SLiRP" },
-	{ SGCHECKBOX, 0, 0, 31,10, 14,1, "Network time" },
+	{ SGRADIOBUT, SG_EXIT, 0, 29,6, PCAP_INTERFACE_LEN,1, pcap_interface },
+	{ SGRADIOBUT, SG_EXIT, 0, 29,8, 7,1, "SLiRP" },
+	{ SGCHECKBOX, SG_EXIT, 0, 31,10, 14,1, "Network time" },
 	
 	{ SGBOX, 0, 0, 1,13, 49,3, NULL },
 	{ SGTEXT, 0, 0, 3,14, 12,1, "MAC address:" },
@@ -88,9 +88,9 @@ static SGOBJ enetdlg[] =
 	{ SGTEXT, 0, 0, 19,1, 16,1, "Network options" },
 	
 	{ SGBOX, 0, 0, 1,3, 25,9, NULL },
-	{ SGCHECKBOX, 0, 0, 3,5, 20,1, "Ethernet connected" },
-	{ SGRADIOBUT, 0, 0, 5,7, 11,1, "Thin wire" },
-	{ SGRADIOBUT, 0, 0, 5,9, 14,1, "Twisted pair" },
+	{ SGCHECKBOX, SG_EXIT, 0, 3,5, 20,1, "Ethernet connected" },
+	{ SGRADIOBUT, SG_EXIT, 0, 5,7, 11,1, "Thin wire" },
+	{ SGRADIOBUT, SG_EXIT, 0, 5,9, 14,1, "Twisted pair" },
 	
 	{ SGBOX, 0, 0, 27,3, 25,9, NULL },
 	{ SGCHECKBOX, 0, 0, 29,5, 18,1, "Use network time" },
