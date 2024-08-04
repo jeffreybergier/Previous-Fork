@@ -40,7 +40,6 @@ static int height;  /* guest framebuffer */
 static SDL_Renderer* sdlRenderer;
 static SDL_Texture*  uiTexture;
 static SDL_Texture*  fbTexture;
-static SDL_atomic_t  blitFB;
 static SDL_atomic_t  blitUI;
 static bool          doUIblit;
 static SDL_Rect      statusBar;
@@ -51,7 +50,6 @@ static uint32_t      mask;             /* green screen mask for transparent UI a
 static void*         uiBuffer;         /* uiBuffer used for user interface texture */
 static SDL_SpinLock  uiBufferLock;     /* Lock for concurrent access to UI buffer between m68k thread and repainter */
 #ifdef ENABLE_RENDERING_THREAD
-static void*         uiBufferTmp;      /* Temporary uiBuffer used by repainter */
 static volatile bool doRepaint = true; /* Repaint thread runs while true */
 static SDL_Thread*   repaintThread;
 #endif
@@ -188,88 +186,60 @@ static bool blitScreen(SDL_Texture* tex) {
 }
 
 /*
+ Blit user interface to texture.
+ */
+static void blitUserInterface(SDL_Texture* tex) {
+	void* pixels;
+	int   pitch;
+	SDL_LockTexture(tex, NULL, &pixels, &pitch);
+	SDL_AtomicLock(&uiBufferLock);
+	memcpy(pixels, uiBuffer, height * pitch);
+	SDL_AtomicSet(&blitUI, 0);
+	SDL_AtomicUnlock(&uiBufferLock);
+	SDL_UnlockTexture(tex);
+}
+
+/*
  Blits the NeXT framebuffer to the fbTexture, blends with the GUI surface and shows it.
  */
+bool Screen_Repaint(void) {
+	bool updateScreen = false;
+
+	/* Blit the NeXT framebuffer to texture */
+	if (bEmulationActive) {
+		updateScreen = blitScreen(fbTexture);
+	}
+
+	/* Copy UI surface to texture */
+	if (SDL_AtomicGet(&blitUI)) {
+		blitUserInterface(uiTexture);
+		updateScreen = true;
+	}
+
+	if (updateScreen) {
+		SDL_RenderClear(sdlRenderer);
+		/* Render NeXT framebuffer texture */
+		SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
+		SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
+		SDL_RenderPresent(sdlRenderer);
+	}
+
+	return updateScreen;
+}
+
 #ifdef ENABLE_RENDERING_THREAD
 static int repainter(void* unused) {
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
 	/* Enter repaint loop */
-	while(doRepaint) {
-		bool updateFB = false;
-		bool updateUI = false;
-
-		if (SDL_AtomicGet(&blitFB)) {
-			// Blit the NeXT framebuffer to texture
-			updateFB = blitScreen(fbTexture);
-		}
-
-		// Copy UI surface to texture
-		SDL_AtomicLock(&uiBufferLock);
-		if(SDL_AtomicSet(&blitUI, 0)) {
-			// update full UI texture
-			memcpy(uiBufferTmp, uiBuffer, sdlscrn->h * sdlscrn->pitch);
-			updateUI = true;
-		}
-		SDL_AtomicUnlock(&uiBufferLock);
-
-		if(updateUI) {
-			SDL_UpdateTexture(uiTexture, NULL, uiBufferTmp, sdlscrn->pitch);
-		}
-
-		// Update and render UI texture
-		if (updateFB || updateUI) {
-			SDL_RenderClear(sdlRenderer);
-			// Render NeXT framebuffer texture
-			SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
-			SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
-			// SDL_RenderPresent sleeps until next VSYNC because of SDL_RENDERER_PRESENTVSYNC in ScreenInit
-			SDL_RenderPresent(sdlRenderer);
-		} else {
+	while (doRepaint) {
+		if (!Screen_Repaint()) {
 			host_sleep_ms(10);
 		}
 	}
 	return 0;
 }
-#else // !ENABLE_RENDERING_THREAD
-void Screen_Repaint(void) {
-	bool updateFB = false;
-
-	// Blit the NeXT framebuffer to texture
-	if (bEmulationActive) {
-		updateFB = blitScreen(fbTexture);
-	}
-
-	// Copy UI surface to texture
-	if (SDL_AtomicSet(&blitUI, 0)) {
-		// update full UI texture
-		SDL_UpdateTexture(uiTexture, NULL, uiBuffer, sdlscrn->pitch);
-		updateFB = true;
-	}
-
-	if (updateFB) {
-		SDL_RenderClear(sdlRenderer);
-		// Render NeXT framebuffer texture
-		SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
-		SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
-		SDL_RenderPresent(sdlRenderer);
-	}
-}
-#endif // !ENABLE_RENDERING_THREAD
-
-/*-----------------------------------------------------------------------*/
-/**
- * Pause Screen, pauses or resumes drawing of NeXT framebuffer
- */
-void Screen_Pause(bool pause) {
-#ifdef ENABLE_RENDERING_THREAD
-	if (pause) {
-		SDL_AtomicSet(&blitFB, 0);
-	} else {
-		SDL_AtomicSet(&blitFB, 1);
-	}
 #endif
-}
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -363,9 +333,6 @@ void Screen_Init(void) {
 
 	/* Allocate buffers for copy routines */
 	uiBuffer = malloc(sdlscrn->h * sdlscrn->pitch);
-#ifdef ENABLE_RENDERING_THREAD
-	uiBufferTmp = malloc(sdlscrn->h * sdlscrn->pitch);
-#endif
 
 	/* Initialize statusbar */
 	Statusbar_Init(sdlscrn);
@@ -386,8 +353,7 @@ void Screen_Init(void) {
 	SDL_FreeFormat(pformat);
 
 #ifdef ENABLE_RENDERING_THREAD
-	/* Start repaint thread with framebuffer blit disabled */
-	SDL_AtomicSet(&blitFB, 0);
+	/* Start repaint thread */
 	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
 #endif
 
@@ -406,11 +372,13 @@ void Screen_Init(void) {
  */
 void Screen_UnInit(void) {
 #ifdef ENABLE_RENDERING_THREAD
-	doRepaint = false; // stop repaint thread
 	int s;
+	doRepaint = false; /* stop repaint thread */
 	SDL_WaitThread(repaintThread, &s);
 #endif
 	nd_sdl_destroy();
+	free(uiBuffer);
+	SDL_FreeSurface(sdlscrn);
 	SDL_DestroyTexture(uiTexture);
 	SDL_DestroyTexture(fbTexture);
 	SDL_DestroyRenderer(sdlRenderer);
@@ -596,7 +564,7 @@ static void uiUpdate(void) {
 	uint32_t* dst = (uint32_t*)uiBuffer;
 	uint32_t* src = (uint32_t*)sdlscrn->pixels;
 	SDL_AtomicLock(&uiBufferLock);
-	// poor man's green-screen - would be nice if SDL had more blending modes...
+	/* poor man's green-screen - would be nice if SDL had more blending modes... */
 	for(int i = count; --i >= 0; src++)
 		*dst++ = *src == mask ? 0 : *src;
 	SDL_AtomicSet(&blitUI, 1);

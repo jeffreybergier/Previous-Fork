@@ -127,7 +127,6 @@ bool Main_PauseEmulation(bool visualize) {
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	host_pause_time(true);
-	Screen_Pause(true);
 	Sound_Pause(true);
 	NextBus_Pause(true);
 
@@ -159,7 +158,6 @@ bool Main_UnPauseEmulation(void) {
 
 	NextBus_Pause(false);
 	Sound_Pause(false);
-	Screen_Pause(false);
 	host_pause_time(false);
 
 	/* Set mouse pointer to the middle of the screen and hide it */
