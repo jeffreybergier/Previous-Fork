@@ -221,6 +221,7 @@ bool Screen_Repaint(void) {
 		/* Render NeXT framebuffer texture */
 		SDL_RenderCopy(sdlRenderer, fbTexture, NULL, &screenRect);
 		SDL_RenderCopy(sdlRenderer, uiTexture, NULL, &screenRect);
+		/* Sleeps until next VSYNC if enabled in ScreenInit */
 		SDL_RenderPresent(sdlRenderer);
 	}
 
