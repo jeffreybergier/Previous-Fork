@@ -47,7 +47,6 @@ const char Main_fileid[] = "Previous main.c";
 
 volatile bool bQuitProgram = false;            /* Flag to quit program cleanly */
 volatile bool bEmulationActive = false;        /* Do not run emulation during initialization */
-static bool   bAccurateDelays;                 /* Host system has an accurate SDL_Delay()? */
 static bool   bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -217,31 +216,6 @@ void Main_RequestQuit(bool confirm) {
 		M68000_Stop();
 	}
 }
-
-/*-----------------------------------------------------------------------*/
-/**
- * Since SDL_Delay and friends are very inaccurate on some systems, we have
- * to check if we can rely on this delay function.
- */
-static void Main_CheckForAccurateDelays(void) {
-	int nStartTicks, nEndTicks;
-
-	/* Force a task switch now, so we have a longer timeslice afterwards */
-	SDL_Delay(10);
-
-	nStartTicks = SDL_GetTicks();
-	SDL_Delay(1);
-	nEndTicks = SDL_GetTicks();
-
-	/* If the delay took longer than 10ms, we are on an inaccurate system! */
-	bAccurateDelays = ((nEndTicks - nStartTicks) < 9);
-
-	if (bAccurateDelays)
-		Log_Printf(LOG_WARN, "Host system has accurate delays. (%d)\n", nEndTicks - nStartTicks);
-	else
-		Log_Printf(LOG_WARN, "Host system does not have accurate delays. (%d)\n", nEndTicks - nStartTicks);
-}
-
 
 /* ----------------------------------------------------------------------- */
 /**
@@ -725,7 +699,7 @@ void Main_EventHandler(void) {
 							break;
 #ifndef ENABLE_RENDERING_THREAD
 						case MAIN_REPAINT:
-							Main_CheckStatusbarUpdate();
+							Statusbar_Update(sdlscrn);
 							Screen_Repaint();
 							break;
 						case MAIN_ND_DISPLAY:
@@ -777,15 +751,6 @@ static void Main_Loop(void) {
 		Main_EventHandler();
 	}
 #endif
-}
-
-/* ----------------------------------------------------------------------- */
-/**
- * Statusbar update with reduced update frequency to save CPU cycles.
- * Call this on emulated machine VBL.
- */
-void Main_CheckStatusbarUpdate(void) {
-	Statusbar_Update(sdlscrn);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -989,10 +954,7 @@ int main(int argc, char *argv[])
 	if (Main_Init()) {
 		/* Set initial Statusbar information */
 		Main_StatusbarSetup();
-		
-		/* Check if SDL_Delay is accurate */
-		Main_CheckForAccurateDelays();
-		
+
 		/* Run emulation */
 		Main_Loop();
 	}

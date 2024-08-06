@@ -773,7 +773,6 @@ static int DebugCpu_Struct(int nArgc, char *psArgs[])
 	return DEBUGGER_CMDCONT;
 }
 
-
 /**
  * Command: Write to memory, optional arg for value lengths,
  * followed by starting address and the values.
