@@ -256,12 +256,12 @@ void Main_SetMouseGrab(bool grab) {
 	if (grab) {
 		if (bEmulationActive) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
-			SDL_SetRelativeMouseMode(SDL_TRUE);
+			SDL_SetWindowRelativeMouseMode(sdlWindow, SDL_TRUE);
 			SDL_SetWindowMouseGrab(sdlWindow, SDL_TRUE);
 			Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 		}
 	} else {
-		SDL_SetRelativeMouseMode(SDL_FALSE);
+		SDL_SetWindowRelativeMouseMode(sdlWindow, SDL_FALSE);
 		SDL_SetWindowMouseGrab(sdlWindow, SDL_FALSE);
 		Main_SetTitle(NULL);
 	}
