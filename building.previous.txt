@@ -37,9 +37,10 @@ other platforms you might need to also install libpcap, readline and zlib.
  -----------------------
 
 1. It seems that on some distributions of Linux rendering has to be done from 
-   the main thread. To make Previous render from the main thread you have to 
-   disable the rendering thread with following compile-time option:
-      ./configure --disable-rendering-thread
+   the main thread. Therefore it is not recommended to enable rendering threads 
+   on Linux. If you still want to experiment with rendering threads, you can 
+   enable them at compile time using the following option:
+      ./configure --enable-rendering-thread
       make
 
 2. Some Linux distributions have pre-installed outdated versions of SDL2. You 
