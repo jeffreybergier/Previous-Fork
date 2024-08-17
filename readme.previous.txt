@@ -175,7 +175,7 @@ not yet emulated. Status of the individual components is as follows:
   Mouse           good
   ADB             good
   Nitro           dummy
-  Dimension       partial (no video I/O)
+  Dimension       good (but no video I/O)
 
 
 There are remaining problems with the host to emulated machine interface for 
@@ -413,6 +413,9 @@ Previous v3.3:
   > Adds support for FTP, SSH, Telnet and HTTP port forwarding via SLiRP.
   > Improves throughput of simulated Ethernet connection.
 
+Previous v3.4 (unreleased):
+  > Improves the look of the user interface.
+
 
  7) Running Previous
  -------------------
@@ -480,8 +483,8 @@ Many thanks go to the members of the NeXT International Forums for their help.
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
-Frank Wegmann, Grzegorz Szwoch, Michael Engel, Izumi Tsutsui and William
-Barnett-Lewis!
+Frank Wegmann, Grzegorz Szwoch, Michael Engel, Izumi Tsutsui, William
+Barnett-Lewis and Samantha Halliday!
 
 This emulator would not exist without their help.
 
