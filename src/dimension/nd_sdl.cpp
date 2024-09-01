@@ -25,7 +25,7 @@ int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
     while (doRepaint) {
-        if (SDL_AtomicGet(&blitNDFB)) {
+        if (SDL_AtomicGet(&blitNDFB) && bEmulationActive) {
             repaint();
         } else {
             host_sleep_ms(100);
@@ -82,18 +82,23 @@ void NDSDL::init(void) {
             SDL_SetRenderVSync(ndRenderer, 1);
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
-            SDL_AtomicSet(&blitNDFB, 0);
             repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
 #endif
         }
 
         SDL_ShowWindow(ndWindow);
+#ifdef ENABLE_RENDERING_THREAD
+        SDL_AtomicSet(&blitNDFB, 1);
+#endif
     } else {
         SDL_HideWindow(ndWindow);
     }
 }
 
 void NDSDL::uninit(void) {
+#ifdef ENABLE_RENDERING_THREAD
+    SDL_AtomicSet(&blitNDFB, 0);
+#endif
     SDL_HideWindow(ndWindow);
 }
 
@@ -107,16 +112,6 @@ void NDSDL::destroy(void) {
     SDL_DestroyRenderer(ndRenderer);
     SDL_DestroyWindow(ndWindow);
     uninit();
-}
-
-void NDSDL::pause(bool pause) {
-#ifdef ENABLE_RENDERING_THREAD
-    if (!pause && ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-        SDL_AtomicSet(&blitNDFB, 1);
-    } else {
-        SDL_AtomicSet(&blitNDFB, 0);
-    }
-#endif
 }
 
 void NDSDL::resize(float scale) {
@@ -154,7 +149,6 @@ void nd_sdl_show(void) {
 void nd_sdl_hide(void) {
     FOR_EACH_SLOT(slot) {
         IF_NEXT_DIMENSION(slot, nd) {
-            nd->sdl.pause(true);
             nd->sdl.uninit();
         }
     }
