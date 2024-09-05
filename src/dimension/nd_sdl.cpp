@@ -25,7 +25,7 @@ int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
     while (doRepaint) {
-        if (SDL_AtomicGet(&blitNDFB) && bEmulationActive) {
+        if (bEmulationActive && SDL_AtomicGet(&blitNDFB)) {
             repaint();
         } else {
             host_sleep_ms(100);
