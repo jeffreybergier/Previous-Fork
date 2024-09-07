@@ -620,7 +620,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 	do
 	{
 		/* Look for events */
-		if (SDL_PollEvent(&event) == 0)
+		if (SDL_PollEvent(&event) == SDL_FALSE)
 		{
 			/* No event: Wait some time for cursor blinking */
 			SDL_Delay(250);
@@ -681,7 +681,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 					break;
 				}
 			}
-			while (SDL_PollEvent(&event));
+			while (SDL_PollEvent(&event) == SDL_TRUE);
 
 			blinkState = 1;
 		}
@@ -1233,7 +1233,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	/* The main loop */
 	while (retbutton == SDLGUI_NOTFOUND && !bQuitProgram)
 	{
-		if (SDL_WaitEvent(&sdlEvent) == 1)  /* Wait for events */
+		if (SDL_WaitEvent(&sdlEvent) == SDL_TRUE)  /* Wait for events */
 		{
 			switch (sdlEvent.type)
 			{

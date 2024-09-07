@@ -122,7 +122,7 @@ bool Main_PauseEmulation(bool visualize) {
 	bEmulationActive = false;
 #ifndef ENABLE_RENDERING_THREAD
 	/* Wait until 68k thread is paused */
-	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000))
+	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000) == SDL_FALSE)
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	host_pause_time(true);
@@ -561,7 +561,7 @@ static int Main_Thread(void* unused) {
 void Main_EventHandler(void) {
 	bool bContinueProcessing;
 	SDL_Event event;
-	int events;
+	SDL_bool events;
 
 	do {
 		bContinueProcessing = false;
@@ -579,7 +579,7 @@ void Main_EventHandler(void) {
 #else
 		events = SDL_WaitEventTimeout(&event, 100);
 #endif
-		if (!events) {
+		if (events == SDL_FALSE) {
 			/* no events -> if emulation is active or
 			 * user is quitting -> return from function.
 			 */
@@ -796,7 +796,7 @@ static bool Main_Init(void) {
 
 	/* Init SDL's video and timer subsystems. Note: Audio subsystem
 	   will be initialized later (failure not fatal). */
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == SDL_FALSE)
 	{
 		fprintf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError() );
 		exit(-1);
