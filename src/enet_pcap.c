@@ -106,9 +106,9 @@ void enet_pcap_stop(void) {
     if (pcap_started) {
         Log_Printf(LOG_WARN, "Stopping PCAP");
         pcap_started=0;
-        QueueDestroy(pcapq);
-        host_mutex_destroy(pcap_mutex);
         host_thread_wait(pcap_tick_func_handle);
+        host_mutex_destroy(pcap_mutex);
+        QueueDestroy(pcapq);
         pcap_close(pcap_handle);
     }
 }

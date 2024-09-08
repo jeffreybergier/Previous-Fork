@@ -164,9 +164,9 @@ void enet_slirp_stop(void) {
     if (slirp_started) {
         Log_Printf(LOG_WARN, "Stopping SLIRP");
         slirp_started=0;
-        QueueDestroy(slirpq);
-        host_mutex_destroy(slirp_mutex);
         host_thread_wait(tick_func_handle);
+        host_mutex_destroy(slirp_mutex);
+        QueueDestroy(slirpq);
     }
 }
 
