@@ -232,8 +232,6 @@ bool Screen_Repaint(void) {
 static int repainter(void* unused) {
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
-	Screen_Blank(fbTexture);
-
 	/* Enter repaint loop */
 	while (doRepaint) {
 		if (!Screen_Repaint()) {
@@ -341,11 +339,12 @@ void Screen_Init(void) {
 	for (i = 0; i < 0x10000; i++)
 		COL2RGB[SDL_BYTEORDER == SDL_BIG_ENDIAN ? i : SDL_Swap16(i)] = col2rgb(sdlscrn, i);
 
+	/* Start with blank screen */
+	Screen_Blank(fbTexture);
+
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread */
 	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
-#else
-	Screen_Blank(fbTexture);
 #endif
 
 	/* Configure some SDL stuff: */
