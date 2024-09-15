@@ -1122,7 +1122,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	SDL_Surface *pBgSurface;
 	SDL_Rect dlgrect, bgrect;
 	SDL_Joystick *joy = NULL;
-	const Uint8 *keystates;
+	const SDL_bool *keystates;
 	bool ignore_first_keyup;
 
 	/* either both, or neither of these should be present */

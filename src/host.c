@@ -357,7 +357,7 @@ void host_mutex_destroy(mutex_t* mutex) {
 }
 
 int host_num_cpus(void) {
-    return SDL_GetCPUCount();
+    return SDL_GetNumLogicalCPUCores();
 }
 
 static uint64_t lastVT;
