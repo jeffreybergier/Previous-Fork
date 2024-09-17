@@ -194,7 +194,7 @@ static void blitUserInterface(SDL_Texture* tex) {
 	SDL_LockTexture(tex, NULL, &pixels, &pitch);
 	SDL_LockSpinlock(&uiBufferLock);
 	memcpy(pixels, uiBuffer, height * pitch);
-	SDL_AtomicSet(&blitUI, 0);
+	SDL_SetAtomicInt(&blitUI, 0);
 	SDL_UnlockSpinlock(&uiBufferLock);
 	SDL_UnlockTexture(tex);
 }
@@ -211,7 +211,7 @@ bool Screen_Repaint(void) {
 	}
 
 	/* Copy UI surface to texture */
-	if (SDL_AtomicGet(&blitUI)) {
+	if (SDL_GetAtomicInt(&blitUI)) {
 		blitUserInterface(uiTexture);
 		updateScreen = true;
 	}
@@ -408,7 +408,7 @@ void Screen_EnterFullScreen(void) {
 		Main_SetMouseGrab(true);
 
 		/* Make sure screen is painted in case emulation is paused */
-		SDL_AtomicSet(&blitUI, 1);
+		SDL_SetAtomicInt(&blitUI, 1);
 	}
 }
 
@@ -444,7 +444,7 @@ void Screen_ReturnFromFullScreen(void) {
 		Main_SetMouseGrab(bGrabMouse);
 
 		/* Make sure screen is painted in case emulation is paused */
-		SDL_AtomicSet(&blitUI, 1);
+		SDL_SetAtomicInt(&blitUI, 1);
 	}
 }
 
@@ -476,7 +476,7 @@ void Screen_SizeChanged(void) {
 	}
 
 	/* Make sure screen is painted in case emulation is paused */
-	SDL_AtomicSet(&blitUI, 1);
+	SDL_SetAtomicInt(&blitUI, 1);
 }
 
 
@@ -527,7 +527,7 @@ void Screen_StatusbarChanged(void) {
 	}
 
 	/* Make sure screen is painted in case emulation is paused */
-	SDL_AtomicSet(&blitUI, 1);
+	SDL_SetAtomicInt(&blitUI, 1);
 }
 
 
@@ -539,7 +539,7 @@ static void statusBarUpdate(void) {
 	SDL_LockSurface(sdlscrn);
 	SDL_LockSpinlock(&uiBufferLock);
 	memcpy(&((uint8_t*)uiBuffer)[statusBar.y*sdlscrn->pitch], &((uint8_t*)sdlscrn->pixels)[statusBar.y*sdlscrn->pitch], statusBar.h * sdlscrn->pitch);
-	SDL_AtomicSet(&blitUI, 1);
+	SDL_SetAtomicInt(&blitUI, 1);
 	SDL_UnlockSpinlock(&uiBufferLock);
 	SDL_UnlockSurface(sdlscrn);
 }
@@ -557,7 +557,7 @@ static void uiUpdate(void) {
 	/* poor man's green-screen - would be nice if SDL had more blending modes... */
 	for(int i = count; --i >= 0; src++)
 		*dst++ = *src == mask ? 0 : *src;
-	SDL_AtomicSet(&blitUI, 1);
+	SDL_SetAtomicInt(&blitUI, 1);
 	SDL_UnlockSpinlock(&uiBufferLock);
 	SDL_UnlockSurface(sdlscrn);
 }

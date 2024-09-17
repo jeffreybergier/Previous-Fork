@@ -25,7 +25,7 @@ int NDSDL::repainter(void) {
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
     while (doRepaint) {
-        if (bEmulationActive && SDL_AtomicGet(&blitNDFB)) {
+        if (bEmulationActive && SDL_GetAtomicInt(&blitNDFB)) {
             repaint();
         } else {
             host_sleep_ms(100);
@@ -88,7 +88,7 @@ void NDSDL::init(void) {
 
         SDL_ShowWindow(ndWindow);
 #ifdef ENABLE_RENDERING_THREAD
-        SDL_AtomicSet(&blitNDFB, 1);
+        SDL_SetAtomicInt(&blitNDFB, 1);
 #endif
     } else {
         SDL_HideWindow(ndWindow);
@@ -97,7 +97,7 @@ void NDSDL::init(void) {
 
 void NDSDL::uninit(void) {
 #ifdef ENABLE_RENDERING_THREAD
-    SDL_AtomicSet(&blitNDFB, 0);
+    SDL_SetAtomicInt(&blitNDFB, 0);
 #endif
     SDL_HideWindow(ndWindow);
 }

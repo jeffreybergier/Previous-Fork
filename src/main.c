@@ -796,7 +796,7 @@ static bool Main_Init(void) {
 
 	/* Init SDL's video and timer subsystems. Note: Audio subsystem
 	   will be initialized later (failure not fatal). */
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == SDL_FALSE)
+	if (SDL_Init(SDL_INIT_VIDEO) == SDL_FALSE)
 	{
 		fprintf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError() );
 		exit(-1);

@@ -169,7 +169,7 @@ static char DARKMATTER[] = "darkmatter";
 
 void host_blank_count(int src, bool state) {
     if (state) {
-        SDL_AtomicAdd(&vblCounter[src], 1);
+        SDL_AddAtomicInt(&vblCounter[src], 1);
     }
     
     // check first 4 bytes of version string in darkmatter/daydream kernel
@@ -177,7 +177,7 @@ void host_blank_count(int src, bool state) {
 }
 
 int host_reset_blank_counter(int src) {
-    return SDL_AtomicSet(&vblCounter[src], 0);
+    return SDL_SetAtomicInt(&vblCounter[src], 0);
 }
 
 void host_hardclock(int expected, int actual) {
@@ -315,19 +315,19 @@ void host_unlock(lock_t* lock) {
 }
 
 int host_atomic_set(atomic_int* a, int newValue) {
-    return SDL_AtomicSet(a, newValue);
+    return SDL_SetAtomicInt(a, newValue);
 }
 
 int host_atomic_get(atomic_int* a) {
-    return SDL_AtomicGet(a);
+    return SDL_GetAtomicInt(a);
 }
 
 int host_atomic_add(atomic_int* a, int value) {
-    return SDL_AtomicAdd(a, value);
+    return SDL_AddAtomicInt(a, value);
 }
 
 bool host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
-    return SDL_AtomicCompareAndSwap(a, oldValue, newValue);
+    return SDL_CompareAndSwapAtomicInt(a, oldValue, newValue);
 }
 
 thread_t* host_thread_create(thread_func_t func, const char* name, void* data) {
