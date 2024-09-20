@@ -120,7 +120,7 @@ void Audio_Output_Init(void)
 
 	/* Init the SDL's audio subsystem: */
 	if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
-		if (SDL_InitSubSystem(SDL_INIT_AUDIO) == SDL_FALSE) {
+		if (SDL_InitSubSystem(SDL_INIT_AUDIO) == false) {
 			Log_Printf(LOG_WARN, "[Audio] Could not init audio output: %s\n", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open SDL audio subsystem.", 5000);
 			return;
@@ -146,7 +146,7 @@ void Audio_Input_Init(void) {
 
 	/* Init the SDL's audio subsystem: */
 	if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
-		if (SDL_InitSubSystem(SDL_INIT_AUDIO) == SDL_FALSE) {
+		if (SDL_InitSubSystem(SDL_INIT_AUDIO) == false) {
 			Log_Printf(LOG_WARN, "[Audio] Could not init audio input: %s\n", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open SDL audio subsystem.", 5000);
 			return;

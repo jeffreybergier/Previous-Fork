@@ -126,12 +126,12 @@ int SDLGui_Init(void)
 	SDL_SetPaletteColors(SDL_GetSurfacePalette(pBigFontGfx), blackWhiteColors, 0, 2);
 
 	/* Set font color 0 as transparent: */
-	SDL_SetSurfaceColorKey(pSmallFontGfx, SDL_TRUE, 0);
-	SDL_SetSurfaceColorKey(pBigFontGfx, SDL_TRUE, 0);
+	SDL_SetSurfaceColorKey(pSmallFontGfx, true, 0);
+	SDL_SetSurfaceColorKey(pBigFontGfx, true, 0);
 
 	/* Enable acceleration: */
-	SDL_SetSurfaceRLE(pSmallFontGfx, SDL_TRUE);
-	SDL_SetSurfaceRLE(pBigFontGfx, SDL_TRUE);
+	SDL_SetSurfaceRLE(pSmallFontGfx, true);
+	SDL_SetSurfaceRLE(pBigFontGfx, true);
 
 	return 0;
 }
@@ -620,7 +620,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 	do
 	{
 		/* Look for events */
-		if (SDL_PollEvent(&event) == SDL_FALSE)
+		if (SDL_PollEvent(&event) == false)
 		{
 			/* No event: Wait some time for cursor blinking */
 			SDL_Delay(250);
@@ -681,7 +681,7 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 					break;
 				}
 			}
-			while (SDL_PollEvent(&event) == SDL_TRUE);
+			while (SDL_PollEvent(&event));
 
 			blinkState = 1;
 		}
@@ -1122,7 +1122,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	SDL_Surface *pBgSurface;
 	SDL_Rect dlgrect, bgrect;
 	SDL_Joystick *joy = NULL;
-	const SDL_bool *keystates;
+	const bool *keystates;
 	bool ignore_first_keyup;
 
 	/* either both, or neither of these should be present */
@@ -1233,7 +1233,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	/* The main loop */
 	while (retbutton == SDLGUI_NOTFOUND && !bQuitProgram)
 	{
-		if (SDL_WaitEvent(&sdlEvent) == SDL_TRUE)  /* Wait for events */
+		if (SDL_WaitEvent(&sdlEvent) == true)  /* Wait for events */
 		{
 			switch (sdlEvent.type)
 			{

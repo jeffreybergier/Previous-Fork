@@ -389,7 +389,7 @@ void Screen_EnterFullScreen(void) {
 
 		SDL_GetWindowPosition(sdlWindow, &saveWindowBounds.x, &saveWindowBounds.y);
 		SDL_GetWindowSize(sdlWindow, &saveWindowBounds.w, &saveWindowBounds.h);
-		SDL_SetWindowFullscreen(sdlWindow, SDL_TRUE);
+		SDL_SetWindowFullscreen(sdlWindow, true);
 		SDL_Delay(100);                  /* To give monitor time to change to new resolution */
 
 		/* If using multiple screen windows, save and go to single window mode */
@@ -424,7 +424,7 @@ void Screen_ReturnFromFullScreen(void) {
 		bWasRunning = Main_PauseEmulation(false);
 		bInFullScreen = false;
 
-		SDL_SetWindowFullscreen(sdlWindow, SDL_FALSE);
+		SDL_SetWindowFullscreen(sdlWindow, false);
 		SDL_Delay(100);                /* To give monitor time to switch resolution */
 		SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
 		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);

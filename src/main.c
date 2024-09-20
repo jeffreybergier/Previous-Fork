@@ -235,7 +235,7 @@ void Main_WarpMouse(int x, int y) {
 bool Main_ShowCursor(bool show) {
 	bool bOldVisibility;
 
-	bOldVisibility = SDL_CursorVisible() == SDL_TRUE;
+	bOldVisibility = SDL_CursorVisible();
 	if (bOldVisibility != show) {
 		if (show) {
 			SDL_ShowCursor();
@@ -256,13 +256,13 @@ void Main_SetMouseGrab(bool grab) {
 	if (grab) {
 		if (bEmulationActive) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
-			SDL_SetWindowRelativeMouseMode(sdlWindow, SDL_TRUE);
-			SDL_SetWindowMouseGrab(sdlWindow, SDL_TRUE);
+			SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+			SDL_SetWindowMouseGrab(sdlWindow, true);
 			Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 		}
 	} else {
-		SDL_SetWindowRelativeMouseMode(sdlWindow, SDL_FALSE);
-		SDL_SetWindowMouseGrab(sdlWindow, SDL_FALSE);
+		SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+		SDL_SetWindowMouseGrab(sdlWindow, false);
 		Main_SetTitle(NULL);
 	}
 }
@@ -561,7 +561,7 @@ static int Main_Thread(void* unused) {
 void Main_EventHandler(void) {
 	bool bContinueProcessing;
 	SDL_Event event;
-	SDL_bool events;
+	bool events;
 
 	do {
 		bContinueProcessing = false;
@@ -579,7 +579,7 @@ void Main_EventHandler(void) {
 #else
 		events = SDL_WaitEventTimeout(&event, 100);
 #endif
-		if (events == SDL_FALSE) {
+		if (!events) {
 			/* no events -> if emulation is active or
 			 * user is quitting -> return from function.
 			 */
@@ -796,7 +796,7 @@ static bool Main_Init(void) {
 
 	/* Init SDL's video and timer subsystems. Note: Audio subsystem
 	   will be initialized later (failure not fatal). */
-	if (SDL_Init(SDL_INIT_VIDEO) == SDL_FALSE)
+	if (SDL_Init(SDL_INIT_VIDEO) == false)
 	{
 		fprintf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError() );
 		exit(-1);
