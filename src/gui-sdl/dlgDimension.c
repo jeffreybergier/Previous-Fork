@@ -62,15 +62,6 @@ static void print_nd_overview(int n) {
 	         Configuration_CheckDimensionMemory(ConfigureParams.Dimension.board[n].nMemoryBankSize));
 }
 
-/* Function to get default values for each system */
-static void get_nd_default_values(int n) {
-	int i;
-
-	for (i = 0; i < 4; i++) {
-		ConfigureParams.Dimension.board[n].nMemoryBankSize[i] = 4;
-	}
-}
-
 
 /*-----------------------------------------------------------------------*/
 /**
