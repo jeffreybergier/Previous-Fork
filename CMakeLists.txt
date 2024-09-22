@@ -173,7 +173,6 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	# Enable and disable some warnings and flags for Previous:
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -D__USE_MINGW_ANSI_STDIO=1")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion -Wno-unused -Wno-sign-compare")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wtautological-compare -Wno-unused-parameter")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare -Wno-conversion -Wno-unused")
 endif()

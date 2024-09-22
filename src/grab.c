@@ -97,7 +97,6 @@ static bool Grab_MakePNG(FILE* fp) {
 	int         y        = 0;
 	bool        result   = false;
 	
-	off_t       start    = 0;
 	uint8_t*    src_ptr  = NULL;
 	uint8_t*    buf      = malloc(NEXT_SCREEN_WIDTH*NEXT_SCREEN_HEIGHT*4);
 	
@@ -113,9 +112,6 @@ static bool Grab_MakePNG(FILE* fp) {
 					 * error handling functions in the png_create_write_struct() call.
 					 */
 					if (!setjmp(png_jmpbuf(png_ptr))) {
-						/* store current pos in fp (could be != 0 for avi recording) */
-						start = ftello(fp);
-						
 						/* initialize the png structure */
 						png_init_io(png_ptr, fp);
 						
