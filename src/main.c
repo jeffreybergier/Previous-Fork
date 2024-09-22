@@ -122,7 +122,7 @@ bool Main_PauseEmulation(bool visualize) {
 	bEmulationActive = false;
 #ifndef ENABLE_RENDERING_THREAD
 	/* Wait until 68k thread is paused */
-	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000) == SDL_FALSE)
+	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000) == false)
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	host_pause_time(true);

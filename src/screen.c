@@ -24,8 +24,6 @@ const char Screen_fileid[] = "Previous screen.c";
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-static int    nWindowWidth;          /* Width of SDL window in physical pixels */
-static int    nWindowHeight;         /* Height of SDL window in physical pixels */
 static float  dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */

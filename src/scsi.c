@@ -202,18 +202,6 @@ static int SCSI_LookupDisk(int target) {
     return -1;
 }
 
-static int SCSI_GetCommandLength(uint8_t opcode) {
-    uint8_t group_code = (opcode&0xE0)>>5;
-    switch (group_code) {
-        case 0: return 6;
-        case 1: return 10;
-        case 5: return 12;
-        default:
-            Log_Printf(LOG_WARN, "[SCSI] Unimplemented Group Code!");
-            return 6;
-    }
-}
-
 static int SCSI_GetTransferLength(uint8_t opcode, uint8_t *cdb)
 {
     return opcode < 0x20?
