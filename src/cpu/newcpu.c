@@ -8895,9 +8895,9 @@ void m68k_resumestopped(void)
 uae_u32 mem_access_delay_word_read (uaecptr addr)
 {
 	uae_u32 v = 0;
-#ifndef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
-#if 1
+
 	switch (ce_banktype[addr >> 16])
 	{
 	case CE_MEMBANK_CHIP16:
@@ -8913,11 +8913,6 @@ uae_u32 mem_access_delay_word_read (uaecptr addr)
 		v = get_word (addr);
 		break;
 	}
-#else
-//fprintf ( stderr , "word read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-	v = get_word (addr);
-	x_do_cycles_post (4 * cpucycleunit, v);
-#endif
 	regs.db = v;
 	regs.read_buffer = v;
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
@@ -8927,9 +8922,9 @@ uae_u32 mem_access_delay_word_read (uaecptr addr)
 uae_u32 mem_access_delay_wordi_read (uaecptr addr)
 {
 	uae_u32 v = 0;
-#ifndef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
-#if 1
+
 	switch (ce_banktype[addr >> 16])
 	{
 	case CE_MEMBANK_CHIP16:
@@ -8945,11 +8940,6 @@ uae_u32 mem_access_delay_wordi_read (uaecptr addr)
 		v = get_wordi (addr);
 		break;
 	}
-#else
-//fprintf ( stderr , "wordi read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-	v = get_wordi (addr);
-	x_do_cycles_post (4 * cpucycleunit, v);
-#endif
 	regs.db = v;
 	regs.read_buffer = v;
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
@@ -8960,9 +8950,9 @@ uae_u32 mem_access_delay_wordi_read (uaecptr addr)
 uae_u32 mem_access_delay_byte_read (uaecptr addr)
 {
 	uae_u32  v = 0;
-#ifndef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
-#if 1
+
 	switch (ce_banktype[addr >> 16])
 	{
 	case CE_MEMBANK_CHIP16:
@@ -8978,11 +8968,6 @@ uae_u32 mem_access_delay_byte_read (uaecptr addr)
 		v = get_byte (addr);
 		break;
 	}
-#else
-//fprintf ( stderr , "byte read mis %lu %lu\n" , currcycle / cpucycleunit , currcycle );
-	v = get_byte (addr);
-	x_do_cycles_post (4 * cpucycleunit, v);
-#endif
 	regs.db = (v << 8) | v;
 	regs.read_buffer = v;
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_after ( 1 );		// WINUAE_FOR_HATARI
@@ -8991,11 +8976,12 @@ uae_u32 mem_access_delay_byte_read (uaecptr addr)
 }
 void mem_access_delay_byte_write (uaecptr addr, uae_u32 v)
 {
+#ifndef WINUAE_FOR_PREVIOUS
 	regs.db = (v << 8)  | v;
 	regs.write_buffer = v;
-#ifndef WINUAE_FOR_HATARI
+
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
-#if 1
+
 	switch (ce_banktype[addr >> 16])
 	{
 	case CE_MEMBANK_CHIP16:
@@ -9011,17 +8997,13 @@ void mem_access_delay_byte_write (uaecptr addr, uae_u32 v)
 		return;
 	}
 	put_byte (addr, v);
-#else
-	put_byte (addr, v);
-	x_do_cycles_post (4 * cpucycleunit, v);
-#endif
 #endif
 }
 void mem_access_delay_word_write (uaecptr addr, uae_u32 v)
 {
-#ifndef WINUAE_FOR_HATARI
+#ifndef WINUAE_FOR_PREVIOUS
 	if ( BlitterPhase )	Blitter_HOG_CPU_mem_access_before ( 1 );	// WINUAE_FOR_HATARI
-#if 1
+
 	regs.db = v;
 	regs.write_buffer = v;
 	switch (ce_banktype[addr >> 16])
@@ -9039,10 +9021,6 @@ void mem_access_delay_word_write (uaecptr addr, uae_u32 v)
 		return;
 	}
 	put_word (addr, v);
-#else
-	put_word (addr, v);
-	x_do_cycles_post (4 * cpucycleunit, v);
-#endif
 #endif
 }
 
