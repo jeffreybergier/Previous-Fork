@@ -415,6 +415,7 @@ Previous v3.3:
 
 Previous v3.4 (unreleased):
   > Improves the look of the user interface.
+  > Improves mouse unlocking in the case where auto-locking is disabled.
 
 
  7) Running Previous

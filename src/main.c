@@ -258,7 +258,11 @@ void Main_SetMouseGrab(bool grab) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
 			SDL_SetRelativeMouseMode(SDL_TRUE);
 			SDL_SetWindowGrab(sdlWindow, SDL_TRUE);
-			Main_SetTitle("Mouse is locked. Ctrl-click to release.");
+			if (ConfigureParams.Mouse.bEnableAutoGrab) {
+				Main_SetTitle("Mouse is locked. Ctrl-click to release.");
+			} else {
+				Main_SetTitle("Mouse is locked. Press ctrl-alt-m to release.");
+			}
 		}
 	} else {
 		SDL_SetRelativeMouseMode(SDL_FALSE);
@@ -331,7 +335,7 @@ static bool Main_GetEvent(SDL_Event* event) {
 
 	return valid;
 }
-#endif // !ENABLE_RENDERING_THREAD
+#endif /* !ENABLE_RENDERING_THREAD */
 
 /* ----------------------------------------------------------------------- */
 /**
@@ -532,9 +536,9 @@ void Main_EventHandlerInterrupt(void) {
 	if (time_offset > 0) {
 		host_sleep_us(time_offset);
 	}
-#endif // !ENABLE_RENDERING_THREAD
+#endif /* !ENABLE_RENDERING_THREAD */
 
-	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); // poll events with 200 Hz
+	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
 }
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -557,7 +561,7 @@ static int Main_Thread(void* unused) {
 
 	return 0;
 }
-#endif // !ENABLE_RENDERING_THREAD
+#endif /* !ENABLE_RENDERING_THREAD */
 
 
 /* ----------------------------------------------------------------------- */
@@ -596,7 +600,7 @@ void Main_EventHandler(void) {
 			case SDL_WINDOWEVENT:
 				switch(event.window.event) {
 					case SDL_WINDOWEVENT_CLOSE:
-						SDL_FlushEvent(SDL_QUIT); // remove SDL_Quit if pending
+						SDL_FlushEvent(SDL_QUIT); /* Remove quit event if pending */
 						Main_RequestQuit(true);
 						break;
 					case SDL_WINDOWEVENT_RESIZED:
@@ -618,14 +622,14 @@ void Main_EventHandler(void) {
 
 			case SDL_MOUSEBUTTONDOWN:
 				if (event.button.button == SDL_BUTTON_LEFT) {
-					if (bGrabMouse) {
-						if (SDL_GetModState() & KMOD_CTRL) {
-							bGrabMouse = false;
-							Main_SetMouseGrab(bGrabMouse);
-							break;
-						}
-					} else {
-						if (ConfigureParams.Mouse.bEnableAutoGrab) {
+					if (ConfigureParams.Mouse.bEnableAutoGrab) {
+						if (bGrabMouse) {
+							if (SDL_GetModState() & KMOD_CTRL) {
+								bGrabMouse = false;
+								Main_SetMouseGrab(bGrabMouse);
+								break;
+							}
+						} else {
 							bGrabMouse = true;
 							Main_SetMouseGrab(bGrabMouse);
 							break;
