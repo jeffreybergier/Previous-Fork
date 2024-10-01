@@ -257,15 +257,21 @@ void Main_SetMouseGrab(bool grab) {
 		if (bEmulationActive) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
 			SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+			SDL_SetWindowKeyboardGrab(sdlWindow, true);
 			SDL_SetWindowMouseGrab(sdlWindow, true);
 			if (ConfigureParams.Mouse.bEnableAutoGrab) {
 				Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 			} else {
-				Main_SetTitle("Mouse is locked. Press ctrl-alt-m to release.");
+				char message[64];
+
+				snprintf(message, sizeof(message), "Mouse is locked. Press ctrl-alt-%s to release.", 
+				         Keymap_GetKeyName(ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB]));
+				Main_SetTitle(message);
 			}
 		}
 	} else {
 		SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+		SDL_SetWindowKeyboardGrab(sdlWindow, false);
 		SDL_SetWindowMouseGrab(sdlWindow, false);
 		Main_SetTitle(NULL);
 	}
