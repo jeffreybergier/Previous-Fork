@@ -75,7 +75,7 @@ void NDSDL::init(void) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
                 exit(-1);
             }
-            SDL_SetRenderLogicalPresentation(ndRenderer, r.w, r.h, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
+            SDL_SetRenderLogicalPresentation(ndRenderer, r.w, r.h, SDL_LOGICAL_PRESENTATION_DISABLED);
             ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
             SDL_SetTextureBlendMode(ndTexture, SDL_BLENDMODE_NONE);
 #ifdef ENABLE_RENDERING_THREAD

@@ -70,7 +70,7 @@ static uint32_t col2rgb(SDL_Surface* surf, int col) {
 	int r = col & 0xF000; r >>= 12; r |= r << 4;
 	int g = col & 0x0F00; g >>= 8;  g |= g << 4;
 	int b = col & 0x00F0; b >>= 4;  b |= b << 4;
-	return SDL_MapSurfaceRGB(sdlscrn, r, g, b);
+	return SDL_MapSurfaceRGB(surf, r, g, b);
 }
 
 /*
@@ -134,7 +134,7 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 #endif
 	src_pitch  = (NeXT_SCRN_WIDTH + 32) * 4;
 	src_format = SDL_PIXELFORMAT_BGRA32;
-	dst_format = SDL_GetNumberProperty(SDL_GetTextureProperties(tex), SDL_PROP_TEXTURE_FORMAT_NUMBER, NULL);
+	dst_format = tex->format;
 
 	SDL_LockTexture(tex, NULL, &dst, &dst_pitch);
 	SDL_ConvertPixels(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, src_format, src, src_pitch, dst_format, dst, dst_pitch);
@@ -293,7 +293,7 @@ void Screen_Init(void) {
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_SetRenderVSync(sdlRenderer, 1);
 #endif
-	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED, SDL_SCALEMODE_LINEAR);
+	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED);
 	SDL_SetRenderScale(sdlRenderer, dpiFactor, dpiFactor);
 
 	format = SDL_PIXELFORMAT_BGRA32;
