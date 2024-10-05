@@ -546,7 +546,7 @@ void Main_EventHandlerInterrupt(void) {
  * Emulator thread. Start emulation and keep it running.
  */
 static int Main_Thread(void* unused) {
-	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
+	SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
 	while (!bQuitProgram) {
 		/* Start EventHandler */

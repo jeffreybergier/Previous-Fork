@@ -1199,7 +1199,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 	if (current_object >= 0 && (dlg[current_object].flags & SG_REPEAT)) {
 		obj = current_object;
 		oldbutton = obj;
-		if (b & SDL_BUTTON(1))
+		if (b & SDL_BUTTON_MASK(1))
 		{
 			retbutton = obj;
 			dlg[obj].state |= SG_MOUSEDOWN;
@@ -1215,7 +1215,7 @@ int SDLGui_DoDialogExt(SGOBJ *dlg, bool (*isEventOut)(SDL_EventType), SDL_Event 
 		if (obj != SDLGUI_NOTFOUND && (dlg[obj].flags&SG_TOUCHEXIT) )
 		{
 			oldbutton = obj;
-			if (b & SDL_BUTTON(1))
+			if (b & SDL_BUTTON_MASK(1))
 			{
 				retbutton = obj;
 				dlg[obj].state |= SG_SELECTED;

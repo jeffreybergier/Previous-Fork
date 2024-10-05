@@ -228,7 +228,7 @@ bool Screen_Repaint(void) {
 
 #ifdef ENABLE_RENDERING_THREAD
 static int repainter(void* unused) {
-	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
+	SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
 	/* Enter repaint loop */
 	while (doRepaint) {
