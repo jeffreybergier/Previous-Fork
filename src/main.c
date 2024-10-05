@@ -951,14 +951,9 @@ int main(int argc, char *argv[])
 	Win_OpenCon();
 #endif
 
-#if HAVE_SETENV
 	/* Needed on maemo but useful also with normal X11 window managers for
 	 * window grouping when you have multiple Previous SDL windows open */
-	setenv("SDL_VIDEO_X11_WMCLASS", "previous", 1);
-
-	/* Needed for proper behavior of Caps Lock on some systems */
-	setenv("SDL_DISABLE_LOCK_KEYS", "1", 1);
-#endif
+	SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, "com.sourceforge.previous");
 
 	/* Init emulator system */
 	if (Main_Init()) {
