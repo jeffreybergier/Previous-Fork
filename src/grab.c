@@ -186,22 +186,19 @@ void Grab_Screen(void) {
 	if (File_DirExists(ConfigureParams.Printer.szPrintToFileName)) {
 		for (i = 0; i < 1000; i++) {
 			snprintf(szFileName, sizeof(szFileName), "next_screen_%03d", i);
-			szPathName = File_MakePath(ConfigureParams.Printer.szPrintToFileName, szFileName, ".png");
+			szPathName = File_MakePath(ConfigureParams.Printer.szPrintToFileName, szFileName, "png");
 			
 			if (File_Exists(szPathName)) {
+				free(szPathName);
 				continue;
 			}
 			
 			Grab_SaveFile(szPathName);
-			break;
+			free(szPathName);
+			return;
 		}
 		
-		if (i >= 1000) {
-			Log_Printf(LOG_WARN, "[Grab] Error: Maximum screen grab count exceeded (%d)", i);
-		}
-	}
-	if (szPathName) {
-		free(szPathName);
+		Log_Printf(LOG_WARN, "[Grab] Error: Maximum screen grab count exceeded (%d)", i);
 	}
 }
 #else /* !HAVE_LIBPNG */
@@ -341,43 +338,33 @@ static void Grab_OpenSoundFile(void)
 		/* Build file name */
 		for (i = 0; i < 1000; i++) {
 			snprintf(szFileName, sizeof(szFileName), "next_sound_%03d", i);
-			szPathName = File_MakePath(ConfigureParams.Printer.szPrintToFileName, szFileName, ".aiff");
+			szPathName = File_MakePath(ConfigureParams.Printer.szPrintToFileName, szFileName, "aiff");
 			
 			if (File_Exists(szPathName)) {
+				free(szPathName);
 				continue;
 			}
-			break;
-		}
-		
-		if (i >= 1000) {
-			Log_Printf(LOG_WARN, "[Grab] Error: Maximum sound grab count exceeded (%d)", i);
-			goto done;
-		}
-		
-		/* Create our file */
-		AiffFileHndl = File_Open(szPathName, "wb");
-		if (!AiffFileHndl)
-		{
-			Log_Printf(LOG_WARN, "[Grab] Failed to create sound file %s: ", szPathName);
-			goto done;
-		}
-		
-		/* Write header to file */
-		if (File_Write(AiffHeader, sizeof(AiffHeader), 0, AiffFileHndl))
-		{
-			bRecordingAiff = true;
-			Log_Printf(LOG_WARN, "[Grab] Starting sound record");
-			Statusbar_AddMessage("Start saving sound to file", 0);
-		}
-		else
-		{
-			perror("[Grab] Grab_OpenSoundFile:");
-		}
-		
-	done:
-		if (szPathName) {
+			
+			/* Create our file */
+			AiffFileHndl = File_Open(szPathName, "wb");
+			if (AiffFileHndl) {
+				
+				/* Write header to file */
+				if (File_Write(AiffHeader, sizeof(AiffHeader), 0, AiffFileHndl)) {
+					bRecordingAiff = true;
+					Log_Printf(LOG_WARN, "[Grab] Starting sound record");
+					Statusbar_AddMessage("Start saving sound to file", 0);
+				} else {
+					perror("[Grab] Grab_OpenSoundFile:");
+				}
+			} else {
+				Log_Printf(LOG_WARN, "[Grab] Failed to create sound file %s: ", szPathName);
+			}
 			free(szPathName);
+			return;
 		}
+		
+		Log_Printf(LOG_WARN, "[Grab] Error: Maximum sound grab count exceeded (%d)", i);
 	}
 }
 
