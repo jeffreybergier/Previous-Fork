@@ -71,7 +71,7 @@ static SGOBJ enetdlg[] =
 	{ SGBUTTON, SG_DEFAULT, 0, 15,26, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
-#else // !HAVE_PCAP
+#else /* !HAVE_PCAP */
 #define DLGENET_ENABLE      3
 #define DLGENET_THIN        4
 #define DLGENET_TWISTED     5

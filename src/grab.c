@@ -46,10 +46,10 @@ static bool Grab_FillBuffer(uint8_t* buf) {
 				if (i && (i%(NEXT_SCREEN_WIDTH*4))==0)
 					j+=32*4;
 
-				buf[i+0] = fb[j+2]; // r
-				buf[i+1] = fb[j+1]; // g
-				buf[i+2] = fb[j+0]; // b
-				buf[i+3] = 0xff;    // a
+				buf[i+0] = fb[j+2]; /* r */
+				buf[i+1] = fb[j+1]; /* g */
+				buf[i+2] = fb[j+0]; /* b */
+				buf[i+3] = 0xff;    /* a */
 			}
 			return true;
 		}
@@ -61,20 +61,20 @@ static bool Grab_FillBuffer(uint8_t* buf) {
 					if (!ConfigureParams.System.bTurbo && i && (i%(NEXT_SCREEN_WIDTH*4))==0)
 						j+=32*2;
 					
-					buf[i+0] = (fb[j+0]&0xf0) | ((fb[j+0]&0xf0)>>4); // r
-					buf[i+1] = (fb[j+0]&0x0f) | ((fb[j+0]&0x0f)<<4); // g
-					buf[i+2] = (fb[j+1]&0xf0) | ((fb[j+1]&0xf0)>>4); // b
-					buf[i+3] = 0xff;                                 // a
+					buf[i+0] = (fb[j+0]&0xf0) | ((fb[j+0]&0xf0)>>4); /* r */
+					buf[i+1] = (fb[j+0]&0x0f) | ((fb[j+0]&0x0f)<<4); /* g */
+					buf[i+2] = (fb[j+1]&0xf0) | ((fb[j+1]&0xf0)>>4); /* b */
+					buf[i+3] = 0xff;                                 /* a */
 				}
 			} else {
 				for (i = 0, j = 0; i < (NEXT_SCREEN_WIDTH*NEXT_SCREEN_HEIGHT*4); i+=16, j++) {
 					if (!ConfigureParams.System.bTurbo && i && (i%(NEXT_SCREEN_WIDTH*4))==0)
 						j+=32/4;
 					
-					buf[i+ 0] = buf[i+ 1] = buf[i+ 2] = (~(fb[j] >> 6) & 3) * 0x55; buf[i+ 3] = 0xff; // rgba
-					buf[i+ 4] = buf[i+ 5] = buf[i+ 6] = (~(fb[j] >> 4) & 3) * 0x55; buf[i+ 7] = 0xff; // rgba
-					buf[i+ 8] = buf[i+ 9] = buf[i+10] = (~(fb[j] >> 2) & 3) * 0x55; buf[i+11] = 0xff; // rgba
-					buf[i+12] = buf[i+13] = buf[i+14] = (~(fb[j] >> 0) & 3) * 0x55; buf[i+15] = 0xff; // rgba
+					buf[i+ 0] = buf[i+ 1] = buf[i+ 2] = (~(fb[j] >> 6) & 3) * 0x55; buf[i+ 3] = 0xff; /* rgba */
+					buf[i+ 4] = buf[i+ 5] = buf[i+ 6] = (~(fb[j] >> 4) & 3) * 0x55; buf[i+ 7] = 0xff; /* rgba */
+					buf[i+ 8] = buf[i+ 9] = buf[i+10] = (~(fb[j] >> 2) & 3) * 0x55; buf[i+11] = 0xff; /* rgba */
+					buf[i+12] = buf[i+13] = buf[i+14] = (~(fb[j] >> 0) & 3) * 0x55; buf[i+15] = 0xff; /* rgba */
 				}
 			}
 			return true;
@@ -204,11 +204,11 @@ void Grab_Screen(void) {
 		free(szPathName);
 	}
 }
-#else // !HAVE_LIBPNG
+#else /* !HAVE_LIBPNG */
 void Grab_Screen(void) {
 	Log_Printf(LOG_WARN, "[Grab] Screen grab not supported (libpng missing)");
 }
-#endif // HAVE_LIBPNG
+#endif /* HAVE_LIBPNG */
 
 
 /*

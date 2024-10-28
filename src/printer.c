@@ -55,7 +55,7 @@ static const char *lp_get_filename(void) {
 }
 
 /* PNG printing functions */
-const int MAX_PAGE_LEN = 400 * 14; // 14 inches is the length of US legal paper, longest paper that fits into the NeXT printer cartridge
+const int MAX_PAGE_LEN = 400 * 14; /* 14 inches is the length of US legal paper, longest paper that fits into the NeXT printer cartridge */
 png_structp png_ptr          = NULL;
 png_infop   png_info_ptr     = NULL;
 png_byte**  png_row_pointers = NULL;
@@ -740,7 +740,7 @@ void Printer_Reset(void) {
 
 
 /* Printer interface registers */
-void LP_CSR0_Read(void) { // 0x0200F000
+void LP_CSR0_Read(void) { /* 0x0200F000 */
     IoMem_WriteByte(IoAccessCurrentAddress, lp.csr.dma);
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] DMA status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
@@ -761,7 +761,7 @@ void LP_CSR0_Write(void) {
     lp_check_interrupt();
 }
 
-void LP_CSR1_Read(void) { // 0x0200F001
+void LP_CSR1_Read(void) { /* 0x0200F001 */
     IoMem_WriteByte(IoAccessCurrentAddress, lp.csr.printer);
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] Printer status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
@@ -787,7 +787,7 @@ void LP_CSR1_Write(void) {
     lp_check_interrupt();
 }
 
-void LP_CSR2_Read(void) { // 0x0200F002
+void LP_CSR2_Read(void) { /* 0x0200F002 */
     IoMem_WriteByte(IoAccessCurrentAddress, lp.csr.transmit);
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] Transmitter status read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
@@ -811,7 +811,7 @@ void LP_CSR2_Write(void) {
     }
 }
 
-void LP_CSR3_Read(void) { // 0x0200F003
+void LP_CSR3_Read(void) { /* 0x0200F003 */
     IoMem_WriteByte(IoAccessCurrentAddress, lp.csr.cmd);
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] Command read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
@@ -821,7 +821,7 @@ void LP_CSR3_Write(void) {
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] Command write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
 }
 
-void LP_Data_Read(void) { // 0x0200F004 (access must be 32-bit)
+void LP_Data_Read(void) { /* 0x0200F004 (access must be 32-bit) */
     IoMem_WriteLong(IoAccessCurrentAddress, lp.data);
     Log_Printf(LOG_LP_REG_LEVEL,"[LP] Data read at $%08x val=$%08x PC=$%08x\n", IoAccessCurrentAddress, lp.data, m68k_getpc());
     
