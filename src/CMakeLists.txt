@@ -5,7 +5,8 @@ set(SOURCES
 	floppy.c grab.c ioMem.c ioMemTabNEXT.c ioMemTabTurbo.c keymap.c kms.c 
 	m68000.c main.c mo.c nbic.c ncc.c NextBus.cpp paths.c printer.c queue.c 
 	ramdac.c reset.c rom.c rs.c rtcnvram.c scandir.c scc.c screen.c host.c 
-	scsi.c shortcut.c snd.c statusbar.c str.c sysReg.c tmc.c video.c zip.c)
+	scsi.c shortcut.c snd.c statusbar.c str.c sysReg.c tmc.c video.c zip.c
+	gui-osx/gui-osx.m)
 
 # When building for macOS, define specific sources for gui and resources
 if(ENABLE_OSX_BUNDLE)
@@ -151,6 +152,24 @@ if(HAIKU)
 	# Needed for socket() on Haiku
 	target_link_libraries(${APP_NAME} network)
 endif(HAIKU)
+
+ENABLE_LANGUAGE(OBJC)
+find_library(APPKIT_LIBRARY AppKit)
+if (NOT APPKIT_LIBRARY)
+  message(STATUS "AppKit.framework NOT found!")
+else()
+  message(STATUS "AppKit.framework found! ${APPKIT_LIBRARY}")
+endif()
+
+find_library(FOUNDATION_LIBRARY Foundation)
+if (NOT FOUNDATION_LIBRARY)
+  message(STATUS "Foundation.framework NOT found!")
+else()
+  message(STATUS "Foundation.framework found! ${FOUNDATION_LIBRARY}")
+endif()
+
+target_link_libraries(${APP_NAME} ${FOUNDATION_LIBRARY})
+target_link_libraries(${APP_NAME} ${APPKIT_LIBRARY})
 
 if(ENABLE_OSX_BUNDLE)
 	install(TARGETS ${APP_NAME} BUNDLE DESTINATION /Applications)
