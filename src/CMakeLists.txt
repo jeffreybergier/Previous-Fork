@@ -10,12 +10,12 @@ set(SOURCES
 # When building for macOS, define specific sources for gui and resources
 if(ENABLE_OSX_BUNDLE)
 	set(GUIOSX_SOURCES
-	    gui-osx/paths.m)
+	    gui-osx/paths.m gui-osx/shortcut.m)
 	set_source_files_properties(${GUIOSX_SOURCES} PROPERTIES LANGUAGE C)
 	set(GUIOSX_RSRCS
 	    gui-osx/Previous.icns gui-osx/en.lproj gui-osx/fr.lproj)
 elseif(APPLE)
-	set(SOURCES ${SOURCES} gui-osx/paths.m)
+	set(SOURCES ${SOURCES} gui-osx/paths.m gui-osx/shortcut.m)
 endif()
 
 # When building for Windows, define specific sources for gui and resources
