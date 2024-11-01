@@ -416,6 +416,7 @@ Previous v3.3:
 Previous v3.4 (unreleased):
   > Improves the look of the user interface.
   > Improves mouse unlocking in the case where auto-locking is disabled.
+  > Fixes bug that prevented swapping cmd and alt key on ADB keyboard.
   > Removes conflicting keyboard shortcuts.
 
 
