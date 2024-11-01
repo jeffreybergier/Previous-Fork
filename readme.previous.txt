@@ -416,6 +416,7 @@ Previous v3.3:
 Previous v3.4 (unreleased):
   > Improves the look of the user interface.
   > Improves mouse unlocking in the case where auto-locking is disabled.
+  > Removes conflicting keyboard shortcuts.
 
 
  7) Running Previous
@@ -485,7 +486,7 @@ Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
 Frank Wegmann, Grzegorz Szwoch, Michael Engel, Izumi Tsutsui, William
-Barnett-Lewis and Samantha Halliday!
+Barnett-Lewis, Samantha Halliday and Jeffrey Bergier!
 
 This emulator would not exist without their help.
 
