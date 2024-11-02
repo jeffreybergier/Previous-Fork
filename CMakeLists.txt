@@ -42,8 +42,6 @@ if(APPLE)
 		CACHE BOOL "Enable rendering threads")
 	set(ENABLE_OSX_BUNDLE 1
 	    CACHE BOOL "Built Previous as macOS application bundle")
-	set(ADDITIONAL_INCLUDES ${FRAMEWORKS})
-	set_source_files_properties(${FRAMEWORKS} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)
 else()
 	set(ENABLE_RENDERING_THREAD 0
 		CACHE BOOL "Enable rendering threads")
