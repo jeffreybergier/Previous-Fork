@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.3
+                                  Previous 3.4
 
 
 
@@ -413,11 +413,11 @@ Previous v3.3:
   > Adds support for FTP, SSH, Telnet and HTTP port forwarding via SLiRP.
   > Improves throughput of simulated Ethernet connection.
 
-Previous v3.4 (unreleased):
+Previous v3.4:
   > Improves the look of the user interface.
   > Improves mouse unlocking in the case where auto-locking is disabled.
+  > Improves handling of conflicting host keyboard shortcuts.
   > Fixes bug that prevented swapping cmd and alt key on ADB keyboard.
-  > Removes conflicting keyboard shortcuts.
 
 
  7) Running Previous
