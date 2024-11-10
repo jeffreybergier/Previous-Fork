@@ -98,7 +98,7 @@ if(ENABLE_OSX_BUNDLE)
 			# Copy Frameworks to Bundle
 			COMMAND cp -R $<TARGET_FILE:SDL3::SDL3-shared> ${BUNDLE_CONTENTS}/Frameworks/
 			COMMAND ${COPY_PNG}
-			DEPENDS ${MACOSX_BUNDLE_ICON_FILE}
+			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 	)
 	add_dependencies(${APP_NAME} osx_bundle_dirs)
 	set_source_files_properties(${GUIOSX_RSRCS} PROPERTIES
