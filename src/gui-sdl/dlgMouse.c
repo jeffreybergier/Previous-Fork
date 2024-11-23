@@ -110,7 +110,9 @@ void Dialog_MouseDlg(void)
 
 	/* Set up the dialog from actual values */
 	
+	mousedlg[DLGMOUSE_MAPTOKEY].state &= ~SG_SELECTED;
 	mousedlg[DLGMOUSE_AUTOLOCK].state &= ~SG_SELECTED;
+	
 	if (ConfigureParams.Mouse.bEnableMapToKey) {
 		mousedlg[DLGMOUSE_MAPTOKEY].state |= SG_SELECTED;
 	}
