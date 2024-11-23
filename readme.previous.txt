@@ -419,6 +419,9 @@ Previous v3.4:
   > Improves handling of conflicting host keyboard shortcuts.
   > Fixes bug that prevented swapping cmd and alt key on ADB keyboard.
 
+Previous v3.5 (unreleased):
+  > Fixes bug that could prevent the scroll wheel option from displaying.
+
 
  7) Running Previous
  -------------------

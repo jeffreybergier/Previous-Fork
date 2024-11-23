@@ -566,10 +566,10 @@ void Configuration_Apply(bool bReset)
 	int i;
 
 	/* Mouse settings */
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedNormal,MOUSE_LIN_MIN,MOUSE_LIN_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedLocked,MOUSE_LIN_MIN,MOUSE_LIN_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedNormal,MOUSE_EXP_MIN,MOUSE_EXP_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedLocked,MOUSE_EXP_MIN,MOUSE_EXP_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedNormal, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedLocked, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedNormal, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedLocked, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
 
 	/* Check/constrain CPU settings and change corresponding
 	 * cpu_model/cpu_compatible/cpu_cycle_exact/... variables
