@@ -39,7 +39,7 @@ this program; if not, write to the
 
 Previous is a NeXT Computer emulator based on the Atari emulator Hatari. It uses 
 the latest m68k emulation core from WinUAE and the i860 emulator from Jason 
-Eckhardt. Previous works on all Systems which are supported by the SDL2 library.
+Eckhardt. Previous works on all Systems which are supported by the SDL3 library.
 
 Previous emulates the following machines:
   NeXT Computer (original 68030 Cube)
@@ -101,7 +101,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
+  > The SDL3 library v3.2.0 or later (http://www.libsdl.org)
 
 Optional:
   > The zlib compression library (https://www.zlib.net)
@@ -467,7 +467,7 @@ Shortcuts can be changed by modifying the preferences file. To modify single
 key shortcuts change or add key names in the section ShortcutsWithoutModifiers. 
 To modify shortcuts that are invoked with ctrl and alt change or add key names 
 in the section ShortcutsWithModifiers. The appropriate key names can be found 
-under https://wiki.libsdl.org/SDL2/SDL_Keycode.
+under https://wiki.libsdl.org/SDL3/SDL_Keycode.
 
 Previous comes with some empty disk images of different types and sizes. The 
 suffix of the respective file name indicates the image type:
