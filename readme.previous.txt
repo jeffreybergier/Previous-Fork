@@ -420,6 +420,7 @@ Previous v3.4:
   > Fixes bug that prevented swapping cmd and alt key on ADB keyboard.
 
 Previous v3.5 (unreleased):
+  > Adds option for mapping command-click to right-click.
   > Fixes bug that could prevent the scroll wheel option from displaying.
 
 
