@@ -122,6 +122,7 @@ typedef struct
 {
   bool bEnableAutoGrab;
   bool bEnableMapToKey;
+  bool bEnableMacClick;
   float fLinSpeedNormal;
   float fLinSpeedLocked;
   float fExpSpeedNormal;

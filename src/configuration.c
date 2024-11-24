@@ -89,6 +89,7 @@ static const struct Config_Tag configs_Mouse[] =
 {
 	{ "bEnableAutoGrab", Bool_Tag, &ConfigureParams.Mouse.bEnableAutoGrab },
 	{ "bEnableMapToKey", Bool_Tag, &ConfigureParams.Mouse.bEnableMapToKey },
+	{ "bEnableMacClick", Bool_Tag, &ConfigureParams.Mouse.bEnableMacClick },
 	{ "fLinSpeedNormal", Float_Tag, &ConfigureParams.Mouse.fLinSpeedNormal },
 	{ "fLinSpeedLocked", Float_Tag, &ConfigureParams.Mouse.fLinSpeedLocked },
 	{ "fExpSpeedNormal", Float_Tag, &ConfigureParams.Mouse.fExpSpeedNormal },
@@ -439,6 +440,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Mouse.fExpSpeedLocked = 1.0;
 	ConfigureParams.Mouse.bEnableAutoGrab = true;
 	ConfigureParams.Mouse.bEnableMapToKey = false;
+	ConfigureParams.Mouse.bEnableMacClick = false;
 
 	/* Set defaults for Shortcuts */
 	ConfigureParams.Shortcut.withoutModifier[SHORTCUT_OPTIONS]    = SDLK_F12;
@@ -566,6 +568,9 @@ void Configuration_Apply(bool bReset)
 	int i;
 
 	/* Mouse settings */
+	if (ConfigureParams.Mouse.bEnableMacClick) {
+		ConfigureParams.Mouse.bEnableAutoGrab = false;
+	}
 	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedNormal, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
 	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedLocked, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
 	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedNormal, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
