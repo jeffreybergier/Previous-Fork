@@ -19,7 +19,7 @@ const char DlgKeyboard_fileid[] = "Previous dlgKeyboard.c";
 #define DLGKEY_SWAP      8
 #define DLGKEY_EXIT      45
 
-static char key_names[SHORTCUT_NONE][2][16];
+static char key_names[SHORTCUT_KEYS][2][16];
 
 /* The keyboard dialog: */
 static SGOBJ keyboarddlg[] =
@@ -113,7 +113,7 @@ void Dialog_KeyboardDlg(void)
 	}
 
 	/* Load actual shortcut keys */
-	for (i = 0; i < SHORTCUT_NONE; i++) {
+	for (i = 0; i < SHORTCUT_KEYS; i++) {
 		snprintf(key_names[i][0], 8,"-%s", Keymap_GetKeyName(ConfigureParams.Shortcut.withModifier[i]));
 		snprintf(key_names[i][1],11, "%s", Keymap_GetKeyName(ConfigureParams.Shortcut.withoutModifier[i]));
 	}
