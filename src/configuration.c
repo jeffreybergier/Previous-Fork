@@ -104,7 +104,6 @@ static const struct Config_Tag configs_ShortCutWithMod[] =
 	{ "kFullScreen",  Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_FULLSCREEN] },
 	{ "kMouseMode",   Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB] },
 	{ "kColdReset",   Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_COLDRESET] },
-	{ "kCursorEmu",   Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_CURSOREMU] },
 	{ "kScreenshot",  Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_SCREENSHOT] },
 	{ "kRecord",      Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_RECORD] },
 	{ "kSound",       Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_SOUND] },
@@ -124,7 +123,6 @@ static const struct Config_Tag configs_ShortCutWithoutMod[] =
 	{ "kFullScreen",  Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_FULLSCREEN] },
 	{ "kMouseMode",   Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_MOUSEGRAB] },
 	{ "kColdReset",   Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_COLDRESET] },
-	{ "kCursorEmu",   Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_CURSOREMU] },
 	{ "kScreenshot",  Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_SCREENSHOT] },
 	{ "kRecord",      Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_RECORD] },
 	{ "kSound",       Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_SOUND] },
@@ -454,7 +452,6 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_FULLSCREEN]    = SDLK_F;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB]     = SDLK_M;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_COLDRESET]     = SDLK_C;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_CURSOREMU]     = SDLK_J;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_SCREENSHOT]    = SDLK_G;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_RECORD]        = SDLK_R;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_SOUND]         = SDLK_S;
