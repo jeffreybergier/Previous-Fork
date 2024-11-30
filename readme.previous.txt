@@ -421,6 +421,7 @@ Previous v3.4:
 
 Previous v3.5 (unreleased):
   > Adds option for mapping control-click to right-click.
+  > Adds option for changing keyboard shortcuts from the keyboard dialog.
   > Fixes bug that could prevent the scroll wheel option from displaying.
 
 
@@ -464,11 +465,7 @@ B: Hides the statusbar and shows it when pressed again.
 S: Disables sound output and re-enables it when pressed again.
 Q: Requests to quit Previous. All unsaved changes will be lost.
 
-Shortcuts can be changed by modifying the preferences file. To modify single 
-key shortcuts change or add key names in the section ShortcutsWithoutModifiers. 
-To modify shortcuts that are invoked with ctrl and alt change or add key names 
-in the section ShortcutsWithModifiers. The appropriate key names can be found 
-under https://wiki.libsdl.org/SDL3/SDL_Keycode.
+Shortcuts can be changed from the keyboard preferences dialog.
 
 Previous comes with some empty disk images of different types and sizes. The 
 suffix of the respective file name indicates the image type:
