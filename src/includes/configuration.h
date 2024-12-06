@@ -216,7 +216,7 @@ typedef struct {
 
 
 /* Floppy disk drives configuration */
-#define FLP_MAX_DRIVES   2
+#define FLP_MAX_DRIVES   4
 typedef struct {
   char szImageName[FILENAME_MAX];
   bool bDriveConnected;

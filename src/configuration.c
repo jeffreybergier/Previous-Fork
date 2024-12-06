@@ -242,6 +242,16 @@ static const struct Config_Tag configs_Floppy[] =
 	{ "bDiskInserted1", Bool_Tag, &ConfigureParams.Floppy.drive[1].bDiskInserted },
 	{ "bWriteProtected1", Bool_Tag, &ConfigureParams.Floppy.drive[1].bWriteProtected },
 
+	{ "szImageName2", String_Tag, ConfigureParams.Floppy.drive[2].szImageName },
+	{ "bDriveConnected2", Bool_Tag, &ConfigureParams.Floppy.drive[2].bDriveConnected },
+	{ "bDiskInserted2", Bool_Tag, &ConfigureParams.Floppy.drive[2].bDiskInserted },
+	{ "bWriteProtected2", Bool_Tag, &ConfigureParams.Floppy.drive[2].bWriteProtected },
+
+	{ "szImageName3", String_Tag, ConfigureParams.Floppy.drive[3].szImageName },
+	{ "bDriveConnected3", Bool_Tag, &ConfigureParams.Floppy.drive[3].bDriveConnected },
+	{ "bDiskInserted3", Bool_Tag, &ConfigureParams.Floppy.drive[3].bDiskInserted },
+	{ "bWriteProtected3", Bool_Tag, &ConfigureParams.Floppy.drive[3].bWriteProtected },
+
 	{ NULL , Error_Tag, NULL }
 };
 
