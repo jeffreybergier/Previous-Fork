@@ -216,6 +216,8 @@ Issues in NeXTstep:
     there might occur a double fault on the second or a subsequent access. This 
     is confirmed for NeXTstation Turbo Color and ROM Rev. 3.3 but might also 
     affect other models.
+  > Formatting floppy disks sporadically fails under NeXTstep 2.0. The reason 
+    for this issue is unknown but is likely inside NeXTstep.
 
 
  6) Release notes
@@ -422,6 +424,7 @@ Previous v3.4:
 Previous v3.5 (unreleased):
   > Adds option for mapping control-click to right-click.
   > Adds option for changing keyboard shortcuts from the keyboard dialog.
+  > Improves accuracy of the NeXT Computer regarding floppy controller.
   > Fixes bug that could prevent the scroll wheel option from displaying.
 
 
