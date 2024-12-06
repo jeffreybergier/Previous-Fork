@@ -41,10 +41,10 @@ static SGOBJ shortcutdlg[] =
 	{ SGBUTTON, 0, 0, 16,4, 3,1, "\x03", SG_SHORTCUT_RIGHT },
 	{ SGTEXT, 0, 0, 2,6, 17,1, "With modifier:" },
 	{ SGTEXT, 0, 0, 20,6, 12,1, sc_modval },
-	{ SGBUTTON, 0, 0, 36,6, 8,1, "Define" },
+	{ SGBUTTON, SG_TOUCHEXIT, 0, 36,6, 8,1, "Define" },
 	{ SGTEXT, 0, 0, 2,8, 17,1, "Without modifier:" },
 	{ SGTEXT, 0, 0, 20,8, 12,1, sc_nomodval },
-	{ SGBUTTON, 0, 0, 36,8, 8,1, "Define" },
+	{ SGBUTTON, SG_TOUCHEXIT, 0, 36,8, 8,1, "Define" },
 
 	{ SGTEXT, 0, 0, 3,11, 8,1, "Click define and press new shortcut key."},
 
@@ -134,6 +134,7 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 			}
 			else if (sdlEvent.button.button == SDL_BUTTON_LEFT)
 			{
+				SDL_PushEvent(&sdlEvent); /* Forward mouse click to shortcut dialog */
 				return;
 			}
 			break;
@@ -225,15 +226,17 @@ static void Dialog_ShortcutDlg(void)
 		 case DLGKEY_SCMODDEF:
 			DlgKbd_DefineShortcutKey(cur_sc, true);
 			DlgKbd_RefreshShortcuts(cur_sc);
+			shortcutdlg[but].state &= ~SG_SELECTED;
 			break;
 		 case DLGKEY_SCNOMODDEF:
 			DlgKbd_DefineShortcutKey(cur_sc, false);
 			DlgKbd_RefreshShortcuts(cur_sc);
+			shortcutdlg[but].state &= ~SG_SELECTED;
 			break;
 		}
 	}
 	while (but != DLGKEY_EXIT && but != SDLGUI_QUIT
-		   && but != SDLGUI_ERROR && !bQuitProgram);
+	        && but != SDLGUI_ERROR && !bQuitProgram);
 }
 
 
