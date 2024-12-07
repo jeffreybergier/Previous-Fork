@@ -216,8 +216,8 @@ Issues in NeXTstep:
     there might occur a double fault on the second or a subsequent access. This 
     is confirmed for NeXTstation Turbo Color and ROM Rev. 3.3 but might also 
     affect other models.
-  > Formatting floppy disks sporadically fails under NeXTstep 2.0. The reason 
-    for this issue is unknown but is likely inside NeXTstep.
+  > Formatting floppy disks sporadically fails under NeXTstep 2.0 and 2.1. The 
+    cause of this issue is unknown but is likely inside NeXTstep.
 
 
  6) Release notes
