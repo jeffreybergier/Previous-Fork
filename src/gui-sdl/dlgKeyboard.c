@@ -69,18 +69,6 @@ static char sc_names[SHORTCUT_KEYS][20] = {
 	"Show/hide statusbar"
 };
 
-static char sScKeyType[28];
-static char sScKeyName[28];
-
-static SGOBJ sckeysdlg[] =
-{
-	{ SGBOX, 0, 0, 0,0, 30,6, NULL },
-	{ SGTEXT, 0, 0, 2,1, 28,1, "Press key for:" },
-	{ SGTEXT, 0, 0, 2,2, 28,1, sScKeyType },
-	{ SGTEXT, 0, 0, 2,4, 28,1, sScKeyName },
-	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
-};
-
 
 /**
  * Show dialogs for defining shortcut keys and wait for a key press.
@@ -94,17 +82,10 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 	if (bQuitProgram)
 		return;
 
-	SDLGui_CenterDlg(sckeysdlg);
-
 	if (withMod)
 		pscs = ConfigureParams.Shortcut.withModifier;
 	else
 		pscs = ConfigureParams.Shortcut.withoutModifier;
-
-	snprintf(sScKeyType, sizeof(sScKeyType), "'%s'", sc_names[sc]);
-	snprintf(sScKeyName, sizeof(sScKeyName), "(was: '%s')", Keymap_GetKeyName(pscs[sc]));
-
-	/* SDLGui_DrawDialog(sckeysdlg); */
 
 	/* drain buffered key events */
 	SDL_Delay(200);
@@ -122,9 +103,6 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 		{
 		 case SDL_EVENT_KEY_DOWN:
 			pscs[sc] = sdlEvent.key.key;
-			snprintf(sScKeyName, sizeof(sScKeyName), "(now: '%s')",
-			         Keymap_GetKeyName(sdlEvent.key.key));
-			/* SDLGui_DrawDialog(sckeysdlg); */
 			break;
 		 case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			if (sdlEvent.button.button == SDL_BUTTON_RIGHT)
@@ -193,8 +171,7 @@ static void DlgKbd_RefreshShortcuts(int sc)
  */
 static void Dialog_ShortcutDlg(void)
 {
-	int i, but;
-	char dlgmapfile[44];
+	int but;
 	int cur_sc = 0;
 
 	SDLGui_CenterDlg(shortcutdlg);
