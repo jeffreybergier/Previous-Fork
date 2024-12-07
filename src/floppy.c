@@ -1313,6 +1313,23 @@ void FLP_Configuration_Write(void) {
     }
 }
 
+void FLP_Reserved_Read(void) { /* 0x02014103 and 0x02014106 */
+    if (floppy_controller_present(BUS_ERROR_READ)) {
+        switch (IoAccessCurrentAddress & 7) {
+            case 3:  IoMem_WriteByte(IoAccessCurrentAddress, ConfigureParams.System.bTurbo ? 0x02 : 0x03); break;
+            case 6:  IoMem_WriteByte(IoAccessCurrentAddress, ConfigureParams.System.bTurbo ? 0xc0 : 0x41); break;
+            default: IoMem_WriteByte(IoAccessCurrentAddress, 0x00); break;
+        }
+        Log_Printf(LOG_WARN,"[Floppy] Reserved read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
+    }
+}
+
+void FLP_Reserved_Write(void) {
+    if (floppy_controller_present(BUS_ERROR_WRITE)) {
+        Log_Printf(LOG_WARN,"[Floppy] Reserved write at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
+    }
+}
+
 void FLP_Status_Read(void) { /* 0x02014108 */
     IoMem_WriteByte(IoAccessCurrentAddress, floppy_stat_read());
     Log_Printf(LOG_FLP_REG_LEVEL,"[Floppy] Control read at $%08x val=$%02x PC=$%08x\n", IoAccessCurrentAddress, IoMem_ReadByte(IoAccessCurrentAddress), m68k_getpc());
