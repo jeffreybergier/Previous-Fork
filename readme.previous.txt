@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.4
+                                  Previous 3.5
 
 
 
@@ -421,7 +421,7 @@ Previous v3.4:
   > Improves handling of conflicting host keyboard shortcuts.
   > Fixes bug that prevented swapping cmd and alt key on ADB keyboard.
 
-Previous v3.5 (unreleased):
+Previous v3.5:
   > Adds option for mapping control-click to right-click.
   > Adds option for changing keyboard shortcuts from the keyboard dialog.
   > Improves accuracy of floppy controller memory map.
