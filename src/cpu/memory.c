@@ -983,7 +983,7 @@ static addrbank NEXTBUS_board_bank =
 
 static void init_mem_banks (void)
 {
-	int i;
+	uae_u32 i;
 	for (i = 0; i < 65536; i++) {
 		put_mem_bank (bank_lget, i<<16, BusErrMem_bank.lget);
 		put_mem_bank (bank_wget, i<<16, BusErrMem_bank.wget);
@@ -1231,7 +1231,7 @@ void memory_uninit (void)
 
 
 void map_banks (addrbank *bank, int start, int size) {
-	int bnr;
+	uae_u32 bnr;
 	
 	for (bnr = start; bnr < start + size; bnr++) {
 		put_mem_bank (bank_lget, bnr << 16, bank->lget);

@@ -212,9 +212,9 @@ void SCR_Reset(void) {
         scr_have_dsp_memreset = 1;
         
         if (ConfigureParams.System.nMachineType==NEXT_STATION) {
-            scr1 |= 0xF<<28;
+            scr1 |= (uint32_t)0xF<<28;
         } else {
-            scr1 |= SLOT_ID<<28;
+            scr1 |= (uint32_t)SLOT_ID<<28;
         }
         scr1 |= TYPE_TURBO<<12;
         return;
