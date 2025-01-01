@@ -581,15 +581,15 @@ void NetInfoNode::remove(NetInfoNode* node) {
     }
 }
 
-static int checksum(string str) {
-    int result = 0;
+static unsigned int checksum(string str) {
+    unsigned int result = 0;
     for (size_t i = 0; i < str.size(); ++i)
         result = result * 31 + static_cast<int>(str[i]);
     return result;
 }
 
-int NetInfoNode::checksum() {
-    int result = 0;
+unsigned int NetInfoNode::checksum() {
+    unsigned int result = 0;
     for(size_t i = 0; i < mChildren.size(); i++)
         result += mChildren[i]->checksum();
     for(map<string,string>::const_iterator it = mProps.begin(); it != mProps.end(); it++) {
