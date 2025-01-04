@@ -2373,9 +2373,9 @@ void i860_cpu_device::insn_fmlow (UINT32 insn)
 
 	FLOAT64 v1 = get_fregval_d (fsrc1);
 	FLOAT64 v2 = get_fregval_d (fsrc2);
-	INT64 i1 = *(UINT64 *)&v1;
-	INT64 i2 = *(UINT64 *)&v2;
-	INT64 tmp = 0;
+	UINT64 i1 = *(UINT64 *)&v1;
+	UINT64 i2 = *(UINT64 *)&v2;
+	UINT64 tmp = 0;
 
 #if TRACE_UNDEFINED_I860
 	/* Only .dd is valid for fmlow.  */
@@ -2392,9 +2392,9 @@ void i860_cpu_device::insn_fmlow (UINT32 insn)
 	   to be undefined in the same way as the real i860 if possible.  */
 
 	/* Keep lower 53 bits of multiply.  */
-    tmp = i1 * i2;
+	tmp = i1 * i2;
 	tmp &= 0x001fffffffffffffULL;
-	tmp |= (i1 & 0x8000000000000000LL) ^ (i2 & 0x8000000000000000LL);
+	tmp |= ((i1 & 0x8000000000000000ULL) ^ (i2 & 0x8000000000000000ULL)) >> 10;
 	set_fregval_d (fdest, *(FLOAT64 *)&tmp);
 }
 
