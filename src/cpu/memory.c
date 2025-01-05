@@ -599,28 +599,28 @@ static uae_u32 memory_write_func(uae_u32 old, uae_u32 new, int function, int siz
 			for (i=0; i<(size*4); i++) {
 				a=old>>(i*2)&3;
 				b=new>>(i*2)&3;
-				v|=mwf0[a][b]<<(i*2);
+				v|=(uae_u32)mwf0[a][b]<<(i*2);
 			}
 			return v;
 		case 1:
 			for (i=0; i<(size*4); i++) {
 				a=old>>(i*2)&3;
 				b=new>>(i*2)&3;
-				v|=mwf1[a][b]<<(i*2);
+				v|=(uae_u32)mwf1[a][b]<<(i*2);
 			}
 			return v;
 		case 2:
 			for (i=0; i<(size*4); i++) {
 				a=old>>(i*2)&3;
 				b=new>>(i*2)&3;
-				v|=mwf2[a][b]<<(i*2);
+				v|=(uae_u32)mwf2[a][b]<<(i*2);
 			}
 			return v;
 		case 3:
 			for (i=0; i<(size*4); i++) {
 				a=old>>(i*2)&3;
 				b=new>>(i*2)&3;
-				v|=mwf3[a][b]<<(i*2);
+				v|=(uae_u32)mwf3[a][b]<<(i*2);
 			}
 			return v;
 			
