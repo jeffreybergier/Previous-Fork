@@ -130,14 +130,17 @@ uae_u32 wait_cpu_cycle_read (uaecptr addr, int mode)
 #else						/* WINUAE_FOR_HATARI */
 	int ipl = regs.ipl[0];
 	evt_t now = get_cycles();
-
 #ifndef WINUAE_FOR_PREVIOUS
-//	fprintf ( stderr , "mem read ce %x %d %lu %lu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
-	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
+	uint64_t cycle_slot;
+
+	cycle_slot = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
+//	fprintf ( stderr , "mem read ce slot %lu %llu\n" , cycle_slot , CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT );
+//	fprintf ( stderr , "mem read ce %x %d %llu %llu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
+	if ( cycle_slot != 0 )
 	{
-//		fprintf ( stderr , "mem wait read %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-		x_do_cycles (2*cpucycleunit);
-//		fprintf ( stderr , "mem wait read after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
+//		fprintf ( stderr , "mem wait read %x %d %llu %llu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
+		x_do_cycles ( ( 4 - cycle_slot ) * cpucycleunit);
+//		fprintf ( stderr , "mem wait read after %x %d %llu %llu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
 	}
 #endif // WINUAE_FOR_PREVIOUS
 
@@ -225,14 +228,17 @@ void wait_cpu_cycle_write (uaecptr addr, int mode, uae_u32 v)
 #else						/* WINUAE_FOR_HATARI */
 	int ipl = regs.ipl[0];
 	evt_t now = get_cycles();
-
 #ifndef WINUAE_FOR_PREVIOUS
-//	fprintf ( stderr , "mem write ce %x %d %lu %lu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
-	if ( ( ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3 ) == 2 )
+	uint64_t cycle_slot;
+
+	cycle_slot = ( CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT ) & 3;
+//	fprintf ( stderr , "mem read ce slot %lu %llu\n" , cycle_slot , CyclesGlobalClockCounter + currcycle*2/CYCLE_UNIT );
+//	fprintf ( stderr , "mem write ce %x %d %llu %llu\n" , addr , mode ,currcycle / cpucycleunit , currcycle );
+	if ( cycle_slot != 0 )
 	{
-//		fprintf ( stderr , "mem wait write %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
-		x_do_cycles (2*cpucycleunit);
-//		fprintf ( stderr , "mem wait write after %x %d %lu %lu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
+//		fprintf ( stderr , "mem wait write %x %d %llu %llu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
+		x_do_cycles ( ( 4 - cycle_slot ) * cpucycleunit);
+//		fprintf ( stderr , "mem wait write after %x %d %llu %llu\n" , addr , mode , currcycle / cpucycleunit , currcycle );
 	}
 #endif // WINUAE_FOR_PREVIOUS
 
@@ -442,11 +448,26 @@ void do_cycles_ce (uae_u32 cycles)
 /* [NP] Unlike Amiga, for Hatari in 68000 CE mode, we don't need to update other components */
 /* on every sub cycle, so we can do all cycles in one single call to speed up */
 /* emulation (this gains approx 7%) */
+/* Also, for Amiga emulation, do_cycles will be called only on multiples of CYCLE_UNIT (=512), */
+/* which is 2 CPU cycles and save the remaining part in extra_cycle. */
+/* This is not required for Atari emulation which can be on odd number of cpu cycles too */
+/* and we don't need to keep a remaining part in extra_cycle */
+
+#undef HATARI_ROUND_CYCLES_TO_2			/* don't round to multiple of 2 cpu cycles */
+
 void do_cycles_ce (int cycles)
 {
+//fprintf(stderr,"do cyc in %d %d\n" , cycles, extra_cycle);
+#ifdef HATARI_ROUND_CYCLES_TO_2
 	cycles += extra_cycle;
 	extra_cycle = cycles & ( CYCLE_UNIT-1 );
 	do_cycles ( cycles - extra_cycle );
+#else
+	cycles += extra_cycle;
+	extra_cycle = 0;
+	do_cycles ( cycles );
+#endif
+//fprintf(stderr,"do cyc out %d %d\n" , cycles -extra_cycle , extra_cycle);
 }
 #endif
 
