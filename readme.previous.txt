@@ -427,6 +427,10 @@ Previous v3.5:
   > Improves accuracy of floppy controller memory map.
   > Fixes bug that could prevent the scroll wheel option from displaying.
 
+Previous v3.6 (unreleased):
+  > Improves accuracy of i860 fmlow instruction.
+  > Fixes bug that prevented setting write protection from the user interface.
+
 
  7) Running Previous
  -------------------

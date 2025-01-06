@@ -249,7 +249,7 @@ static void SCSI_GuessGeometry(SCSI_DEVTYPE type, uint32_t sectors, uint32_t *nc
         c = sectors / (h * s);
     }
     
-    if (sectors % (c * h * s)) {
+    if (s == 0 || c == 0 || sectors % (c * h * s)) {
         Log_Printf(LOG_WARN, "[SCSI] Disk geometry: No valid geometry found!");
         if (type == SD_FLOPPY) {
             s++;
