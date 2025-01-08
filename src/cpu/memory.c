@@ -633,7 +633,6 @@ static uae_u32 memory_write_func(uae_u32 old, uae_u32 new, int function, int siz
 static uae_u32 mem_ram_mwf_lget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFFFFFFFF:0;
 }
@@ -641,7 +640,6 @@ static uae_u32 mem_ram_mwf_lget(uaecptr addr)
 static uae_u32 mem_ram_mwf_wget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFFFF:0;
 }
@@ -649,7 +647,6 @@ static uae_u32 mem_ram_mwf_wget(uaecptr addr)
 static uae_u32 mem_ram_mwf_bget(uaecptr addr)
 {
 	int function = (addr>>26)&0x3;
-	addr = NEXT_RAM_START|(addr&NEXT_RAM_MASK);
 	
 	return function==0?0xFF:0;
 }
@@ -691,7 +688,6 @@ static void mem_ram_mwf_bput(uaecptr addr, uae_u32 b)
 static uae_u32 mem_video_mwf_lget(uaecptr addr)
 {
 	int function = (addr>>24)&0x3;
-	addr = NEXT_VRAM_START|(addr&NEXT_VRAM_MASK);
 	
 	return function==0?0xFFFFFFFF:0;
 }
@@ -699,7 +695,6 @@ static uae_u32 mem_video_mwf_lget(uaecptr addr)
 static uae_u32 mem_video_mwf_wget(uaecptr addr)
 {
 	int function = (addr>>24)&0x3;
-	addr = NEXT_VRAM_START|(addr&NEXT_VRAM_MASK);
 	
 	return function==0?0xFFFF:0;
 }
@@ -707,7 +702,6 @@ static uae_u32 mem_video_mwf_wget(uaecptr addr)
 static uae_u32 mem_video_mwf_bget(uaecptr addr)
 {
 	int function = (addr>>24)&0x3;
-	addr = NEXT_VRAM_START|(addr&NEXT_VRAM_MASK);
 	
 	return function==0?0xFF:0;
 }
