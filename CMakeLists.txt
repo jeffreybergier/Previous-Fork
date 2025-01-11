@@ -37,6 +37,41 @@ set(ENABLE_DSP_EMU 1
 set(ENABLE_TRACING 1
     CACHE BOOL "Enable tracing messages for debugging")
 
+# Run-time checks with GCC / LLVM (Clang) AddressSanitizer:
+# - stack protection
+# - checking of pointer accesses
+#
+# Configure Previous with AddressSanitizer:
+#   cd build; make clean; cmake -D ENABLE_ASAN:BOOL=1 -D ..
+# If everything's fine, CMake output should include:
+#   Performing Test ASAN_AVAILABLE - Success"
+#
+# After (re-)building Previous, run it as following to see
+# available AddressSanitizer options (and that it works):
+#   ASAN_OPTIONS=help=true src/previous
+#
+# For more info:
+#   https://github.com/google/sanitizers/wiki/AddressSanitizer
+#
+CHECK_C_COMPILER_FLAG("-fsanitize=address" ASAN_AVAILABLE)
+if(ASAN_AVAILABLE)
+	set(ENABLE_ASAN 0
+	    CACHE BOOL "Enable GCC/LLVM run-time stack/pointer debugging (~2x slowdown)")
+endif(ASAN_AVAILABLE)
+
+CHECK_C_COMPILER_FLAG("-fsanitize=undefined" UBSAN_AVAILABLE)
+if(UBSAN_AVAILABLE)
+	set(ENABLE_UBSAN 0
+	    CACHE BOOL "Enable GCC/LLVM run-time undefined behavior debugging")
+endif(UBSAN_AVAILABLE)
+
+find_program(GZIP gzip)
+if(UNIX AND GZIP)
+	set(ENABLE_MAN_PAGES 1 CACHE BOOL "Built and install man pages")
+else()
+	set(ENABLE_MAN_PAGES 0 CACHE BOOL "Built and install man pages")
+endif()
+
 if(APPLE)
 	set(ENABLE_RENDERING_THREAD 1
 		CACHE BOOL "Enable rendering threads")
@@ -157,6 +192,22 @@ check_struct_has_member("struct dirent" d_namelen
 # #############
 # Other CFLAGS:
 # #############
+
+# GCC/Clang stack/pointer debugging (~2x slowdown)
+if(ENABLE_ASAN)
+	# better backtraces
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fno-omit-frame-pointer")
+	# enable stack protection
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
+	# enable AddressSanitizer with global variable tracking
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-common")
+endif(ENABLE_ASAN)
+
+# GCC/Clang undefined behavior debugging
+if(ENABLE_UBSAN)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+	add_definitions(-DENABLE_UBSAN=1)
+endif(ENABLE_UBSAN)
 
 # GCC/Clang specific flags:
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
