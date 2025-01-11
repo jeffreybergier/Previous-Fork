@@ -445,9 +445,9 @@ static void floppy_read(void) {
     
     /* Get sector transfer count and logical sector offset */
     num_sectors = cmd_data[5]-cmd_data[3]+1;
-    logical_sec = physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive);
     
-    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Read %i sectors at offset %i",num_sectors,logical_sec);
+    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Read %i sectors at offset %i",num_sectors,
+               physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive));
     
     if (flp.st[0]&IC_ABNORMAL) {
         send_rw_status(drive);
@@ -505,9 +505,9 @@ static void floppy_write(void) {
     
     /* Get sector transfer count and logical sector offset */
     num_sectors = cmd_data[5]-cmd_data[3]+1;
-    logical_sec = physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive);
     
-    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Write %i sectors at offset %i",num_sectors,logical_sec);
+    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Write %i sectors at offset %i",num_sectors,
+               physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive));
     
     if (flp.st[0]&IC_ABNORMAL) {
         send_rw_status(drive);
@@ -539,16 +539,15 @@ static void floppy_format(void) {
     
     /* Validate blocksize */
     check_blocksize(drive,bs);
-    sector_size = 0x80<<bs;
     
     Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Format: Cylinder=%i, Head=%i, Sector=%i, Blocksize=%i",
-               flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,sector_size);
+               flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,0x80<<bs);
     
     /* Get sector transfer count and logical sector offset */
     num_sectors = cmd_data[2];
-    logical_sec = physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive);
     
-    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Format %i sectors at offset %i",num_sectors,logical_sec);
+    Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Format %i sectors at offset %i",num_sectors,
+               physical_to_logical_sector(flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,drive));
 
     /* Validate data rate */
     check_data_rate(drive);
@@ -572,13 +571,11 @@ static void floppy_format(void) {
 static void floppy_read_id(void) {
     int drive = cmd_data[0]&0x03;
     int head = (cmd_data[0]&0x04)>>2;
-    
-    uint32_t sec_size = 0x80<<flpdrv[drive].blocksize;
-    
+        
     flpdrv[drive].head = head;
     
     Log_Printf(LOG_FLP_CMD_LEVEL, "[Floppy] Read ID: Cylinder=%i, Head=%i, Sector=%i, Blocksize=%i",
-               flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,sec_size);
+               flpdrv[drive].cyl,flpdrv[drive].head,flpdrv[drive].sector,0x80<<flpdrv[drive].blocksize);
     
     flp.st[0] = flp.st[1] = flp.st[2] = 0;
     
