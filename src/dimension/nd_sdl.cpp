@@ -116,7 +116,7 @@ void NDSDL::destroy(void) {
 
 void NDSDL::resize(float scale) {
     if (ndWindow) {
-        SDL_SetWindowSize(ndWindow, SDL_lroundf(scale*1120), SDL_lroundf(scale*832));
+        SDL_SetWindowSize(ndWindow, (int)SDL_lroundf(scale*1120), (int)SDL_lroundf(scale*832));
     }
 }
 

@@ -1132,16 +1132,16 @@ static void Floppy_Uninit(void) {
 }
 
 static uint32_t Floppy_CheckSize(int drive) {
-    uint32_t size = File_Length(ConfigureParams.Floppy.drive[drive].szImageName);
+    off_t size = File_Length(ConfigureParams.Floppy.drive[drive].szImageName);
     
     switch (size) {
         case SIZE_720K:
         case SIZE_1440K:
         case SIZE_2880K:
-            return size;
+            return (uint32_t)size;
             
         default:
-            Log_Printf(LOG_WARN, "Floppy disk %i: Invalid size (%i byte)\n",drive,size);
+            Log_Printf(LOG_WARN, "Floppy disk %i: Invalid size (%lld byte)\n",drive,(long long)size);
             return 0;
     }
 }

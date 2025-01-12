@@ -514,7 +514,7 @@ void Screen_StatusbarChanged(void) {
 	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, mode);
 	SDL_GetWindowSize(sdlWindow, &w, NULL);
 	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
-	SDL_SetWindowSize(sdlWindow, w, SDL_lroundf((float)(height*w)/width));
+	SDL_SetWindowSize(sdlWindow, w, (int)SDL_lroundf((float)(height*w)/width));
 	
 	/* Make sure screen is painted in case emulation is paused */
 	SDL_SetAtomicInt(&blitUI, 1);
