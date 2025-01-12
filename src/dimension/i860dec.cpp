@@ -128,7 +128,7 @@ UINT32 i860_cpu_device::ifetch_notrap(const UINT32 pc) {
 }
 
 UINT32 i860_cpu_device::ifetch(const UINT32 pc) {
-    return pc & 4 ? ifetch64(pc) >> 32 : ifetch64(pc);
+    return (UINT32)(pc & 4 ? ifetch64(pc) >> 32 : ifetch64(pc));
 }
 
 UINT64 i860_cpu_device::ifetch64(const UINT32 pc, const UINT32 vaddr, int const cidx) {
