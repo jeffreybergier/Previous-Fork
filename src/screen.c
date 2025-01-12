@@ -24,7 +24,6 @@ const char Screen_fileid[] = "Previous screen.c";
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
-static float  dpiFactor;             /* Factor to convert physical pixels to logical pixels on high-dpi displays */
 
 /* extern for shortcuts */
 volatile bool bGrabMouse    = false; /* Grab the mouse cursor in the window */
@@ -277,13 +276,7 @@ void Screen_Init(void) {
 		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
 		exit(-1);
 	}
-
-	dpiFactor = SDL_GetWindowDisplayScale(sdlWindow);
-	if (dpiFactor == 0.0) {
-		fprintf(stderr, "Failed to set screen scale\n");
-		dpiFactor = 1.0;
-	}
-	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
+	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
 
 	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
 	if (!sdlRenderer) {
@@ -293,8 +286,7 @@ void Screen_Init(void) {
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_SetRenderVSync(sdlRenderer, 1);
 #endif
-	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_DISABLED);
-	SDL_SetRenderScale(sdlRenderer, dpiFactor, dpiFactor);
+	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_STRETCH);
 
 	format = SDL_PIXELFORMAT_BGRA32;
 
@@ -387,6 +379,7 @@ void Screen_EnterFullScreen(void) {
 
 		SDL_GetWindowPosition(sdlWindow, &saveWindowBounds.x, &saveWindowBounds.y);
 		SDL_GetWindowSize(sdlWindow, &saveWindowBounds.w, &saveWindowBounds.h);
+		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 		SDL_SetWindowFullscreen(sdlWindow, true);
 		SDL_Delay(100);                  /* To give monitor time to change to new resolution */
 
@@ -426,6 +419,7 @@ void Screen_ReturnFromFullScreen(void) {
 		SDL_Delay(100);                /* To give monitor time to switch resolution */
 		SDL_SetWindowSize(sdlWindow, saveWindowBounds.w, saveWindowBounds.h);
 		SDL_SetWindowPosition(sdlWindow, saveWindowBounds.x, saveWindowBounds.y);
+		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_STRETCH);
 
 		/* Return to windowed monitor mode */
 		if (saveMonitorType == MONITOR_TYPE_DUAL) {
@@ -462,15 +456,11 @@ void Screen_ShowMainWindow(void) {
  * Force things associated with changing screen size
  */
 void Screen_SizeChanged(void) {
-	float scale;
 	int h;
 
-	SDL_GetWindowSize(sdlWindow, NULL, &h);
-	scale = (float)h / height;
-	SDL_SetWindowSize(sdlWindow, width*scale, h);
-	SDL_SetRenderScale(sdlRenderer, scale*dpiFactor, scale*dpiFactor);
 	if (!bInFullScreen) {
-		nd_sdl_resize(scale);
+		SDL_GetWindowSize(sdlWindow, NULL, &h);
+		nd_sdl_resize((float)h/height);
 	}
 
 	/* Make sure screen is painted in case emulation is paused */
@@ -507,6 +497,7 @@ void Screen_ModeChanged(void) {
  */
 void Screen_StatusbarChanged(void) {
 	int w;
+	SDL_RendererLogicalPresentation mode = SDL_LOGICAL_PRESENTATION_STRETCH;
 
 	if (!sdlscrn) {
 		/* screen not yet initialized */
@@ -518,12 +509,13 @@ void Screen_StatusbarChanged(void) {
 
 	if (bInFullScreen) {
 		saveWindowBounds.h = (height * saveWindowBounds.w) / width;
-		Screen_SizeChanged();
-	} else {
-		SDL_GetWindowSize(sdlWindow, &w, NULL);
-		SDL_SetWindowSize(sdlWindow, w, (height * w) / width);
+		mode = SDL_LOGICAL_PRESENTATION_LETTERBOX;
 	}
-
+	SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, mode);
+	SDL_GetWindowSize(sdlWindow, &w, NULL);
+	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
+	SDL_SetWindowSize(sdlWindow, w, SDL_lroundf((float)(height*w)/width));
+	
 	/* Make sure screen is painted in case emulation is paused */
 	SDL_SetAtomicInt(&blitUI, 1);
 }
