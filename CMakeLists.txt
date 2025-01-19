@@ -67,12 +67,12 @@ endif(UBSAN_AVAILABLE)
 
 if(APPLE)
 	set(ENABLE_RENDERING_THREAD 1
-		CACHE BOOL "Enable rendering threads")
+	    CACHE BOOL "Enable rendering threads")
 	set(ENABLE_OSX_BUNDLE 1
 	    CACHE BOOL "Built Previous as macOS application bundle")
 else()
 	set(ENABLE_RENDERING_THREAD 0
-		CACHE BOOL "Enable rendering threads")
+	    CACHE BOOL "Enable rendering threads")
 	set(ENABLE_OSX_BUNDLE 0
 	    CACHE BOOL "Built Previous as macOS application bundle")
 endif(APPLE)
@@ -215,8 +215,9 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	# Enable and disable some warnings and flags for Previous:
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -D__USE_MINGW_ANSI_STDIO=1")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion -Wno-unused -Wno-sign-compare")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wtautological-compare -Wno-unused-parameter")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare -Wno-conversion -Wno-unused")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wtautological-compare")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare -Wno-conversion")
+ 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
 endif()
 
 CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough=2" WARN_FALLTRHOUGH_AVAILABLE)
@@ -245,7 +246,7 @@ endif(ENABLE_WERROR)
 
 # -Wpointer-bool-conversion is not in GCC yet (as of 10.2)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpointer-bool-conversion -Wtautological-compare -Wno-unused-parameter ${CMAKE_CXX_FLAGS}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-bool-conversion")
 endif()
 
 # Silence warnings in DiskImage.cpp

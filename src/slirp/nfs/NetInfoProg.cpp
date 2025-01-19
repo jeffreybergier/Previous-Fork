@@ -155,7 +155,7 @@ int CNetInfoProg::procedureSELF() {
     read_ni_id(m_in, ni_id);
     
     ni_status status(NI_OK);
-    NetInfoNode* node = mRoot.find(ni_id, status);
+    mRoot.find(ni_id, status);
     m_out->write(status);
     if(status == NI_OK)
         write_ni_id(m_out, ni_id);

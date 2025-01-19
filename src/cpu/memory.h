@@ -50,7 +50,7 @@ extern mem_put_func bank_bput[65536];
 
 int  memory_init(void);
 void memory_uninit(void);
-void map_banks(addrbank *bank, uae_u32 first, uae_u32 size);
+void map_banks(addrbank *bank, uae_u32 start, uae_u32 size);
 
 #define get_long(addr)   (call_mem_get_func(get_mem_bank(bank_lget, addr), addr))
 #define get_word(addr)   (call_mem_get_func(get_mem_bank(bank_wget, addr), addr))
