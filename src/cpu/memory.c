@@ -1224,7 +1224,7 @@ void memory_uninit (void)
 }
 
 
-void map_banks (addrbank *bank, int start, int size) {
+void map_banks (addrbank *bank, uae_u32 start, uae_u32 size) {
 	uae_u32 bnr;
 	
 	for (bnr = start; bnr < start + size; bnr++) {

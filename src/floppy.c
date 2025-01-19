@@ -412,7 +412,7 @@ static void floppy_read(void) {
     uint8_t s = cmd_data[3];
     uint8_t bs = cmd_data[4];
     
-    uint32_t sector_size, num_sectors, logical_sec;
+    uint32_t sector_size, num_sectors;
     
     flp.st[0] = flp.st[1] = flp.st[2] = 0;
     
@@ -468,7 +468,7 @@ static void floppy_write(void) {
     uint8_t s = cmd_data[3];
     uint8_t bs = cmd_data[4];
     
-    uint32_t sector_size, num_sectors, logical_sec;
+    uint32_t sector_size, num_sectors;
     
     flp.st[0] = flp.st[1] = flp.st[2] = 0;
     
@@ -524,7 +524,7 @@ static void floppy_format(void) {
     int head = (cmd_data[0]&0x04)>>2;
     uint8_t bs = cmd_data[1];
 
-    uint32_t sector_size, num_sectors, logical_sec;
+    uint32_t num_sectors;
     
     flp.st[0] = flp.st[1] = flp.st[2] = 0;
     
