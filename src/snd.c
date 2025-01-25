@@ -428,6 +428,7 @@ void SND_Out_Handler(void) {
     CycInt_AcknowledgeInterrupt();
     
     if (!sound_output_active) {
+        Audio_Output_Queue_Flush();
         return;
     }
     

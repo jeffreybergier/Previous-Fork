@@ -52,6 +52,12 @@ int Audio_Output_Queue_Size(void) {
 	}
 }
 
+void Audio_Output_Queue_Flush(void) {
+	if (bSoundOutputWorking) {
+		SDL_FlushAudioStream(Audio_Output_Stream);
+	}
+}
+
 void Audio_Output_Queue_Clear(void) {
 	if (bSoundOutputWorking) {
 		SDL_ClearAudioStream(Audio_Output_Stream);
