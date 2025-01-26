@@ -51,15 +51,15 @@ void NDSDL::repaint(void) {
 
 void NDSDL::init(void) {
     int x, y, w, h;
-    char title[32], name[32];
+    char name[32];
     SDL_Rect r = {0,0,1120,832};
 
     if (!ndWindow) {
         SDL_GetWindowPosition(sdlWindow, &x, &y);
         SDL_GetWindowSize(sdlWindow, &w, &h);
         h = (w * 832) / 1120;
-        snprintf(title, sizeof(title), "NeXTdimension (Slot %i)", slot);
-        ndWindow = SDL_CreateWindow(title, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        snprintf(name, sizeof(name), "NeXTdimension (Slot %i)", slot);
+        ndWindow = SDL_CreateWindow(name, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
         
         if (!ndWindow) {
             fprintf(stderr,"[ND] Slot %i: Failed to create window! (%s)\n", slot, SDL_GetError());
