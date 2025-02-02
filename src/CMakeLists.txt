@@ -96,7 +96,7 @@ if(ENABLE_OSX_BUNDLE)
 			# Copy ROM Images to Bundle
 			COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/*.BIN ${BUNDLE_CONTENTS}/Resources/
 			# Copy Frameworks to Bundle
-			COMMAND cp -R $<TARGET_FILE:SDL3::SDL3-shared> ${BUNDLE_CONTENTS}/Frameworks/
+			COMMAND cp -R $<TARGET_FILE_DIR:SDL3::SDL3-shared> ${BUNDLE_CONTENTS}/Frameworks/
 			COMMAND ${COPY_PNG}
 			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gui-osx/${MACOSX_BUNDLE_ICON_FILE}
 	)
