@@ -1,0 +1,29 @@
+/* External Data Representation */
+
+#ifndef _XDR_H_
+#define _XDR_H_
+
+struct xdr_t {
+    uint8_t* data;
+    int size;
+    int capacity;
+};
+
+uint32_t xdr_read_long(struct xdr_t* xdr);
+int      xdr_read_string(struct xdr_t* xdr, char* str);
+void     xdr_read_data(struct xdr_t* xdr, void* data, int len);
+void     xdr_read_skip(struct xdr_t* xdr, int size);
+
+void xdr_write_long(struct xdr_t* xdr, uint32_t val);
+void xdr_write_string(struct xdr_t* xdr, int maxlen, const char* str);
+void xdr_write_data(struct xdr_t* xdr, void* data, int len);
+void xdr_write_skip(struct xdr_t* xdr, int size);
+
+uint8_t* xdr_get_pointer(struct xdr_t* xdr);
+void     xdr_write_long_at(uint8_t* data, uint32_t val);
+uint32_t xdr_read_long_at(uint8_t* data);
+
+void xdr_init(struct xdr_t* xdr);
+void xdr_uninit(struct xdr_t* xdr);
+
+#endif /* _XDR_H_ */
