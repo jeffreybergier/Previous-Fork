@@ -5,6 +5,7 @@
 
 struct xdr_t {
     uint8_t* data;
+    uint8_t* head;
     int size;
     int capacity;
 };
@@ -23,7 +24,7 @@ uint8_t* xdr_get_pointer(struct xdr_t* xdr);
 void     xdr_write_long_at(uint8_t* data, uint32_t val);
 uint32_t xdr_read_long_at(uint8_t* data);
 
-void xdr_init(struct xdr_t* xdr);
+struct xdr_t* xdr_init(void);
 void xdr_uninit(struct xdr_t* xdr);
 
 #endif /* _XDR_H_ */

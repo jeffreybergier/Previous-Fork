@@ -122,8 +122,8 @@ static int proc_getregister(struct rpc_t* rpc) {
     struct ni_prog_t* prog = NULL;
     char tag[RPC_MAXNAMELEN];
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (xdr_read_string(m_in, tag) < 0) return RPC_GARBAGE_ARGS;
     
@@ -177,8 +177,8 @@ static int proc_bind(struct rpc_t* rpc) {
     char clientTag[RPC_MAXNAMELEN];
     char serverTag[RPC_MAXNAMELEN];
 
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (m_in->size < 4) return RPC_GARBAGE_ARGS;
     clientAddr = xdr_read_long(m_in);

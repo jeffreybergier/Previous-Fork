@@ -17,8 +17,8 @@ struct csocket_t {
     socket_listener_t  m_pListener;
     int                m_nActive;
     thread_t*          m_hThread;
-    struct xdr_t       m_Input;
-    struct xdr_t       m_Output;
+    struct xdr_t*      m_Input;
+    struct xdr_t*      m_Output;
     int                m_serverPort;
 };
 

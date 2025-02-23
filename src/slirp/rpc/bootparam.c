@@ -53,8 +53,8 @@ static int proc_whoami(struct rpc_t* rpc) {
     char hostname[NAME_HOST_MAX];
     char domain[NAME_DOMAIN_MAX];
 
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
         
     if (m_in->size < 5 * 4) return RPC_GARBAGE_ARGS;
     
@@ -86,8 +86,8 @@ static int proc_getfile(struct rpc_t* rpc) {
     char key[RPC_MAXNAMELEN];
     char path[RPC_MAXPATHLEN];
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     client_len = xdr_read_string(m_in, client);
     key_len    = xdr_read_string(m_in, key);

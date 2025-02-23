@@ -688,7 +688,7 @@ static int proc_statistics(struct rpc_t* rpc, struct ni_prog_t* ni) {
     char checksum[32];
     struct ni_prop_t* props = NULL;
 
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_out = rpc->m_out;
 
     snprintf(checksum, sizeof(checksum), "%u", ni_node_checksum(ni->root));
     ni_prop_add(&props, "checksum", checksum);
@@ -703,7 +703,7 @@ static int proc_statistics(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_root(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_out = rpc->m_out;
     
     ni_log(rpc, ni, "ROOT");
     
@@ -718,8 +718,8 @@ static int proc_self(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_id_t ni_id;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -738,8 +738,8 @@ static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_node_t* node;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
 
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -790,8 +790,8 @@ static int proc_read(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_node_t* node;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -832,8 +832,8 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_node_t* child;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -879,8 +879,8 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
     int count = 0;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -937,8 +937,8 @@ static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_val_t* values;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -1004,8 +1004,8 @@ static int proc_readprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
     uint32_t index;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -1065,8 +1065,8 @@ static int proc_listprops(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_val_t* names = NULL;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
@@ -1122,7 +1122,7 @@ static int proc_writename(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_rparent(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_out = rpc->m_out;
     
     xdr_write_long(m_out, NI_NETROOT);
     
@@ -1173,8 +1173,8 @@ static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct ni_prop_t* props;
     enum ni_status status = NI_OK;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     

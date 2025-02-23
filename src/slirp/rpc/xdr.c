@@ -28,15 +28,18 @@
 
 #define MAXDATA (1024 * 1024)
 
-void xdr_init(struct xdr_t* xdr) {
+struct xdr_t* xdr_init(void) {
+    struct xdr_t* xdr = (struct xdr_t*)malloc(sizeof(struct xdr_t));
     xdr->data = (uint8_t*)malloc(MAXDATA);
+    xdr->head = xdr->data;
     xdr->size = 0;
     xdr->capacity = MAXDATA;
+    return xdr;
 }
 
 void xdr_uninit(struct xdr_t* xdr) {
-    free(xdr->data);
-    xdr->capacity = 0;
+    free(xdr->head);
+    free(xdr);
 }
 
 static void xdr_read_align(struct xdr_t* xdr) {
@@ -110,7 +113,7 @@ void xdr_write_string(struct xdr_t* xdr, int maxlen, const char* str) {
 void xdr_read_data(struct xdr_t* xdr, void* data, int len) {
     if (xdr->size < len) {
         printf("[XDR] Error: Read data underrun\n");
-    } else {
+    } else if (len > 0) {
         memcpy(data, xdr->data, len);
         xdr->data += len;
         xdr->size -= len;
@@ -121,7 +124,7 @@ void xdr_read_data(struct xdr_t* xdr, void* data, int len) {
 void xdr_write_data(struct xdr_t* xdr, void* data, int len) {
     if (xdr->capacity - xdr->size < len) {
         printf("[XDR] Error: Write data overflow\n");
-    } else {
+    } else if (len > 0) {
         memcpy(xdr->data, data, len);
         xdr->data += len;
         xdr->size += len;
@@ -132,7 +135,7 @@ void xdr_write_data(struct xdr_t* xdr, void* data, int len) {
 void xdr_read_skip(struct xdr_t* xdr, int len) {
     if (xdr->size < len) {
         printf("[XDR] Error: Read skip underrun\n");
-    } else {
+    } else if (len > 0) {
         xdr->data += len;
         xdr->size -= len;
     }
@@ -141,7 +144,7 @@ void xdr_read_skip(struct xdr_t* xdr, int len) {
 void xdr_write_skip(struct xdr_t* xdr, int len) {
     if (xdr->capacity - xdr->size < len) {
         printf("[XDR] Error: Write skip overflow\n");
-    } else {
+    } else if (len > 0) {
         memset(xdr->data, 0, len);
         xdr->data += len;
         xdr->size += len;

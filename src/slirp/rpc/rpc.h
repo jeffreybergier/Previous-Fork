@@ -52,8 +52,8 @@ struct rpc_t {
     struct cred_t auth;
     struct cred_t verif;
     
-    struct xdr_t m_in;
-    struct xdr_t m_out;
+    struct xdr_t* m_in;
+    struct xdr_t* m_out;
     
     uint16_t port;
     uint32_t prot;

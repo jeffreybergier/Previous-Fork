@@ -106,30 +106,28 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
     struct xdr_t* m_in;
     struct xdr_t* m_out;
     
-    rpc.m_in.data = cs->m_Input.data;
-    rpc.m_in.size = cs->m_Input.size;
+    m_in  = rpc.m_in  = cs->m_Input;
+    m_out = rpc.m_out = cs->m_Output;
     
     rpc.port = cs->m_serverPort;
     rpc.prot = (cs->m_nType == SOCK_STREAM) ? IPPROTO_TCP : IPPROTO_UDP;
     
     rpc.remote_addr = cs->m_RemoteAddr.sin_addr;
     
-    m_in  = &rpc.m_in;
-    m_out = &rpc.m_out;
+    /* Initialise data buffers */
+    m_in->data  = m_in->head;
+    m_out->data = m_out->head;
+    m_out->size = 0;
     
-    m_out->size     = 0;
-    m_out->data     = cs->m_Output.data;
-    m_out->capacity = cs->m_Output.capacity;
-
     if (cs->m_nType == SOCK_STREAM) {
         xdr_read_skip(m_in, 4); /* TCP header already handled in csocket, skip */
         header_ptr = xdr_get_pointer(m_out); /* remember position for writing TCP header */
         xdr_write_skip(m_out, 4);
     }
 #if DBG
-    printf("RPC LEN = %d, DATA:\n", rpc.m_in.size);
-    for (int i = 0; i < rpc.m_in.size; i++) {
-        printf("%02x ", rpc.m_in.data[i]);
+    printf("RPC LEN = %d, DATA:\n", m_in->size);
+    for (int i = 0; i < m_in->size; i++) {
+        printf("%02x ", m_in->data[i]);
     }
     printf("\n");
 #endif
@@ -193,8 +191,8 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         } else if (status == RPC_PROC_UNAVAIL) {
             rpc_log(&rpc, "Procedure not available");
         }
-        if (rpc.m_in.size > 0) {
-            rpc_log(&rpc, "Unused data in buffer (%d bytes)", rpc.m_in.size);
+        if (m_in->size > 0) {
+            rpc_log(&rpc, "Unused data in buffer (%d bytes)", m_in->size);
         }
     } else { /* RPC version is not 2 */
         printf("[RPC] Version mismatch (%d)\n", rpc.rpcvers);
@@ -208,19 +206,14 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         header = 0x80000000 | (m_out->size - 4); /* size of output data without header */
         xdr_write_long_at(header_ptr, header);   /* update header */
     }
-
-    /* Rewind to start */
-    rpc.m_out.data = cs->m_Output.data; 
-
+    
 #if DBG
-    printf("RPC OUT = %d, DATA:\n", rpc.m_out.size);
-    for (int i = 0; i < rpc.m_out.size; i++) {
-        printf("%02x ", rpc.m_out.data[i]);
+    printf("RPC OUT = %d, DATA:\n", m_out->size);
+    for (int i = 0; i < m_out->size; i++) {
+        printf("%02x ", m_out->head[i]);
     }
     printf("\n");
 #endif
-    
-    cs->m_Output.size = rpc.m_out.size;
     
     csocket_send(cs);
 }

@@ -30,6 +30,8 @@
 #include "ctl.h"
 
 
+#define DBG 1
+
 typedef enum {
     REC_A     = 1,  /* Host address */
     REC_CNAME = 5,  /* Canonical name for an alias */
@@ -257,20 +259,6 @@ static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
     return (vdns_rec_type)result;
 }
 
-static char *rstrstr(char* s1, char* s2)
-{
-    size_t  s1len = strlen(s1);
-    size_t  s2len = strlen(s2);
-    char *s;
-    
-    if (s2len > s1len)
-        return NULL;
-    for (s = s1 + s1len - s2len; s >= s1; --s)
-        if (strncmp(s, s2, s2len) == 0)
-            return s;
-    return NULL;
-}
-
 static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
     struct vdns_record_t* rec;
     size_t n, offset;
@@ -321,14 +309,14 @@ void vdns_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
 void vdns_socketReceived(struct csocket_t* pSocket, uint32_t header) {
     host_mutex_lock(vdns.mutex);
     
-    struct xdr_t* m_in  = &pSocket->m_Input;
-    struct xdr_t* m_out = &pSocket->m_Output;
-    uint8_t*      msg   = m_in->data;
-    uint8_t*      start = m_out->data;
+    struct xdr_t* m_in  = pSocket->m_Input;
+    struct xdr_t* m_out = pSocket->m_Output;
+    
+    uint8_t*      msg   = m_in->data = m_in->head;
     int           n     = m_in->size;
     size_t        off   = 12;
     
-    struct vdns_record_t* rec = vdns_query(&msg[off], m_in->size - (/*in->getPosition()*/ + off));
+    struct vdns_record_t* rec = vdns_query(msg + off, n - off);
     
     if (rec == &vdns.errNoSuchName) {
         /*
@@ -403,16 +391,17 @@ void vdns_socketReceived(struct csocket_t* pSocket, uint32_t header) {
     }
     
     /* Send the answer */
+    m_out->data = m_out->head; /* rewind */
+    m_out->size = 0; /* rewind part two */
     xdr_write_data(m_out, msg, n);
-    m_out->data = start; /* rewind before sending */
-    m_out->size = n;     /* and undo alignment    */
-#if 0
+    m_out->size = n; /* undo alignment */
+#if DBG
     for (int i = 0; i < n; i++) {
         printf("%02x ", msg[i]);
     }
     printf("\n");
-    for (int i = 0; i < pSocket->m_Output.size; i++) {
-        printf("%02x ", pSocket->m_Output.data[i]);
+    for (int i = 0; i < m_out->size; i++) {
+        printf("%02x ", m_out->head[i]);
     }
     printf("\n");
 #endif

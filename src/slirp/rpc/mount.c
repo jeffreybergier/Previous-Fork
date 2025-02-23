@@ -109,8 +109,8 @@ static int proc_mnt(struct rpc_t* rpc) {
     
     int found = 0;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
     
     if (xdr_read_string(m_in, path) < 0) return RPC_GARBAGE_ARGS;
     
@@ -150,8 +150,8 @@ static int proc_umnt(struct rpc_t* rpc) {
     
     int found = 0;
     
-    struct xdr_t* m_in  = &rpc->m_in;
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_in  = rpc->m_in;
+    struct xdr_t* m_out = rpc->m_out;
 
     if (xdr_read_string(m_in, path) < 0) return RPC_GARBAGE_ARGS;
     
@@ -172,7 +172,7 @@ static int proc_export(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
     uint8_t group[4] = { '*', '.', '.', '.' }; /* "*..." */
     
-    struct xdr_t* m_out = &rpc->m_out;
+    struct xdr_t* m_out = rpc->m_out;
     
     rpc_log(rpc, "EXPORT");
     

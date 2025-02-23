@@ -53,15 +53,15 @@ struct csocket_t* csocket_init(int nType, int serverPort) {
     cs->m_hThread = NULL;
     cs->m_serverPort = serverPort;
     memset(&cs->m_RemoteAddr, 0, sizeof(cs->m_RemoteAddr));
-    xdr_init(&cs->m_Input);
-    xdr_init(&cs->m_Output);
+    cs->m_Input  = xdr_init();
+    cs->m_Output = xdr_init();
     return cs;
 }
 
 struct csocket_t* csocket_uninit(struct csocket_t* cs) {
     csocket_close(cs);
-    xdr_uninit(&cs->m_Input);
-    xdr_uninit(&cs->m_Output);
+    xdr_uninit(cs->m_Input);
+    xdr_uninit(cs->m_Output);
     free(cs);
     return NULL;
 }
@@ -97,15 +97,15 @@ void csocket_send(struct csocket_t* cs) {
     
     ssize_t nBytes = 0;
     if (cs->m_nType == SOCK_STREAM)
-        nBytes = send(cs->m_Socket, (const char *)cs->m_Output.data, cs->m_Output.size, 0);
+        nBytes = send(cs->m_Socket, (const char *)cs->m_Output->head, cs->m_Output->size, 0);
     else if (cs->m_nType == SOCK_DGRAM)
-        nBytes = sendto(cs->m_Socket, (const char *)cs->m_Output.data, cs->m_Output.size, 0, (struct sockaddr *)&cs->m_RemoteAddr, sizeof(struct sockaddr));
+        nBytes = sendto(cs->m_Socket, (const char *)cs->m_Output->head, cs->m_Output->size, 0, (struct sockaddr *)&cs->m_RemoteAddr, sizeof(struct sockaddr));
     
-    if(nBytes < 0)
+    if (nBytes < 0)
         perror("[RPC] Socket send");
-    else if(nBytes != cs->m_Output.size)
+    else if (nBytes != cs->m_Output->size)
         perror("[RPC] Socket send, size mismatch");
-    cs->m_Output.size = 0; /* clear output buffer */
+    cs->m_Output->size = 0; /* clear output buffer */
 }
 
 void csocket_run(struct csocket_t* cs) {
@@ -117,10 +117,10 @@ void csocket_run(struct csocket_t* cs) {
     for (;;) {
         uint32_t header = 0;
         if (cs->m_nType == SOCK_STREAM)
-            nBytes = recv(cs->m_Socket, (recv_data_t*)cs->m_Input.data, cs->m_Input.capacity, 0);
+            nBytes = recv(cs->m_Socket, (recv_data_t*)cs->m_Input->head, cs->m_Input->capacity, 0);
         else if (cs->m_nType == SOCK_DGRAM) {
             nSize = sizeof(cs->m_RemoteAddr);
-            nBytes = recvfrom(cs->m_Socket, (recv_data_t*)cs->m_Input.data, cs->m_Input.capacity, 0, (struct sockaddr *)&cs->m_RemoteAddr, &nSize);
+            nBytes = recvfrom(cs->m_Socket, (recv_data_t*)cs->m_Input->head, cs->m_Input->capacity, 0, (struct sockaddr *)&cs->m_RemoteAddr, &nSize);
         }
         if (nBytes == 0) {
             perror("[RPC] Socket closed");
@@ -129,17 +129,17 @@ void csocket_run(struct csocket_t* cs) {
         else if (nBytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
             continue;
         else if (nBytes > 0) {
-            cs->m_Input.size = nBytes; /* bytes received */
+            cs->m_Input->size = nBytes; /* bytes received */
             if (cs->m_nType == SOCK_STREAM) {
-                header = xdr_read_long_at(cs->m_Input.data);
+                header = xdr_read_long_at(cs->m_Input->head);
                 nBytes -= 4; /* skip over header */
                 uint32_t nLen = header & ~0x80000000;
                 if (nBytes < nLen) {
                     do {
-                        nExtra = recv(cs->m_Socket, (recv_data_t*)(cs->m_Input.data+nBytes+4), cs->m_Input.capacity-nBytes-4, 0);
+                        nExtra = recv(cs->m_Socket, (recv_data_t*)(cs->m_Input->head+nBytes+4), cs->m_Input->capacity-nBytes-4, 0);
                         if (nExtra > 0) {
                             nBytes += nExtra;
-                            cs->m_Input.size = nBytes;
+                            cs->m_Input->size = nBytes;
                         }
                     } while (nBytes < nLen && (nExtra > 0 || (nExtra == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))));
                     
