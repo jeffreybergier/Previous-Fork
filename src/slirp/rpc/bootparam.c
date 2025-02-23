@@ -55,6 +55,8 @@ static int proc_whoami(struct rpc_t* rpc) {
 
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
+        
+    if (m_in->size < 5 * 4) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "WHOAMI");
     
@@ -90,7 +92,9 @@ static int proc_getfile(struct rpc_t* rpc) {
     client_len = xdr_read_string(m_in, client);
     key_len    = xdr_read_string(m_in, key);
     
-    rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key, path);
+    if (client_len < 0 || key_len < 0) return RPC_GARBAGE_ARGS;
+    
+    rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key);
     
     vfs_get_basepath_alias(path, RPC_MAXPATHLEN);
     if (strncmp("root", key, RPC_MAXNAMELEN)) {

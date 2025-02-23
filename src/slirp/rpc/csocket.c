@@ -27,7 +27,6 @@
 
 #include "host.h"
 #include "csocket.h"
-#include "ctl.h"
 
 #ifdef _WIN32
 typedef char recv_data_t;

@@ -103,6 +103,7 @@ static void mnt_delete(void) {
 static int proc_mnt(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
     char name[INET_ADDRSTRLEN];
+    uint64_t handle;
     
     inet_ntop(AF_INET, &rpc->remote_addr, name, INET_ADDRSTRLEN);
     
@@ -111,11 +112,11 @@ static int proc_mnt(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    xdr_read_string(m_in, path);
+    if (xdr_read_string(m_in, path) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "MNT from %s for '%s'", name, path);
     
-    uint64_t handle = vfs_get_filehandle(path);
+    handle = vfs_get_filehandle(path);
     if (handle) {
         uint64_t data[8] = {handle, 0, 0, 0, 0, 0, 0, 0};
         
@@ -152,7 +153,7 @@ static int proc_umnt(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    xdr_read_string(m_in, path);
+    if (xdr_read_string(m_in, path) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "UNMT from %s for '%s'", name, path);
     

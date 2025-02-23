@@ -38,6 +38,7 @@ static int proc_getport(struct rpc_t* rpc) {
     
     rpc_log(rpc, "GETPORT");
     
+    if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
     rpc->prog = xdr_read_long(m_in);
     rpc->vers = xdr_read_long(m_in);
     rpc->prot = xdr_read_long(m_in);
@@ -92,12 +93,13 @@ static int proc_callit(struct rpc_t* rpc) {
     
     rpc_log(rpc, "CALLIT");
     
+    if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
     rpc->prog = xdr_read_long(m_in);
     rpc->vers = xdr_read_long(m_in);
     rpc->proc = xdr_read_long(m_in);
     rpc->prot = xdr_read_long(m_in);
     rpc->prot = IPPROTO_UDP; /* protocol is ignored, always UDP */
-        
+    
     while (prog) {
         if (rpc_match_prog(rpc, prog) > 0) {
             xdr_write_long(m_out, prog->port);

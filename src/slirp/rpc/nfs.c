@@ -107,6 +107,7 @@ static int getPath(struct xdr_t* m_in, char* path, uint64_t* handle) {
     uint64_t data[4];
     int result;
     
+    if (m_in->size < FHSIZE) return -1;
     xdr_read_data(m_in, (void*)data, FHSIZE);
     
     if (handle) *handle = data[0];
@@ -120,12 +121,12 @@ static int getPath(struct xdr_t* m_in, char* path, uint64_t* handle) {
 
 static int getFullPath(struct xdr_t* m_in, char* result) {
     char path[RPC_MAXPATHLEN];
-    int len;
+    int status;
     
-    if (!(getPath(m_in, result, NULL)))
-        return 0;
+    status = getPath(m_in, result, NULL);
+    if (status <= 0) return status;
     
-    len = xdr_read_string(m_in, path);
+    if (xdr_read_string(m_in, path) < 0) return -1;
     if (result[strlen(result)-1] != '/') strncat(result, "/", RPC_MAXPATHLEN);
     strncat(result, path, RPC_MAXPATHLEN);
     return 1;
@@ -215,7 +216,10 @@ static int writeFileAttributes(struct xdr_t* m_out, const char* path) {
     return 1;
 }
 
-static void read_nfs_stat(struct xdr_t* m_in, struct nfs_attrs_t* fattrs) {
+static int read_nfs_stat(struct xdr_t* m_in, struct nfs_attrs_t* fattrs) {
+    if (m_in->size < 8 * 4) {
+        return -1;
+    }
     fattrs->mode       = xdr_read_long(m_in);
     fattrs->uid        = xdr_read_long(m_in);
     fattrs->gid        = xdr_read_long(m_in);
@@ -224,6 +228,7 @@ static void read_nfs_stat(struct xdr_t* m_in, struct nfs_attrs_t* fattrs) {
     fattrs->atime_usec = xdr_read_long(m_in);
     fattrs->mtime_sec  = xdr_read_long(m_in);
     fattrs->mtime_usec = xdr_read_long(m_in);
+    return 0;
 }
 
 #define FATTR_INVALID ~0
@@ -262,9 +267,9 @@ static struct stat from_nfs_stat(struct nfs_attrs_t* fattrs) {
     fstat.st_atime = fattrs->atime_sec;
     fstat.st_mtime = fattrs->mtime_sec;
 #else
-    fstat.st_atimespec.tv_sec = fattrs->atime_sec;
+    fstat.st_atimespec.tv_sec  = fattrs->atime_sec;
     fstat.st_atimespec.tv_nsec = fattrs->atime_usec * 1000;
-    fstat.st_mtimespec.tv_sec = fattrs->mtime_sec;
+    fstat.st_mtimespec.tv_sec  = fattrs->mtime_sec;
     fstat.st_mtimespec.tv_nsec = fattrs->mtime_usec * 1000;
 #endif
     fstat.st_rdev = fattrs->rdev;
@@ -296,9 +301,10 @@ static int proc_getattr(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    getPath(m_in, path, NULL);
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "GETATTR %s", path);
+    
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -313,7 +319,7 @@ static int proc_setattr(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    getPath(m_in, path, NULL);
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "SETATTR %s", path);
     
@@ -327,6 +333,11 @@ static int proc_setattr(struct rpc_t* rpc) {
     return RPC_SUCCESS;
 }
 
+static int proc_root(struct rpc_t* rpc) {
+    rpc_log(rpc, "ROOT unimplemented");
+    return RPC_PROC_UNAVAIL;
+}
+
 static int proc_lookup(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
     uint64_t handle;
@@ -334,7 +345,8 @@ static int proc_lookup(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    getFullPath(m_in, path);
+    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
+    
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -346,6 +358,7 @@ static int proc_lookup(struct rpc_t* rpc) {
         writeFileAttributes(m_out, path);
     } else {
         xdr_write_long(m_out, NFSERR_NOENT);
+        rpc_log(rpc, "LOOKUP %s not found", path);
     }
     return RPC_SUCCESS;
 }
@@ -358,8 +371,10 @@ static int proc_readlink(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getPath(m_in, path, NULL);
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "READLINK %s", path);
+    
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -386,14 +401,17 @@ static int proc_read(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getPath(m_in, path, NULL);
-    rpc_log(rpc, "READ %s", path);
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
-    
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
+        
+    if (m_in->size < 3 * 4) return RPC_GARBAGE_ARGS;
     nOffset     = xdr_read_long(m_in);
     nCount      = xdr_read_long(m_in);
     nTotalCount = xdr_read_long(m_in);
+    
+    rpc_log(rpc, "READ %s", path);
+    
+    if (!(checkFile(m_out, path)))
+        return RPC_SUCCESS;
     
     data = (uint8_t*)malloc(nCount);
     
@@ -437,18 +455,22 @@ static int proc_write(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getPath(m_in, path, NULL);
-    rpc_log(rpc, "WRITE %s", path);
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
-    
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
+        
+    if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
     nBeginOffset = xdr_read_long(m_in);
     nOffset      = xdr_read_long(m_in);
     nTotalCount  = xdr_read_long(m_in);
     
     len = xdr_read_long(m_in);
+    if (m_in->size < len) return RPC_GARBAGE_ARGS;
     data = (uint8_t*)malloc(len);
     xdr_read_data(m_in, data, len);
+    
+    rpc_log(rpc, "WRITE %s", path);
+    
+    if (!(checkFile(m_out, path)))
+        return RPC_SUCCESS;
     
     status = vfs_write(path, nOffset, data, len);
     if (status > 0) {
@@ -474,11 +496,13 @@ static int proc_create(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    if(!(getFullPath(m_in, path)))
-        return RPC_SUCCESS;
-    rpc_log(rpc, "CREATE %s", path);
+    status = getFullPath(m_in, path);
+    if (status < 0) return RPC_GARBAGE_ARGS;
+    if (status == 0) return RPC_SUCCESS;
     
-    read_nfs_stat(m_in, &fstat);
+    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    
+    rpc_log(rpc, "CREATE %s", path);
     
     if (!(valid16(fstat.uid))) fstat.uid = vfs_get_uid(path);
     if (!(valid16(fstat.gid))) fstat.gid = vfs_get_gid(path);
@@ -527,8 +551,10 @@ static int proc_remove(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getFullPath(m_in, path);
+    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "REMOVE %s", path);
+    
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -546,12 +572,14 @@ static int proc_rename(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getFullPath(m_in, pathFrom);
-    if (!(checkFile(m_out, pathFrom)))
-        return RPC_SUCCESS;
-    getFullPath(m_in, pathTo);
+    if (getFullPath(m_in, pathFrom) < 0) return RPC_GARBAGE_ARGS;
+    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "RENAME %s->%s", pathFrom, pathTo);
     
+    if (!(checkFile(m_out, pathFrom)))
+        return RPC_SUCCESS;
+        
     err = nfs_err(vfs_rename(pathFrom, pathTo));
     xdr_write_long(m_out, err);
     
@@ -566,8 +594,9 @@ static int proc_link(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getPath(m_in, pathFrom, NULL);
-    getFullPath(m_in, pathTo);
+    if (getPath(m_in, pathFrom, NULL) < 0) return RPC_GARBAGE_ARGS;
+    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "LINK %s->%s", pathFrom, pathTo);
     
     xdr_write_long(m_out, nfs_err(vfs_link(pathFrom, pathTo)));
@@ -584,11 +613,13 @@ static int proc_symlink(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    getFullPath(m_in, pathTo);
-    xdr_read_string(m_in, pathFrom);
+    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, pathFrom) < 0) return RPC_GARBAGE_ARGS;
+        
+    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "SYMLINK %s->%s", pathFrom, pathTo);
     
-    read_nfs_stat(m_in, &fstat);
     err = vfs_symlink(pathFrom, pathTo);
     if(!(err)) vfs_set_attrs(pathTo, from_nfs_stat(&fstat));
     xdr_write_long(m_out, nfs_err(err));
@@ -598,17 +629,21 @@ static int proc_symlink(struct rpc_t* rpc) {
 
 static int proc_mkdir(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    int status;
     int err;
     struct nfs_attrs_t fstat;
 
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    rpc_log(rpc, "MKDIR");
-    if(!(getFullPath(m_in, path)))
-        return RPC_SUCCESS;
+    status = getFullPath(m_in, path);
+    if (status < 0) return RPC_GARBAGE_ARGS;
+    if (status == 0) return RPC_SUCCESS;
     
-    read_nfs_stat(m_in, &fstat);
+    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    
+    rpc_log(rpc, "MKDIR");
+    
     err = vfs_mkdir(path);
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
@@ -629,8 +664,10 @@ static int proc_rmdir(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
+    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "RMDIR");
-    getFullPath(m_in, path);
+    
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -653,15 +690,18 @@ static int proc_readdir(struct rpc_t* rpc) {
     
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
-
-    getPath(m_in, path, &fhandle);
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
+    
+    if (getPath(m_in, path, &fhandle) < 0) return RPC_GARBAGE_ARGS;
+    
+    if (m_in->size < 2 * 4) return RPC_GARBAGE_ARGS;
     cookie = xdr_read_long(m_in);
     count  = xdr_read_long(m_in);
     
     rpc_log(rpc, "READDIR %s", path);
     
+    if (!(checkFile(m_out, path)))
+        return RPC_SUCCESS;
+        
     eof     = 1;
     handle  = vfs_opendir(path);
     if (handle) {
@@ -684,7 +724,9 @@ static int proc_readdir(struct rpc_t* rpc) {
             rpc_log(rpc, "%d %s %s", cookie, path, name);
 #ifdef _WIN32
             char pth[RPC_MAXPATHLEN];
-            snprintf(pth, RPC_MAXPATHLEN, "%s/%s", path, name);
+            strncpy(pth, path, RPC_MAXPATHLEN);
+            if (pth[strlen(pth)-1] != '/') strncat(pth, "/", RPC_MAXPATHLEN);
+            strncat(pth, name, RPC_MAXPATHLEN);
             const uint64_t fileno = vfs_get_filehandle(pth);
             xdr_write_long(m_out, 1); /* value follows */
             xdr_write_long(m_out, vfs_file_id(fileno));
@@ -715,8 +757,10 @@ static int proc_statfs(struct rpc_t* rpc) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
+    if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
+    
     rpc_log(rpc, "STATFS");
-    getPath(m_in, path, NULL);
+    
     if(!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
@@ -748,8 +792,7 @@ int nfs_prog(struct rpc_t* rpc) {
             return proc_setattr(rpc);
             
         case NFSPROC_ROOT:
-            rpc_log(rpc, "ROOT unimplemented");
-            return RPC_PROC_UNAVAIL;
+            return proc_root(rpc);
             
         case NFSPROC_LOOKUP:
             return proc_lookup(rpc);

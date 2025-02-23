@@ -40,6 +40,8 @@
 #include "configuration.h"
 
 
+#define DBG 0
+
 const struct rpc_prog_t rpc_prog_table_template[] = 
 {
     { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_UDP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL },
@@ -115,15 +117,16 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
     m_in  = &rpc.m_in;
     m_out = &rpc.m_out;
     
-    m_out->size = 0;
-    m_out->data = cs->m_Output.data;
+    m_out->size     = 0;
+    m_out->data     = cs->m_Output.data;
+    m_out->capacity = cs->m_Output.capacity;
 
     if (cs->m_nType == SOCK_STREAM) {
         xdr_read_skip(m_in, 4); /* TCP header already handled in csocket, skip */
         header_ptr = xdr_get_pointer(m_out); /* remember position for writing TCP header */
         xdr_write_skip(m_out, 4);
     }
-#if 0
+#if DBG
     printf("RPC LEN = %d, DATA:\n", rpc.m_in.size);
     for (int i = 0; i < rpc.m_in.size; i++) {
         printf("%02x ", rpc.m_in.data[i]);
@@ -131,8 +134,8 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
     printf("\n");
 #endif
     
-    rpc.xid     = xdr_read_long(m_in);
-    rpc.msg     = xdr_read_long(m_in);
+    rpc.xid = xdr_read_long(m_in);
+    rpc.msg = xdr_read_long(m_in);
     if (rpc.msg == RPC_REPLY) {
         printf("[RPC] Reply received\n");
         return;
@@ -145,7 +148,7 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         rpc.prog = xdr_read_long(m_in);
         rpc.vers = xdr_read_long(m_in);
         rpc.proc = xdr_read_long(m_in);
-#if 0
+#if DBG
         printf("RPC XID:     %08x\n", rpc.xid);
         printf("RPC MSG:     %d\n",   rpc.msg);
         printf("RPC VERSION: %d\n",   rpc.rpcvers);
@@ -156,14 +159,14 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         rpc.auth.flavor = xdr_read_long(m_in);
         rpc.auth.length = xdr_read_long(m_in);
         xdr_read_skip(m_in, rpc.auth.length);
-#if 0
+#if DBG
         printf("RPC AUTH:    %d\n", rpc.auth.flavor);
         printf("RPC AUTHLEN: %d\n", rpc.auth.length);
 #endif
         rpc.verif.flavor = xdr_read_long(m_in);
         rpc.verif.length = xdr_read_long(m_in);
         xdr_read_skip(m_in, rpc.verif.length);
-#if 0
+#if DBG
         printf("RPC VERIF:   %d\n", rpc.verif.flavor);
         printf("RPC VERLEN:  %d\n", rpc.verif.length);
 #endif
@@ -185,6 +188,13 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
             xdr_write_long(m_out, rpc.high);
         } else if (status == RPC_PROG_UNAVAIL) {
             printf("[RPC:%d:%d] Program not registered\n", rpc.prog, rpc.proc);
+        } else if (status == RPC_GARBAGE_ARGS) {
+            rpc_log(&rpc, "Procedure cannot decode input (garbage args)");
+        } else if (status == RPC_PROC_UNAVAIL) {
+            rpc_log(&rpc, "Procedure not available");
+        }
+        if (rpc.m_in.size > 0) {
+            rpc_log(&rpc, "Unused data in buffer (%d bytes)", rpc.m_in.size);
         }
     } else { /* RPC version is not 2 */
         printf("[RPC] Version mismatch (%d)\n", rpc.rpcvers);
@@ -202,7 +212,7 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
     /* Rewind to start */
     rpc.m_out.data = cs->m_Output.data; 
 
-#if 0
+#if DBG
     printf("RPC OUT = %d, DATA:\n", rpc.m_out.size);
     for (int i = 0; i < rpc.m_out.size; i++) {
         printf("%02x ", rpc.m_out.data[i]);

@@ -646,9 +646,13 @@ static void ni_log(struct rpc_t* rpc, struct ni_prog_t* ni, const char *format, 
 
 
 /* XDR read and write */
-static void read_ni_id(struct xdr_t* m_in, struct ni_id_t* ni_id) {
+static int read_ni_id(struct xdr_t* m_in, struct ni_id_t* ni_id) {
+    if (m_in->size < 2 * 4) {
+        return -1;
+    }
     ni_id->object   = xdr_read_long(m_in);
     ni_id->instance = xdr_read_long(m_in);
+    return 0;
 }
 
 static void write_ni_id(struct xdr_t* m_out, struct ni_id_t* ni_id) {
@@ -700,11 +704,11 @@ static int proc_statistics(struct rpc_t* rpc, struct ni_prog_t* ni) {
 
 static int proc_root(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_out = &rpc->m_out;
-
-    xdr_write_long(m_out, NI_OK);
     
     ni_log(rpc, ni, "ROOT");
     
+    xdr_write_long(m_out, NI_OK);
+        
     write_ni_id(m_out, &ni->root->id);
     
     return RPC_SUCCESS;
@@ -717,7 +721,7 @@ static int proc_self(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
     ni_log(rpc, ni, "SELF obj=%d, inst=%d", ni_id.object, ni_id.instance);
     
@@ -737,7 +741,7 @@ static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
 
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -789,7 +793,7 @@ static int proc_read(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -831,7 +835,7 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -878,9 +882,10 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
-    xdr_read_string(m_in, key);
-    xdr_read_string(m_in, val);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
+    
+    if (xdr_read_string(m_in, key) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, val) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -935,8 +940,9 @@ static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
-    xdr_read_string(m_in, name);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
+    
+    if (xdr_read_string(m_in, name) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -1001,8 +1007,9 @@ static int proc_readprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
-
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
+    
+    if (m_in->size < 4) return RPC_GARBAGE_ARGS;
     index = xdr_read_long(m_in);
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
@@ -1061,7 +1068,7 @@ static int proc_listprops(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
@@ -1169,10 +1176,10 @@ static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
     struct xdr_t* m_in  = &rpc->m_in;
     struct xdr_t* m_out = &rpc->m_out;
     
-    read_ni_id(m_in, &ni_id);
+    if (read_ni_id(m_in, &ni_id) < 0) return RPC_GARBAGE_ARGS;
     
-    xdr_read_string(m_in, key);
-    xdr_read_string(m_in, val);
+    if (xdr_read_string(m_in, key) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, val) < 0) return RPC_GARBAGE_ARGS;
     
     node = ni_node_find(ni->root, &ni_id, &status, 0);
     
