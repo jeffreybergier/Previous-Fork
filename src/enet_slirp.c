@@ -168,6 +168,10 @@ void enet_slirp_stop(void) {
     }
 }
 
+void enet_slirp_uninit(void) {
+    enet_slirp_stop();
+}
+
 void enet_slirp_start(uint8_t *mac) {
     struct in_addr guest_addr;
     

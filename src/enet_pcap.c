@@ -113,6 +113,10 @@ void enet_pcap_stop(void) {
     }
 }
 
+void enet_pcap_uninit(void) {
+    enet_pcap_stop();
+}
+
 void enet_pcap_start(uint8_t *mac) {
     char errbuf[PCAP_ERRBUF_SIZE];
     char *dev;
