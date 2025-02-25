@@ -46,6 +46,38 @@
 
 #endif
 
+struct timeval_t {
+    uint32_t sec;
+    uint32_t usec;
+};
+
+struct sattr_t {
+    uint32_t mode;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t size;
+    struct timeval_t atime;
+    struct timeval_t mtime;
+    
+    uint32_t rdev; /* FIXME: used for CREATE but does not belong here */
+};
+
+struct fattr_t {
+    uint32_t type;
+    uint32_t mode;
+    uint32_t nlink;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t size;
+    uint32_t blocksize;
+    uint32_t rdev;
+    uint32_t blocks;
+    uint32_t fsid;
+    uint32_t fileid;
+    struct timeval_t atime;
+    struct timeval_t mtime;
+    struct timeval_t ctime;
+};
 
 enum {
     NFS_OK             = 0,
@@ -102,7 +134,7 @@ static void setUserID(uint32_t uid, uint32_t gid) {
     vfs_set_default_uid_gid(uid, gid);
 }
 
-static int getPath(struct xdr_t* m_in, char* path, uint64_t* handle) {
+static int getPath(struct xdr_t* m_in, char* path, uint64_t* fhandle) {
     const char* cpath;
     uint64_t data[4];
     int result;
@@ -110,7 +142,7 @@ static int getPath(struct xdr_t* m_in, char* path, uint64_t* handle) {
     if (m_in->size < FHSIZE) return -1;
     xdr_read_data(m_in, (void*)data, FHSIZE);
     
-    if (handle) *handle = data[0];
+    if (fhandle) *fhandle = data[0];
     
     result = vfs_get_canonical_patch(data[0], &cpath);
     
@@ -153,7 +185,7 @@ static int checkFile(struct xdr_t* m_out, const char* path) {
     return 1;
 }
 
-static int writeFileAttributes(struct xdr_t* m_out, const char* path) {
+static int write_fattr(struct xdr_t* m_out, const char* path) {
     struct stat fstat;
     uint32_t type = NFNON;
 
@@ -218,62 +250,39 @@ static int writeFileAttributes(struct xdr_t* m_out, const char* path) {
 
 #define FATTR_INVALID ~0
 
-static int read_nfs_stat(struct xdr_t* m_in, struct nfs_attrs_t* fattrs) {
+static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
     if (m_in->size < 8 * 4) {
         return -1;
     }
-    fattrs->mode       = xdr_read_long(m_in);
-    fattrs->uid        = xdr_read_long(m_in);
-    fattrs->gid        = xdr_read_long(m_in);
-    fattrs->size       = xdr_read_long(m_in);
-    fattrs->atime_sec  = xdr_read_long(m_in);
-    fattrs->atime_usec = xdr_read_long(m_in);
-    fattrs->mtime_sec  = xdr_read_long(m_in);
-    fattrs->mtime_usec = xdr_read_long(m_in);
-    fattrs->rdev       = FATTR_INVALID;
+    sattr->mode       = xdr_read_long(m_in);
+    sattr->uid        = xdr_read_long(m_in);
+    sattr->gid        = xdr_read_long(m_in);
+    sattr->size       = xdr_read_long(m_in);
+    sattr->atime.sec  = xdr_read_long(m_in);
+    sattr->atime.usec = xdr_read_long(m_in);
+    sattr->mtime.sec  = xdr_read_long(m_in);
+    sattr->mtime.usec = xdr_read_long(m_in);
+    sattr->rdev       = FATTR_INVALID;
     return 0;
 }
 
-static struct stat read_stat(struct xdr_t* m_in) {
-    struct nfs_attrs_t fattrs;
-    struct stat result;
-    
-    read_nfs_stat(m_in, &fattrs);
-        
-    result.st_mode              = fattrs.mode;
-    result.st_uid               = fattrs.uid;
-    result.st_gid               = fattrs.gid;
-    result.st_size              = fattrs.size;
-#ifdef _WIN32
-    result.st_atime             = fattrs.atime_sec;
-    result.st_mtime             = fattrs.mtime_sec;
-#else
-    result.st_atimespec.tv_sec  = fattrs.atime_sec;
-    result.st_atimespec.tv_nsec = fattrs.atime_usec * 1000;
-    result.st_mtimespec.tv_sec  = fattrs.mtime_sec;
-    result.st_mtimespec.tv_nsec = fattrs.mtime_usec * 1000;
-    result.st_rdev              = FATTR_INVALID;
-#endif
-    return result;
-}
-
-static struct stat from_nfs_stat(struct nfs_attrs_t* fattrs) {
+static struct stat from_sattr(struct sattr_t* sattr) {
     struct stat fstat;
     
-    fstat.st_mode = fattrs->mode;
-    fstat.st_uid  = fattrs->uid;
-    fstat.st_gid  = fattrs->gid;
-    fstat.st_size = fattrs->size;
+    fstat.st_mode              = sattr->mode;
+    fstat.st_uid               = sattr->uid;
+    fstat.st_gid               = sattr->gid;
+    fstat.st_size              = sattr->size;
 #ifdef _WIN32
-    fstat.st_atime = fattrs->atime_sec;
-    fstat.st_mtime = fattrs->mtime_sec;
+    fstat.st_atime             = sattr->atime.sec;
+    fstat.st_mtime             = sattr->mtime.sec;
 #else
-    fstat.st_atimespec.tv_sec  = fattrs->atime_sec;
-    fstat.st_atimespec.tv_nsec = fattrs->atime_usec * 1000;
-    fstat.st_mtimespec.tv_sec  = fattrs->mtime_sec;
-    fstat.st_mtimespec.tv_nsec = fattrs->mtime_usec * 1000;
+    fstat.st_atimespec.tv_sec  = sattr->atime.sec;
+    fstat.st_atimespec.tv_nsec = sattr->atime.usec * 1000;
+    fstat.st_mtimespec.tv_sec  = sattr->mtime.sec;
+    fstat.st_mtimespec.tv_nsec = sattr->mtime.usec * 1000;
 #endif
-    fstat.st_rdev = fattrs->rdev;
+    fstat.st_rdev              = sattr->rdev;
     
     return fstat;
 }
@@ -284,7 +293,6 @@ static void write_handle(struct xdr_t* m_out, uint64_t handle) {
 }
 
 
-
 static uint32_t nfs_blocks(const struct statvfs* fsstat, uint32_t fsblocks) {
     uint64_t result = fsblocks;
     /* take minimum as block size, looks like every filesystem uses these fields somewhat different */
@@ -293,7 +301,6 @@ static uint32_t nfs_blocks(const struct statvfs* fsstat, uint32_t fsblocks) {
     if(result >= 0x7FFFFFFF) result = 0x7FFFFFFF; /* fix size for signed 32bit */
     return (uint32_t)result;
 }
-
 
 
 static int proc_getattr(struct rpc_t* rpc) {
@@ -310,41 +317,40 @@ static int proc_getattr(struct rpc_t* rpc) {
         return RPC_SUCCESS;
     
     xdr_write_long(m_out, NFS_OK);
-    writeFileAttributes(m_out, path);
+    write_fattr(m_out, path);
     return RPC_SUCCESS;
 }
 
 static int proc_setattr(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
-    struct stat stat;
+    struct sattr_t sattr;
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
-
+    
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
     
-    rpc_log(rpc, "SETATTR %s", path);
+    if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
-    if (m_in->size < 8 * 4) return RPC_GARBAGE_ARGS; /* for read_stat */
-    stat = read_stat(m_in);
+    rpc_log(rpc, "SETATTR %s", path);
     
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    vfs_set_attrs(path, stat);
+    vfs_set_attrs(path, from_sattr(&sattr));
     
     xdr_write_long(m_out, NFS_OK);
-    writeFileAttributes(m_out, path);
+    write_fattr(m_out, path);
     return RPC_SUCCESS;
 }
 
 static int proc_root(struct rpc_t* rpc) {
-    rpc_log(rpc, "ROOT unimplemented");
+    rpc_log(rpc, "ROOT");
     return RPC_PROC_UNAVAIL;
 }
 
 static int proc_lookup(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
-    uint64_t handle;
+    uint64_t fhandle;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -354,12 +360,12 @@ static int proc_lookup(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    handle = vfs_get_filehandle(path);
-    if (handle) {
+    fhandle = vfs_get_filehandle(path);
+    if (fhandle) {
         xdr_write_long(m_out, NFS_OK);
-        rpc_log(rpc, "LOOKUP %s=%" PRIu64, path, handle);
-        write_handle(m_out, handle);
-        writeFileAttributes(m_out, path);
+        rpc_log(rpc, "LOOKUP %s=%" PRIu64, path, fhandle);
+        write_handle(m_out, fhandle);
+        write_fattr(m_out, path);
     } else {
         xdr_write_long(m_out, NFSERR_NOENT);
         rpc_log(rpc, "LOOKUP %s not found", path);
@@ -398,9 +404,9 @@ static int proc_read(struct rpc_t* rpc) {
     uint8_t* data;
     int len;
     
-    uint32_t nOffset;
-    uint32_t nCount;
-    uint32_t nTotalCount;
+    uint32_t offset;
+    uint32_t count;
+    uint32_t totalcount;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -408,28 +414,28 @@ static int proc_read(struct rpc_t* rpc) {
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
         
     if (m_in->size < 3 * 4) return RPC_GARBAGE_ARGS;
-    nOffset     = xdr_read_long(m_in);
-    nCount      = xdr_read_long(m_in);
-    nTotalCount = xdr_read_long(m_in);
+    offset     = xdr_read_long(m_in);
+    count      = xdr_read_long(m_in);
+    totalcount = xdr_read_long(m_in); /* unused */
     
     rpc_log(rpc, "READ %s", path);
     
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    data = (uint8_t*)malloc(nCount);
+    data = (uint8_t*)malloc(count);
     
-    len = vfs_read(path, nOffset, data, nCount);
+    len = vfs_read(path, offset, data, count);
     if (len >= 0) {
-        nCount = len;
+        count = len;
         xdr_write_long(m_out, NFS_OK);
     } else {
-        nCount = 0;
+        count = 0;
         xdr_write_long(m_out, nfs_err(errno));
     }
-    writeFileAttributes(m_out, path);
-    xdr_write_long(m_out, nCount);
-    xdr_write_data(m_out, (void*)data, nCount);
+    write_fattr(m_out, path);
+    xdr_write_long(m_out, count);
+    xdr_write_data(m_out, (void*)data, count);
     
     free(data);
     
@@ -437,13 +443,8 @@ static int proc_read(struct rpc_t* rpc) {
 }
 
 static int proc_writecache(struct rpc_t* rpc) {
-    struct xdr_t* m_out = rpc->m_out;
-
     rpc_log(rpc, "WRITECACHE");
-
-    xdr_write_long(m_out, NFS_OK);
-    
-    return RPC_SUCCESS;
+    return RPC_PROC_UNAVAIL;
 }
 
 static int proc_write(struct rpc_t* rpc) {
@@ -452,9 +453,9 @@ static int proc_write(struct rpc_t* rpc) {
     int len;
     int status;
     
-    uint32_t nBeginOffset;
-    uint32_t nOffset;
-    uint32_t nTotalCount;
+    uint32_t beginoffset;
+    uint32_t offset;
+    uint32_t totalcount;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -462,12 +463,14 @@ static int proc_write(struct rpc_t* rpc) {
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
         
     if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
-    nBeginOffset = xdr_read_long(m_in);
-    nOffset      = xdr_read_long(m_in);
-    nTotalCount  = xdr_read_long(m_in);
+    beginoffset = xdr_read_long(m_in);
+    offset      = xdr_read_long(m_in);
+    totalcount  = xdr_read_long(m_in);
     
     len = xdr_read_long(m_in);
     if (m_in->size < len) return RPC_GARBAGE_ARGS;
+    
+    rpc_log(rpc, "WRITE %s", path);
     
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
@@ -475,9 +478,7 @@ static int proc_write(struct rpc_t* rpc) {
     data = (uint8_t*)malloc(len);
     xdr_read_data(m_in, data, len);
     
-    rpc_log(rpc, "WRITE %s", path);
-        
-    status = vfs_write(path, nOffset, data, len);
+    status = vfs_write(path, offset, data, len);
     if (status > 0) {
         xdr_write_long(m_out, NFS_OK);
     } else if (status == 0) {
@@ -486,7 +487,7 @@ static int proc_write(struct rpc_t* rpc) {
         xdr_write_long(m_out, nfs_err(errno));
     }
     
-    writeFileAttributes(m_out, path);
+    write_fattr(m_out, path);
     
     free(data);
     
@@ -495,7 +496,7 @@ static int proc_write(struct rpc_t* rpc) {
 
 static int proc_create(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
-    struct nfs_attrs_t fstat;
+    struct sattr_t sattr;
     int status;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -503,34 +504,34 @@ static int proc_create(struct rpc_t* rpc) {
     
     status = getFullPath(m_in, path);
     if (status < 0) return RPC_GARBAGE_ARGS;
-    if (status == 0) return RPC_SUCCESS;
-    
-    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "CREATE %s", path);
     
-    if (!(valid16(fstat.uid))) fstat.uid = vfs_get_uid(path);
-    if (!(valid16(fstat.gid))) fstat.gid = vfs_get_gid(path);
+    if (status == 0) return RPC_SUCCESS;
+        
+    if (!(valid16(sattr.uid))) sattr.uid = vfs_get_uid(path);
+    if (!(valid16(sattr.gid))) sattr.gid = vfs_get_gid(path);
     
     /* size field is used to set device numbers for special devices over NFS */
-    if (S_ISCHR(fstat.mode)) {
-        if (fstat.size == NFS_FIFO_DEV) {
-            fstat.mode = (fstat.mode & ~S_IFMT) | S_IFIFO;
+    if (S_ISCHR(sattr.mode)) {
+        if (sattr.size == NFS_FIFO_DEV) {
+            sattr.mode = (sattr.mode & ~S_IFMT) | S_IFIFO;
         } else {
-            fstat.rdev = fstat.size;
+            sattr.rdev = sattr.size;
         }
-        fstat.size = 0;
-    } else if (S_ISBLK(fstat.mode)) {
-        fstat.rdev = fstat.size;
-        fstat.size = 0;
+        sattr.size = 0;
+    } else if (S_ISBLK(sattr.mode)) {
+        sattr.rdev = sattr.size;
+        sattr.size = 0;
     }
     
     if (vfs_access(path, F_OK) == 0) {
-        if(!(valid32(fstat.size)) || fstat.size) {
-            vfs_set_attrs(path, from_nfs_stat(&fstat));
+        if(!(valid32(sattr.size)) || sattr.size) {
+            vfs_set_attrs(path, from_sattr(&sattr));
             xdr_write_long(m_out, NFS_OK);
             write_handle(m_out, vfs_get_filehandle(path));
-            writeFileAttributes(m_out, path);
+            write_fattr(m_out, path);
             
             return RPC_SUCCESS;
         }
@@ -539,10 +540,10 @@ static int proc_create(struct rpc_t* rpc) {
     
     status = vfs_create(path);
     if (status > 0) {
-        vfs_set_attrs(path, from_nfs_stat(&fstat));
+        vfs_set_attrs(path, from_sattr(&sattr));
         xdr_write_long(m_out, NFS_OK);
         write_handle(m_out, vfs_get_filehandle(path));
-        writeFileAttributes(m_out, path);
+        write_fattr(m_out, path);
     } else {
         nfs_err(errno);
     }
@@ -613,7 +614,7 @@ static int proc_symlink(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
     int err;
-    struct nfs_attrs_t fstat;
+    struct sattr_t sattr;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -621,12 +622,12 @@ static int proc_symlink(struct rpc_t* rpc) {
     if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
     if (xdr_read_string(m_in, pathFrom) < 0) return RPC_GARBAGE_ARGS;
         
-    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "SYMLINK %s->%s", pathFrom, pathTo);
     
     err = vfs_symlink(pathFrom, pathTo);
-    if(!(err)) vfs_set_attrs(pathTo, from_nfs_stat(&fstat));
+    if(!(err)) vfs_set_attrs(pathTo, from_sattr(&sattr));
     xdr_write_long(m_out, nfs_err(err));
     
     return RPC_SUCCESS;
@@ -636,7 +637,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
     int status;
     int err;
-    struct nfs_attrs_t fstat;
+    struct sattr_t sattr;
 
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -645,7 +646,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     if (status < 0) return RPC_GARBAGE_ARGS;
     if (status == 0) return RPC_SUCCESS;
     
-    if (read_nfs_stat(m_in, &fstat) < 0) return RPC_GARBAGE_ARGS;
+    if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "MKDIR");
     
@@ -653,10 +654,10 @@ static int proc_mkdir(struct rpc_t* rpc) {
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
     } else {
-        vfs_set_attrs(path, from_nfs_stat(&fstat));
+        vfs_set_attrs(path, from_sattr(&sattr));
         xdr_write_long(m_out, NFS_OK);
         write_handle(m_out, vfs_get_filehandle(path));
-        writeFileAttributes(m_out, path);
+        write_fattr(m_out, path);
     }
     
     return RPC_SUCCESS;
@@ -840,10 +841,6 @@ int nfs_prog(struct rpc_t* rpc) {
             
         case NFSPROC_STATFS:
             return proc_statfs(rpc);
-            
-        case NFSPROC_NPROC:
-            rpc_log(rpc, "NPROC unimplemented");
-            return RPC_PROC_UNAVAIL;
 
         default:
             break;

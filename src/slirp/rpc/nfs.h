@@ -26,7 +26,6 @@
 #define NFSPROC_RMDIR      15
 #define NFSPROC_READDIR    16
 #define NFSPROC_STATFS     17
-#define NFSPROC_NPROC      18
 
 int nfs_prog(struct rpc_t* rpc);
 

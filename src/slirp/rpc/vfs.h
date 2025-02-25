@@ -57,18 +57,6 @@ public:
 extern "C" {
 #endif
 
-struct nfs_attrs_t {
-    uint32_t mode;
-    uint32_t uid;
-    uint32_t gid;
-    uint32_t size;
-    uint32_t atime_sec;
-    uint32_t atime_usec;
-    uint32_t mtime_sec;
-    uint32_t mtime_usec;
-    uint32_t rdev;
-};
-
 void vfs_set_default_uid_gid(uint32_t uid, uint32_t gid);
 int vfs_get_canonical_patch(uint64_t handle, const char** path);
 

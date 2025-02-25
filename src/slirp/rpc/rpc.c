@@ -190,8 +190,7 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
             rpc_log(&rpc, "Procedure cannot decode input (garbage args)");
         } else if (status == RPC_PROC_UNAVAIL) {
             rpc_log(&rpc, "Procedure not available");
-        }
-        if (m_in->size > 0) {
+        } if (m_in->size > 0) {
             rpc_log(&rpc, "Unused data in buffer (%d bytes)", m_in->size);
         }
     } else { /* RPC version is not 2 */
