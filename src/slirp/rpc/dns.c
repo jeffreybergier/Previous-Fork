@@ -30,7 +30,7 @@
 #include "ctl.h"
 
 
-#define DBG 1
+#define DBG 0
 
 typedef enum {
     REC_A     = 1,  /* Host address */
@@ -179,11 +179,12 @@ static void addRecord(uint32_t addr, const char* name) {
     vdns_add_record(rec);
 }
 
+void vdns_input(struct csocket_t* pSocket);
 
 void vdns_init(void) {
     uint32_t port;
     vdns.mutex = host_mutex_create();
-    vdns.udp   = udpsocket_init(vdns_socketReceived);
+    vdns.udp   = udpsocket_init(vdns_input);
     if (vdns.udp) {
         port = udpsocket_open(vdns.udp, PORT_DNS);
         if (port) {
@@ -306,13 +307,13 @@ void vdns_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
     }
 }
 
-void vdns_socketReceived(struct csocket_t* pSocket, uint32_t header) {
+void vdns_input(struct csocket_t* pSocket) {
     host_mutex_lock(vdns.mutex);
     
     struct xdr_t* m_in  = pSocket->m_Input;
     struct xdr_t* m_out = pSocket->m_Output;
     
-    uint8_t*      msg   = m_in->data = m_in->head;
+    uint8_t*      msg   = m_in->data;
     int           n     = m_in->size;
     size_t        off   = 12;
     
@@ -391,20 +392,19 @@ void vdns_socketReceived(struct csocket_t* pSocket, uint32_t header) {
     }
     
     /* Send the answer */
-    m_out->data = m_out->head; /* rewind */
-    m_out->size = 0; /* rewind part two */
     xdr_write_data(m_out, msg, n);
-    m_out->size = n; /* undo alignment */
 #if DBG
     for (int i = 0; i < n; i++) {
         printf("%02x ", msg[i]);
     }
     printf("\n");
     for (int i = 0; i < m_out->size; i++) {
-        printf("%02x ", m_out->head[i]);
+        printf("%02x ", (m_out->data - m_out->size)[i]);
     }
     printf("\n");
 #endif
+    m_out->size = n; /* undo alignment */
+
     csocket_send(pSocket);
     
     host_mutex_unlock(vdns.mutex);

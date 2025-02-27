@@ -8,7 +8,7 @@
 
 struct csocket_t;
 
-typedef void (*socket_listener_t)(struct csocket_t* pSocket, uint32_t);
+typedef void (*socket_listener_t)(struct csocket_t* pSocket);
 
 struct csocket_t {
     int                m_nType;

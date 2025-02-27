@@ -96,26 +96,24 @@ void csocket_send(struct csocket_t* cs) {
         return;
     
     ssize_t nBytes = 0;
-    if (cs->m_nType == SOCK_STREAM)
+    if (cs->m_nType == SOCK_STREAM) {
+        xdr_write_long_at(cs->m_Output->head, 0x80000000 | cs->m_Output->size); /* output header */
+        cs->m_Output->size += 4;
         nBytes = send(cs->m_Socket, (const char *)cs->m_Output->head, cs->m_Output->size, 0);
-    else if (cs->m_nType == SOCK_DGRAM)
+    } else if (cs->m_nType == SOCK_DGRAM)
         nBytes = sendto(cs->m_Socket, (const char *)cs->m_Output->head, cs->m_Output->size, 0, (struct sockaddr *)&cs->m_RemoteAddr, sizeof(struct sockaddr));
     
     if (nBytes < 0)
         perror("[RPC] Socket send");
     else if (nBytes != cs->m_Output->size)
         perror("[RPC] Socket send, size mismatch");
-    cs->m_Output->size = 0; /* clear output buffer */
 }
 
 void csocket_run(struct csocket_t* cs) {
     socklen_t nSize;
-    
-    ssize_t nBytes = 0;
-    ssize_t nExtra = 0;
+    ssize_t   nBytes = 0;
     
     for (;;) {
-        uint32_t header = 0;
         if (cs->m_nType == SOCK_STREAM)
             nBytes = recv(cs->m_Socket, (recv_data_t*)cs->m_Input->head, cs->m_Input->capacity, 0);
         else if (cs->m_nType == SOCK_DGRAM) {
@@ -129,17 +127,19 @@ void csocket_run(struct csocket_t* cs) {
         else if (nBytes == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
             continue;
         else if (nBytes > 0) {
-            cs->m_Input->size = nBytes; /* bytes received */
+            cs->m_Input->data  = cs->m_Input->head;
+            cs->m_Output->data = cs->m_Output->head;
             if (cs->m_nType == SOCK_STREAM) {
-                header = xdr_read_long_at(cs->m_Input->head);
-                nBytes -= 4; /* skip over header */
-                uint32_t nLen = header & ~0x80000000;
+                ssize_t  nExtra;
+                uint32_t nLen = ~0x80000000 & xdr_read_long_at(cs->m_Input->head); /* input header */
+                cs->m_Input->data  += 4; /* offset to data */
+                cs->m_Output->data += 4; /* reserve room for output header */
+                nBytes -= 4; /* subtract header size */
                 if (nBytes < nLen) {
                     do {
                         nExtra = recv(cs->m_Socket, (recv_data_t*)(cs->m_Input->head+nBytes+4), cs->m_Input->capacity-nBytes-4, 0);
                         if (nExtra > 0) {
                             nBytes += nExtra;
-                            cs->m_Input->size = nBytes;
                         }
                     } while (nBytes < nLen && (nExtra > 0 || (nExtra == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))));
                     
@@ -149,11 +149,14 @@ void csocket_run(struct csocket_t* cs) {
                     }
                 }
             }
+            cs->m_Input->size  = nBytes;
+            cs->m_Output->size = 0;
+            
             if (cs->m_pListener != NULL)
-                cs->m_pListener(cs, header); /* notify listener */
+                cs->m_pListener(cs); /* notify listener */
         } else {
             if (errno != EBADF) {
-                perror("[RPC] Socket recv");
+                perror("[RPC] Socket receive");
             }
             break;
         }

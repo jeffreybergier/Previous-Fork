@@ -453,9 +453,9 @@ static int proc_write(struct rpc_t* rpc) {
     int len;
     int status;
     
-    uint32_t beginoffset;
+    uint32_t beginoffset; /* unused */
     uint32_t offset;
-    uint32_t totalcount;
+    uint32_t totalcount;  /* unused */
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;

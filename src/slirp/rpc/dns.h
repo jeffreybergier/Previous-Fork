@@ -15,8 +15,6 @@
 int  vdns_match(struct mbuf *m, uint32_t addr, int dport);
 void vdns_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO);
 
-void vdns_socketReceived(struct csocket_t* pSocket, uint32_t header);
-
 void vdns_init(void);
 void vdns_uninit(void);
 

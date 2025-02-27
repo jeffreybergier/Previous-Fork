@@ -97,7 +97,7 @@ static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
 }
 
 
-static void rpc_input(struct csocket_t* cs, uint32_t header) {
+static void rpc_input(struct csocket_t* cs) {
     struct rpc_t rpc;
     uint32_t status;
     uint8_t* status_ptr;
@@ -109,21 +109,10 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
     m_in  = rpc.m_in  = cs->m_Input;
     m_out = rpc.m_out = cs->m_Output;
     
-    rpc.port = cs->m_serverPort;
-    rpc.prot = (cs->m_nType == SOCK_STREAM) ? IPPROTO_TCP : IPPROTO_UDP;
-    
+    rpc.port        = cs->m_serverPort;
+    rpc.prot        = (cs->m_nType == SOCK_STREAM) ? IPPROTO_TCP : IPPROTO_UDP;
     rpc.remote_addr = cs->m_RemoteAddr.sin_addr;
     
-    /* Initialise data buffers */
-    m_in->data  = m_in->head;
-    m_out->data = m_out->head;
-    m_out->size = 0;
-    
-    if (cs->m_nType == SOCK_STREAM) {
-        xdr_read_skip(m_in, 4); /* TCP header already handled in csocket, skip */
-        header_ptr = xdr_get_pointer(m_out); /* remember position for writing TCP header */
-        xdr_write_skip(m_out, 4);
-    }
 #if DBG
     printf("RPC LEN = %d, DATA:\n", m_in->size);
     for (int i = 0; i < m_in->size; i++) {
@@ -172,7 +161,7 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         xdr_write_long(m_out, RPC_MSG_ACCEPTED); /* Message */
         xdr_write_long(m_out, rpc.verif.flavor);
         xdr_write_long(m_out, rpc.verif.length);
-        xdr_write_skip(m_out, rpc.verif.length);
+        xdr_write_zero(m_out, rpc.verif.length);
         status_ptr = xdr_get_pointer(m_out);
         xdr_write_skip(m_out, 4); /* Will be updated later */
         
@@ -190,7 +179,7 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
             rpc_log(&rpc, "Procedure cannot decode input (garbage args)");
         } else if (status == RPC_PROC_UNAVAIL) {
             rpc_log(&rpc, "Procedure not available");
-        } if (m_in->size > 0) {
+        } else if (m_in->size > 0) {
             rpc_log(&rpc, "Unused data in buffer (%d bytes)", m_in->size);
         }
     } else { /* RPC version is not 2 */
@@ -200,16 +189,10 @@ static void rpc_input(struct csocket_t* cs, uint32_t header) {
         xdr_write_long(m_out, 2); /* Max version */
     }
     
-    if (cs->m_nType == SOCK_STREAM)
-    {
-        header = 0x80000000 | (m_out->size - 4); /* size of output data without header */
-        xdr_write_long_at(header_ptr, header);   /* update header */
-    }
-    
 #if DBG
     printf("RPC OUT = %d, DATA:\n", m_out->size);
     for (int i = 0; i < m_out->size; i++) {
-        printf("%02x ", m_out->head[i]);
+        printf("%02x ", (m_out->data - m_out->size)[i]);
     }
     printf("\n");
 #endif
