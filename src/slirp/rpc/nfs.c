@@ -403,6 +403,7 @@ static int proc_read(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
     uint8_t* data;
     int len;
+    int skip;
     
     uint32_t offset;
     uint32_t count;
@@ -423,9 +424,14 @@ static int proc_read(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    data = (uint8_t*)malloc(count);
+    data = xdr_get_pointer(m_out);
+    skip = (1 + 17 + 1) * 4; /* status + fattr + count */
+    if (xdr_write_check(m_out, skip + count) < 0) {
+        len = 0;
+    } else {
+        len = vfs_read(path, offset, data + skip, count);
+    }
     
-    len = vfs_read(path, offset, data, count);
     if (len >= 0) {
         count = len;
         xdr_write_long(m_out, NFS_OK);
@@ -435,9 +441,7 @@ static int proc_read(struct rpc_t* rpc) {
     }
     write_fattr(m_out, path);
     xdr_write_long(m_out, count);
-    xdr_write_data(m_out, (void*)data, count);
-    
-    free(data);
+    xdr_write_skip(m_out, count); /* written by vfs_read() */
     
     return RPC_SUCCESS;
 }
@@ -468,15 +472,13 @@ static int proc_write(struct rpc_t* rpc) {
     totalcount  = xdr_read_long(m_in);
     
     len = xdr_read_long(m_in);
-    if (m_in->size < len) return RPC_GARBAGE_ARGS;
+    data = xdr_get_pointer(m_in); /* read by vfs_write() */
+    if (xdr_read_skip(m_in, len) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "WRITE %s", path);
     
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
-    
-    data = (uint8_t*)malloc(len);
-    xdr_read_data(m_in, data, len);
     
     status = vfs_write(path, offset, data, len);
     if (status > 0) {
@@ -488,9 +490,7 @@ static int proc_write(struct rpc_t* rpc) {
     }
     
     write_fattr(m_out, path);
-    
-    free(data);
-    
+        
     return RPC_SUCCESS;
 }
 

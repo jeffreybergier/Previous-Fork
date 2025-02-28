@@ -163,7 +163,16 @@ void xdr_write_zero(struct xdr_t* xdr, int len) {
         memset(xdr->data, 0, len);
         xdr->data += len;
         xdr->size += len;
+        xdr_write_align(xdr);
     }
+}
+
+int xdr_write_check(struct xdr_t* xdr, int len) {
+    if (xdr->capacity - xdr->size < len) {
+        printf("[XDR] Error: Write check overflow\n");
+        return -1;
+    }
+    return 0;
 }
 
 uint8_t* xdr_get_pointer(struct xdr_t* xdr) {

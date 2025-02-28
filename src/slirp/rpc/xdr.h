@@ -19,7 +19,9 @@ void xdr_write_long(struct xdr_t* xdr, uint32_t val);
 void xdr_write_string(struct xdr_t* xdr, int maxlen, const char* str);
 void xdr_write_data(struct xdr_t* xdr, void* data, int len);
 void xdr_write_skip(struct xdr_t* xdr, int size);
+
 void xdr_write_zero(struct xdr_t* xdr, int size);
+int  xdr_write_check(struct xdr_t* xdr, int len);
 
 uint8_t* xdr_get_pointer(struct xdr_t* xdr);
 void     xdr_write_long_at(uint8_t* data, uint32_t val);
