@@ -25,11 +25,11 @@
 #include <slirp.h>
 #include <stdlib.h>
 
-#include "vfs.h"
 #include "rpc.h"
 #include "portmap.h"
 #include "mount.h"
 #include "nfs.h"
+#include "filetable.h"
 #include "bootparam.h"
 #include "netinfobind.h"
 #include "csocket.h"
@@ -289,17 +289,17 @@ void rpc_reset(void) {
     if (access(ConfigureParams.Ethernet.szNFSroot, F_OK | R_OK | W_OK) < 0) {
         printf("[RPC] can not access directory '%s'. NFS startup canceled.\n", ConfigureParams.Ethernet.szNFSroot);
         rpc_uninit();
-        vfs_uninit();
+        nfsd_fts[0] = ft_uninit(nfsd_fts[0]);
         return;
     }
     
-    if (vfs_is_inited()) {
-        if (vfs_path_changed(ConfigureParams.Ethernet.szNFSroot)) {
+    if (ft_is_inited(nfsd_fts[0])) {
+        if (ft_path_changed(nfsd_fts[0], ConfigureParams.Ethernet.szNFSroot)) {
             rpc_uninit();
-            vfs_init(ConfigureParams.Ethernet.szNFSroot);
+            nfsd_fts[0] = ft_init(ConfigureParams.Ethernet.szNFSroot, "/");
         }
     } else {
-        vfs_init(ConfigureParams.Ethernet.szNFSroot);
+        nfsd_fts[0] = ft_init(ConfigureParams.Ethernet.szNFSroot, "/");
     }
     
     rpc_init();
@@ -334,14 +334,16 @@ void rpc_init(void) {
 }
 
 void rpc_uninit(void) {
-    rpc_remove_all_programs();
-    
-    vfs_uninit();
-    nibind_uninit();
-    vdns_uninit();
-    mount_uninit();
-    
-    inited = 0;
+    if (inited) {
+        rpc_remove_all_programs();
+        
+        nfsd_fts[0] = ft_uninit(nfsd_fts[0]);
+        nibind_uninit();
+        vdns_uninit();
+        mount_uninit();
+        
+        inited = 0;
+    }
 }
 
 

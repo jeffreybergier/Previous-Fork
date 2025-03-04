@@ -132,8 +132,9 @@ static size_t domain_name(uint8_t* dst, const char* src) {
 }
 
 static char* alloc_ip_addr_str(uint32_t addr, const char* suffix) {
-    char* result = (char*)malloc(16 + strnlen(suffix, RPC_MAXNAMELEN - 16));
-    snprintf(result, RPC_MAXNAMELEN, "%d.%d.%d.%d%s", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, suffix);
+    int len = 16 + strnlen(suffix, RPC_MAXNAMELEN - 16);
+    char* result = (char*)malloc(len);
+    snprintf(result, len, "%d.%d.%d.%d%s", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, suffix);
     return result;
 }
 

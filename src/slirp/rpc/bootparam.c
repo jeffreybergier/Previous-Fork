@@ -96,7 +96,7 @@ static int proc_getfile(struct rpc_t* rpc) {
     
     rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key);
     
-    vfs_get_basepath_alias(path, RPC_MAXPATHLEN);
+    vfs_get_basepath_alias(vfs, path, RPC_MAXPATHLEN);
     if (strncmp("root", key, RPC_MAXNAMELEN)) {
         strncat(path, key, RPC_MAXPATHLEN);
     }

@@ -30,6 +30,7 @@
 #endif
 
 #include "vfs.h"
+#include "filetable.h"
 #include "rpc.h"
 #include "nfs.h"
 
@@ -46,38 +47,6 @@
 
 #endif
 
-struct timeval_t {
-    uint32_t sec;
-    uint32_t usec;
-};
-
-struct sattr_t {
-    uint32_t mode;
-    uint32_t uid;
-    uint32_t gid;
-    uint32_t size;
-    struct timeval_t atime;
-    struct timeval_t mtime;
-    
-    uint32_t rdev; /* FIXME: used for CREATE but does not belong here */
-};
-
-struct fattr_t {
-    uint32_t type;
-    uint32_t mode;
-    uint32_t nlink;
-    uint32_t uid;
-    uint32_t gid;
-    uint32_t size;
-    uint32_t blocksize;
-    uint32_t rdev;
-    uint32_t blocks;
-    uint32_t fsid;
-    uint32_t fileid;
-    struct timeval_t atime;
-    struct timeval_t mtime;
-    struct timeval_t ctime;
-};
 
 enum {
     NFS_OK             = 0,
@@ -112,30 +81,27 @@ static int nfs_err(int error) {
 }
 
 enum NFTYPE {
-    NFNON  = 0, 
+    NFNON  = 0,
     NFREG  = 1,
     NFDIR  = 2,
     NFBLK  = 3,
     NFCHR  = 4,
-    NFLNK  = 5, 
+    NFLNK  = 5,
     NFSOCK = 6,
-    NFFIFO = 7, 
+    NFFIFO = 7,
     NFBAD  = 8
 };
-
-static int valid32(uint32_t statval) { return statval != 0xFFFFFFFF; }
-static int valid16(uint32_t statval) { return (statval & 0x0000FFFF) != 0x0000FFFF; }
 
 #define NFS_FIFO_DEV 0xFFFFFFFF
 
 static const int BLOCK_SIZE = 4096;
 
 static void setUserID(uint32_t uid, uint32_t gid) {
-    vfs_set_default_uid_gid(uid, gid);
+    vfs_set_default_uid_gid(vfs, uid, gid);
 }
 
 static int getPath(struct xdr_t* m_in, char* path, uint64_t* fhandle) {
-    const char* cpath;
+    char* vfs_path;
     uint64_t data[4];
     int result;
     
@@ -144,9 +110,11 @@ static int getPath(struct xdr_t* m_in, char* path, uint64_t* fhandle) {
     
     if (fhandle) *fhandle = data[0];
     
-    result = vfs_get_canonical_patch(data[0], &cpath);
+    result = ft_get_canonical_path(nfsd_fts[0], data[0], &vfs_path);
     
-    strncpy(path, cpath, RPC_MAXPATHLEN);
+    if (result) {
+        strncpy(path, vfs_path, RPC_MAXPATHLEN);
+    }
     
     return result;
 }
@@ -173,11 +141,11 @@ static int checkFile(struct xdr_t* m_out, const char* path) {
 #ifndef _WIN32
     /* links always pass (will be resolved on the client side via readlink) */
     struct stat fstat;
-    if (vfs_stat(path, &fstat) == 0 && (fstat.st_mode & S_IFMT) == S_IFLNK)
+    if (ft_stat(nfsd_fts[0], path, &fstat) == 0 && (fstat.st_mode & S_IFMT) == S_IFLNK)
         return 1;
 #endif
     
-    if (vfs_access(path, F_OK)) {
+    if (vfs_access(vfs, path, F_OK)) {
         xdr_write_long(m_out, NFSERR_NOENT);
         return 0;
     }
@@ -189,7 +157,7 @@ static int write_fattr(struct xdr_t* m_out, const char* path) {
     struct stat fstat;
     uint32_t type = NFNON;
 
-    if (vfs_stat(path, &fstat) != 0) {
+    if (ft_stat(nfsd_fts[0], path, &fstat) != 0) {
         return 0;
     }
     
@@ -237,7 +205,7 @@ static int write_fattr(struct xdr_t* m_out, const char* path) {
     xdr_write_long(m_out, (uint32_t)(fstat.st_rdev));
     xdr_write_long(m_out, (uint32_t)((fstat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE));
     xdr_write_long(m_out, (uint32_t)(fstat.st_dev)); /* fsid */
-    xdr_write_long(m_out, vfs_file_id(vfs_get_filehandle(path)));
+    xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(nfsd_fts[0], path)));
     xdr_write_long(m_out, (uint32_t)(fstat.st_atime));
     xdr_write_long(m_out, (uint32_t)(0));
     xdr_write_long(m_out, (uint32_t)(fstat.st_mtime));
@@ -247,8 +215,6 @@ static int write_fattr(struct xdr_t* m_out, const char* path) {
 #endif
     return 1;
 }
-
-#define FATTR_INVALID ~0
 
 static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
     if (m_in->size < 8 * 4) {
@@ -264,6 +230,37 @@ static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
     sattr->mtime.usec = xdr_read_long(m_in);
     sattr->rdev       = FATTR_INVALID;
     return 0;
+}
+
+static void set_sattr(struct vfs_t* vfs, char* vfs_path, struct sattr_t* sattr) {
+    struct sattr_t new = ft_get_sattr(nfsd_fts[0], vfs_path);
+    
+    if (valid16(sattr->mode)) {
+        new.mode &= S_IFMT;
+        new.mode |= sattr->mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+        vfs_chmod(vfs, vfs_path, new.mode);
+        if (sattr->mode & S_IFMT)
+            new.mode &= ~S_IFMT;
+        new.mode |= sattr->mode;
+    }
+    if (valid16(sattr->uid))
+        new.uid = sattr->uid;
+    if (valid16(sattr->gid))
+        new.gid = sattr->gid;
+    if (valid16(sattr->rdev))
+        new.rdev = sattr->rdev;
+    
+    if (valid32(sattr->atime.sec) || valid32(sattr->mtime.sec)) {
+        struct timeval times[2];
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        times[0].tv_sec  = valid32(sattr->atime.sec)  ? sattr->atime.sec  : now.tv_sec;
+        times[0].tv_usec = valid32(sattr->atime.usec) ? sattr->atime.usec : now.tv_usec;
+        times[1].tv_sec  = valid32(sattr->mtime.sec)  ? sattr->mtime.sec  : now.tv_sec;
+        times[1].tv_usec = valid32(sattr->mtime.usec) ? sattr->mtime.usec : now.tv_usec;
+        vfs_utimes(vfs, vfs_path, times);
+    }
+    ft_set_sattr(nfsd_fts[0], vfs_path, &new);
 }
 
 static struct stat from_sattr(struct sattr_t* sattr) {
@@ -336,7 +333,7 @@ static int proc_setattr(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    vfs_set_attrs(path, from_sattr(&sattr));
+    set_sattr(vfs, path, &sattr);
     
     xdr_write_long(m_out, NFS_OK);
     write_fattr(m_out, path);
@@ -360,7 +357,7 @@ static int proc_lookup(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    fhandle = vfs_get_filehandle(path);
+    fhandle = ft_get_fhandle(nfsd_fts[0], path);
     if (fhandle) {
         xdr_write_long(m_out, NFS_OK);
         rpc_log(rpc, "LOOKUP %s=%" PRIu64, path, fhandle);
@@ -388,7 +385,7 @@ static int proc_readlink(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    err = vfs_readlink(path, result);
+    err = vfs_readlink(vfs, path, result);
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
     } else {
@@ -429,7 +426,7 @@ static int proc_read(struct rpc_t* rpc) {
     if (xdr_write_check(m_out, skip + count) < 0) {
         len = 0;
     } else {
-        len = vfs_read(path, offset, data + skip, count);
+        len = vfs_read(vfs, path, offset, data + skip, count);
     }
     
     if (len >= 0) {
@@ -453,6 +450,7 @@ static int proc_writecache(struct rpc_t* rpc) {
 
 static int proc_write(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    struct sattr_t sattr;
     uint8_t* data;
     int len;
     int status;
@@ -480,13 +478,16 @@ static int proc_write(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    status = vfs_write(path, offset, data, len);
-    if (status > 0) {
-        xdr_write_long(m_out, NFS_OK);
-    } else if (status == 0) {
-        xdr_write_long(m_out, NFSERR_ISDIR);
+    sattr = ft_get_sattr(nfsd_fts[0], path);
+    if ((sattr.mode & S_IFMT) == S_IFREG) {
+        status = vfs_write(vfs, path, offset, data, len);
+        if (status > 0) {
+            xdr_write_long(m_out, NFS_OK);
+        } else {
+            xdr_write_long(m_out, nfs_err(errno));
+        }
     } else {
-        xdr_write_long(m_out, nfs_err(errno));
+        xdr_write_long(m_out, NFSERR_ISDIR);
     }
     
     write_fattr(m_out, path);
@@ -510,8 +511,8 @@ static int proc_create(struct rpc_t* rpc) {
     
     if (status == 0) return RPC_SUCCESS;
         
-    if (!(valid16(sattr.uid))) sattr.uid = vfs_get_uid(path);
-    if (!(valid16(sattr.gid))) sattr.gid = vfs_get_gid(path);
+    if (!(valid16(sattr.uid))) sattr.uid = vfs_get_uid(vfs, path, 0);
+    if (!(valid16(sattr.gid))) sattr.gid = vfs_get_gid(vfs, path, 1);
     
     /* size field is used to set device numbers for special devices over NFS */
     if (S_ISCHR(sattr.mode)) {
@@ -526,11 +527,11 @@ static int proc_create(struct rpc_t* rpc) {
         sattr.size = 0;
     }
     
-    if (vfs_access(path, F_OK) == 0) {
+    if (vfs_access(vfs, path, F_OK) == 0) {
         if(!(valid32(sattr.size)) || sattr.size) {
-            vfs_set_attrs(path, from_sattr(&sattr));
+            set_sattr(vfs, path, &sattr);
             xdr_write_long(m_out, NFS_OK);
-            write_handle(m_out, vfs_get_filehandle(path));
+            write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
             write_fattr(m_out, path);
             
             return RPC_SUCCESS;
@@ -538,11 +539,11 @@ static int proc_create(struct rpc_t* rpc) {
     }
     /* file does not exist or must be truncated (fstat.size == 0) */
     
-    status = vfs_create(path);
+    status = vfs_touch(vfs, path);
     if (status > 0) {
-        vfs_set_attrs(path, from_sattr(&sattr));
+        set_sattr(vfs, path, &sattr);
         xdr_write_long(m_out, NFS_OK);
-        write_handle(m_out, vfs_get_filehandle(path));
+        write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
         write_fattr(m_out, path);
     } else {
         nfs_err(errno);
@@ -552,6 +553,7 @@ static int proc_create(struct rpc_t* rpc) {
 
 static int proc_remove(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    uint64_t fhandle;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -564,8 +566,10 @@ static int proc_remove(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    err = nfs_err(vfs_remove(path));
+    fhandle = ft_get_fhandle(nfsd_fts[0], path);
+    err = nfs_err(vfs_remove(vfs, path));
     xdr_write_long(m_out, err);
+    if(!(err)) ft_remove(nfsd_fts[0], fhandle);
     
     return RPC_SUCCESS;
 }
@@ -573,6 +577,7 @@ static int proc_remove(struct rpc_t* rpc) {
 static int proc_rename(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
+    uint64_t fhandleFrom;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -585,9 +590,11 @@ static int proc_rename(struct rpc_t* rpc) {
     
     if (!(checkFile(m_out, pathFrom)))
         return RPC_SUCCESS;
-        
-    err = nfs_err(vfs_rename(pathFrom, pathTo));
+    
+    fhandleFrom = ft_get_fhandle(nfsd_fts[0], pathFrom);
+    err = nfs_err(vfs_rename(vfs, pathFrom, pathTo));
     xdr_write_long(m_out, err);
+    if(!(err)) ft_move(nfsd_fts[0], fhandleFrom, pathTo);
     
     return RPC_SUCCESS;
 }
@@ -605,7 +612,7 @@ static int proc_link(struct rpc_t* rpc) {
     
     rpc_log(rpc, "LINK %s->%s", pathFrom, pathTo);
     
-    xdr_write_long(m_out, nfs_err(vfs_link(pathFrom, pathTo)));
+    xdr_write_long(m_out, nfs_err(vfs_link(vfs, pathFrom, pathTo, 0)));
     
     return RPC_SUCCESS;
 }
@@ -626,8 +633,8 @@ static int proc_symlink(struct rpc_t* rpc) {
     
     rpc_log(rpc, "SYMLINK %s->%s", pathFrom, pathTo);
     
-    err = vfs_symlink(pathFrom, pathTo);
-    if(!(err)) vfs_set_attrs(pathTo, from_sattr(&sattr));
+    err = vfs_link(vfs, pathFrom, pathTo, 1);
+    if(!(err)) set_sattr(vfs, pathTo, &sattr);
     xdr_write_long(m_out, nfs_err(err));
     
     return RPC_SUCCESS;
@@ -650,13 +657,13 @@ static int proc_mkdir(struct rpc_t* rpc) {
     
     rpc_log(rpc, "MKDIR");
     
-    err = vfs_mkdir(path);
+    err = vfs_mkdir(vfs, path, DEFAULT_PERM);
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
     } else {
-        vfs_set_attrs(path, from_sattr(&sattr));
+        set_sattr(vfs, path, &sattr);
         xdr_write_long(m_out, NFS_OK);
-        write_handle(m_out, vfs_get_filehandle(path));
+        write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
         write_fattr(m_out, path);
     }
     
@@ -665,6 +672,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
 
 static int proc_rmdir(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    uint64_t fhandle;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -677,8 +685,10 @@ static int proc_rmdir(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    err = nfs_err(vfs_rmdir(path));
+    fhandle = ft_get_fhandle(nfsd_fts[0], path);
+    err = nfs_err(vfs_nftw(vfs, path, vfs_rmdir, 3, FTW_DEPTH | FTW_PHYS));
     xdr_write_long(m_out, err);
+    if(!(err)) ft_remove(nfsd_fts[0], fhandle);
     
     return RPC_SUCCESS;
 }
@@ -709,7 +719,7 @@ static int proc_readdir(struct rpc_t* rpc) {
         return RPC_SUCCESS;
         
     eof     = 1;
-    handle  = vfs_opendir(path);
+    handle  = vfs_opendir(vfs, path);
     if (handle) {
         xdr_write_long(m_out, NFS_OK);
         int skip = cookie;
@@ -733,7 +743,7 @@ static int proc_readdir(struct rpc_t* rpc) {
             strncpy(pth, path, RPC_MAXPATHLEN);
             if (pth[strlen(pth)-1] != '/') strncat(pth, "/", RPC_MAXPATHLEN);
             strncat(pth, name, RPC_MAXPATHLEN);
-            const uint64_t fileno = vfs_get_filehandle(pth);
+            const uint64_t fileno = ft_get_fhandle(nfsd_fts[0], pth);
             xdr_write_long(m_out, 1); /* value follows */
             xdr_write_long(m_out, vfs_file_id(fileno));
 #endif
@@ -770,7 +780,7 @@ static int proc_statfs(struct rpc_t* rpc) {
     if(!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    err = vfs_statfs(path, &fsstat);
+    err = vfs_statfs(vfs, path, &fsstat);
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
     } else {

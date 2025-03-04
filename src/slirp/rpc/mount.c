@@ -28,6 +28,7 @@
 #include "rpc.h"
 #include "mount.h"
 #include "vfs.h"
+#include "filetable.h"
 
 
 enum {
@@ -116,7 +117,7 @@ static int proc_mnt(struct rpc_t* rpc) {
     
     rpc_log(rpc, "MNT from %s for '%s'", name, path);
     
-    handle = vfs_get_filehandle(path);
+    handle = ft_get_fhandle(nfsd_fts[0], path);
     if (handle) {
         uint64_t data[8] = {handle, 0, 0, 0, 0, 0, 0, 0};
         
@@ -176,7 +177,7 @@ static int proc_export(struct rpc_t* rpc) {
     
     rpc_log(rpc, "EXPORT");
     
-    vfs_get_basepath_alias(path, RPC_MAXPATHLEN);
+    vfs_get_basepath_alias(vfs, path, RPC_MAXPATHLEN);
     
     /* dirpath */
     xdr_write_long(m_out, 1);

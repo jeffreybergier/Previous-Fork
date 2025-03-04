@@ -1,0 +1,42 @@
+/* File Table */
+
+#ifndef _FILETABLE_H_
+#define _FILETABLE_H_
+
+#include "host.h"
+#include "vfs.h"
+
+#define HASH_BITS  8
+#define HASH_SIZE  (1<<HASH_BITS)
+#define HASH_MASK  (HASH_SIZE-1)
+
+struct ft_entry_t {
+    uint64_t fhandle;
+    char* path;
+    struct ft_entry_t* next;
+};
+
+struct ft_t {
+    mutex_t* mutex;
+    struct ft_entry_t* table[HASH_SIZE];
+    struct vfs_t* vfs;
+};
+
+struct ft_t* nfsd_fts[1];
+
+uint64_t ft_get_fhandle(struct ft_t* ft, char* vfs_path);
+void ft_set_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr);
+struct sattr_t ft_get_sattr(struct ft_t* ft, char* vfs_path);
+int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char** result);
+
+int ft_stat(struct ft_t* ft, const char* vfs_path, struct stat* fstat);
+void ft_move(struct ft_t* ft, uint64_t fhandle_from, char* absolute_path_to);
+void ft_remove(struct ft_t* ft, uint64_t fhandle);
+
+int ft_is_inited(struct ft_t* ft);
+int ft_path_changed(struct ft_t* ft, char* path);
+
+struct ft_t* ft_init(const char* host_path, const char* base_path_alias);
+struct ft_t* ft_uninit(struct ft_t* ft);
+
+#endif /* _FILETABLE_H_ */

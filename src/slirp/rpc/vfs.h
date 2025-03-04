@@ -13,86 +13,115 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
-#include "ctl.h"
+#include <ftw.h>
 
 #ifdef _WIN32
 #include <Winsock2.h>
 #include <ws2tcpip.h>
-#endif
-
-#ifndef _WIN32
+#include <stdint.h>
+typedef uint32_t fsblkcnt_t;
+typedef uint32_t fsfilcnt_t;
+struct statvfs
+{
+    unsigned long int f_bsize;
+    unsigned long int f_frsize;
+    fsblkcnt_t f_blocks;
+    fsblkcnt_t f_bfree;
+    fsblkcnt_t f_bavail;
+    fsfilcnt_t f_files;
+    fsfilcnt_t f_ffree;
+    fsfilcnt_t f_favail;
+    unsigned long int f_fsid;
+    unsigned long int f_flag;
+    unsigned long int f_namemax;
+};
+#else
 #include <sys/statvfs.h>
 #endif
 
-#ifdef __cplusplus
+#define DEFAULT_PERM 0755
+#define FATTR_INVALID ~0
 
-#include "../../ditool/VirtualFS.h"
-#include "host.h"
-
-class NFSDLock {
-    mutex_t* mutex;
-public:
-    NFSDLock(mutex_t* mutex) : mutex(mutex) {host_mutex_lock(mutex);}
-    ~NFSDLock()                             {host_mutex_unlock(mutex);}
+struct timeval_t {
+    uint32_t sec;
+    uint32_t usec;
 };
 
-class FileTableNFSD : public VirtualFS {
-    mutex_t*                        mutex;
-    std::map<uint64_t, std::string> handle2path;
-public:
-    FileTableNFSD(const HostPath& basePath, const VFSPath& basePathAlias);
-    virtual ~FileTableNFSD(void);
+struct sattr_t {
+    uint32_t mode;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t size;
+    struct timeval_t atime;
+    struct timeval_t mtime;
     
-    virtual int         stat            (const VFSPath& absoluteVFSpath, struct stat& stat);
-    virtual void        move            (uint64_t fileHandleFrom, const VFSPath& absoluteVFSpathTo);
-    virtual void        remove          (uint64_t fileHandle);
-    virtual uint64_t    getFileHandle   (const VFSPath& absoluteVFSpath);
-    virtual void        setFileAttrs    (const VFSPath& absoluteVFSpath, const FileAttrs& fstat);
-    virtual FileAttrs   getFileAttrs    (const VFSPath& absoluteVFSpath);
-    
-    bool                getCanonicalPath(uint64_t handle, std::string& result);
+    uint32_t rdev; /* FIXME: used for CREATE but does not belong here */
 };
 
+int valid16(uint32_t statval);
+int valid32(uint32_t statval);
 
-extern "C" {
-#endif
+struct fattr_t {
+    uint32_t type;
+    uint32_t mode;
+    uint32_t nlink;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t size;
+    uint32_t blocksize;
+    uint32_t rdev;
+    uint32_t blocks;
+    uint32_t fsid;
+    uint32_t fileid;
+    struct timeval_t atime;
+    struct timeval_t mtime;
+    struct timeval_t ctime;
+};
 
-void vfs_set_default_uid_gid(uint32_t uid, uint32_t gid);
-int vfs_get_canonical_patch(uint64_t handle, const char** path);
+struct vfs_t {
+    char* vfs_base_path;
+    char* host_base_path;
+    
+    uint32_t uid;
+    uint32_t gid;
+};
+
+struct vfs_t* vfs;
+
+
+void vfs_path_canonicalize(const char* vfs_path, char* result);
 
 uint32_t vfs_file_id(uint64_t ino);
-uint32_t vfs_get_uid(char* path);
-uint32_t vfs_get_gid(char* path);
+uint32_t vfs_get_uid(struct vfs_t* vfs, const char* vfs_path, int use_parent);
+uint32_t vfs_get_gid(struct vfs_t* vfs, const char* vfs_path, int use_parent);
 
-int vfs_stat(const char* path, struct stat* fstat);
-int vfs_access(const char* path, int mode);
-void vfs_set_attrs(const char* path, const struct stat stat);
+int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
+int vfs_chmod(struct vfs_t* vfs, char* vfs_path, mode_t mode);
+int vfs_utimes(struct vfs_t* vfs, char* vfs_path, struct timeval times[2]);
+int vfs_stat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
 
-int vfs_readlink(char* path, char* result);
-int vfs_read(char* path, size_t offset, uint8_t* data, size_t len);
-int vfs_write(char* path, size_t offset, uint8_t* data, size_t len);
-int vfs_create(char* path);
-int vfs_remove(char* path);
-int vfs_rename(char* pathFrom, char* pathTo);
-int vfs_link(char* pathFrom, char* pathTo);
-int vfs_symlink(char* pathFrom, char* pathTo);
-int vfs_mkdir(char* path);
-int vfs_rmdir(char* path);
-DIR* vfs_opendir(char* path);
-int vfs_statfs(char* path, struct statvfs* fsstat);
+void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
+void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
+uint64_t vfs_get_fhandle(struct vfs_t* vfs, char* vfs_path);
+int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result);
+int vfs_read(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);
+int vfs_write(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);
+int vfs_touch(struct vfs_t* vfs, const char* path);
+int vfs_remove(struct vfs_t* vfs, const char* vfs_path);
+int vfs_rename(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to);
+int vfs_link(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to, int soft);
+int vfs_mkdir(struct vfs_t* vfs, const char* vfs_path, mode_t mode);
+int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct FTW* ftwbuf);
+int vfs_nftw(struct vfs_t* vfs, const char* vfs_path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags);
+DIR* vfs_opendir(struct vfs_t* vfs, const char* vfs_path);
+int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat);
 
-void vfs_get_basepath_alias(char* path, int len);
-uint64_t vfs_get_filehandle(const char* path);
+int vfs_access(struct vfs_t* vfs, const char* vfs_path, int mode);
 
-int vfs_read_safe(char* path, size_t offset, uint8_t* data, size_t len);
+void vfs_set_default_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid);
+void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen);
 
-int vfs_is_inited(void);
-int vfs_path_changed(char* path);
-void vfs_init(char* path);
-void vfs_uninit(void);
-
-#ifdef __cplusplus
-}
-#endif
+struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias);
+struct vfs_t* vfs_uninit(struct vfs_t* vfs);
 
 #endif /* _VFS_H_ */
