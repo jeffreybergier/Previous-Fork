@@ -305,9 +305,9 @@ static void file_uninit(struct file_t* file) {
         vfs_chmod(file->ft, file->path, file->fstat.st_mode);
         struct timeval times[2];
 #ifdef _WIN32
-        times[0].tv_sec  = fstat.st_atime;
+        times[0].tv_sec  = file->fstat.st_atime;
         times[0].tv_usec = 0;
-        times[1].tv_sec  = fstat.st_mtime;
+        times[1].tv_sec  = file->fstat.st_mtime;
         times[1].tv_usec = 0;
 #else
         times[0].tv_sec  = file->fstat.st_atimespec.tv_sec;
@@ -384,14 +384,11 @@ uint32_t vfs_get_gid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
 }
 
 int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
-    char path[RPC_MAXPATHLEN];
     struct sattr_t sattr;
     int result;
     
-    vfs_make_relative_path(vfs, vfs_path, path);
-    
-    result = vfs_stat(vfs, path, fstat);
-    vfs_get_sattr(vfs, path, &sattr);
+    result = vfs_stat(vfs, vfs_path, fstat);
+    vfs_get_sattr(vfs, vfs_path, &sattr);
     
     if (valid16(sattr.mode)) {
         uint32_t mode = fstat->st_mode; /* copy format & permissions from actual file in the file system */
@@ -516,7 +513,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
         char parent_path[RPC_MAXPATHLEN];
         struct stat fstat;
 #ifdef _WIN32
-        stat(hostPath->path, &fstat);
+        stat(host_path, &fstat);
 #else
         lstat(host_path, &fstat);
 #endif
@@ -540,24 +537,23 @@ static uint64_t make_file_handle(struct stat* fstat) {
 }
 
 uint64_t vfs_get_fhandle(struct vfs_t* vfs, char* vfs_path) {
-    char path[RPC_MAXPATHLEN];
     struct stat fstat;
     uint64_t result = 0;
     
-    vfs_make_relative_path(vfs, vfs_path, path);
-    
-    if (vfs_stat(vfs, path, &fstat) == 0) {
+    if (vfs_stat(vfs, vfs_path, &fstat) == 0) {
 #ifndef _WIN32
         result = make_file_handle(&fstat);
 #else
-        HostPath hostPath = to_host_path(path);
-        HANDLE fhandle = CreateFileA(hostPath.c_str(),
-                                     GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-                                     FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        char host_path[RPC_MAXPATHLEN];
+        HANDLE fhandle;
+        to_host_path(vfs, vfs_path, host_path);
+        fhandle = CreateFileA(host_path,
+                              GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                              FILE_FLAG_BACKUP_SEMANTICS, NULL);
         if (fhandle) {
             BY_HANDLE_FILE_INFORMATION finfo;
             if (GetFileInformationByHandle(fhandle, &finfo)) {
-                result = (static_cast<uint64_t>(finfo.nFileIndexHigh) << 32) | static_cast<uint64_t>(finfo.nFileIndexLow);
+                result = ((uint64_t)(finfo.nFileIndexHigh) << 32) | (uint64_t)(finfo.nFileIndexLow);
             }
             CloseHandle(fhandle);
         }
@@ -696,11 +692,15 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
     fchmodat(AT_FDCWD, fpath, ACCESSPERMS, AT_SYMLINK_NOFOLLOW);
     remove(fpath);
 #else
-    char* zzPath = fpath/* + '\0'*/;
+    char zzPath[PATH_MAX];
+    int len, ret;
+    strcpy(zzPath, fpath);
+    len = strlen(zzPath);
+    zzPath[len+1] = '\0';
     SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
         FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
         false, 0, ""};
-    int ret = SHFileOperation(&file_op);
+    ret = SHFileOperation(&file_op);
     if (ret) {
         return EINVAL;
     }
@@ -729,7 +729,7 @@ int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) 
     return get_error(statvfs(host_path, fsstat));
 #else
     DWORD sectorsPerCluster, bytesPerSector, freeClusters, totalClusters;
-    BOOL res = GetDiskFreeSpaceA(to_host_path(absoluteVFSpath).c_str(), &sectorsPerCluster,
+    BOOL res = GetDiskFreeSpaceA(host_path, &sectorsPerCluster,
                                  &bytesPerSector, &freeClusters, &totalClusters);
     if (!res) {
         return GetLastError();
