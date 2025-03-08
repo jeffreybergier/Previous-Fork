@@ -30,7 +30,7 @@
 #include "ctl.h"
 
 
-#define DBG 0
+#define DBG 1
 
 typedef enum {
     REC_A     = 1,  /* Host address */
@@ -39,7 +39,7 @@ typedef enum {
     REC_NS    = 2,  /* Name Server */
     REC_PTR   = 12, /* Pointer */
     REC_SOA   = 6,  /* Start Of Authority */
-    REC_SRV   = 33, /* location of service */
+    REC_SRV   = 33, /* Location of service */
     REC_TXT   = 16, /* Descriptive text */
     
     REC_UNKNOWN = -1,
@@ -180,7 +180,168 @@ static void addRecord(uint32_t addr, const char* name) {
     vdns_add_record(rec);
 }
 
-void vdns_input(struct csocket_t* pSocket);
+
+static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
+    int j;
+    const uint8_t* end    = &src[size];
+    uint8_t        count  = 0;
+    uint16_t       result = REC_UNKNOWN;
+    while (*src) {
+        if (src >= end) return REC_UNKNOWN;
+        count = *src++;
+        if (count > 63) return REC_UNKNOWN;
+        for (j = 0; j < count; j++) {
+            if (src >= end) return REC_UNKNOWN;
+            *dst++ = tolower(*src++);
+        }
+        *dst++ = '.';
+    }
+    src++;
+    result = *src++;
+    result <<= 8;
+    result |= *src;
+    return (vdns_rec_type)result;
+}
+
+static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
+    struct vdns_record_t* rec;
+    size_t n, offset;
+    char qname[RPC_MAXNAMELEN];
+    char domain[RPC_MAXNAMELEN];
+    vdns_rec_type qtype = to_dot(qname, data, size);
+    printf("[DNS] query(%d) '%s'\n", qtype, qname);
+    
+    if (qtype < 0) return NULL;
+    
+    rec = vdns_find_record(qname, qtype);
+    if (rec) {
+        return rec;
+    }
+    
+    snprintf(domain, RPC_MAXNAMELEN, "%s.", NAME_DOMAIN);
+    offset = strlen(qname) - strlen(domain);
+    if (offset >= 0) {
+        if (strncmp(qname + offset, domain, strlen(domain)) == 0) {
+            return &vdns.errNoSuchName;
+        }
+    }
+    return NULL;
+}
+
+static void msg_write_word(uint8_t* msg, int offset, uint16_t val) {
+    *(uint16_t*)(msg + offset) = htons(val);
+}
+
+static void msg_write_long(uint8_t* msg, int offset, uint32_t val) {
+    *(uint32_t*)(msg + offset) = htonl(val);
+}
+
+static void vdns_input(struct csocket_t* pSocket) {
+    struct vdns_record_t* rec;
+    
+    struct xdr_t* m_in  = pSocket->m_Input;
+    struct xdr_t* m_out = pSocket->m_Output;
+    
+    uint8_t*      msg   = m_in->data;
+    int           n     = m_in->size;
+    size_t        off   = 12;
+    
+    host_mutex_lock(vdns.mutex);
+    
+    rec = vdns_query(msg + off, n - off);
+    
+    if (rec == &vdns.errNoSuchName) {
+        /*
+         1... .... .... .... = Response: Message is a response
+         .000 0... .... .... = Opcode: Standard query (0)
+         .... .1.. .... .... = Authoritative: Server is an authority for domain
+         .... ..0. .... .... = Truncated: Message is not truncated
+         .... ...0 .... .... = Recursion desired: Do not query recursively
+         .... .... 0... .... = Recursion available: Server can not do recursive queries
+         .... .... .0.. .... = Z: reserved (0)
+         .... .... ..0. .... = Answer authenticated: Answer/authority portion was authenticated by the server
+         .... .... ...1 .... = Non-authenticated data: Acceptable
+         .... .... .... 0011 = Reply code: No such name (3)
+         */
+        msg_write_word(msg,  2, 0x8413);
+        
+        /* Change Opcode and flags */
+        msg_write_word(msg,  6, 0); /* no answers */
+        msg_write_word(msg,  8, 0); /* NSCOUNT */
+        msg_write_word(msg, 10, 0); /* ARCOUNT */
+        
+        printf("[DNS] no record found.\n");
+    } else {
+        /*
+         1... .... .... .... = Response: Message is a response
+         .000 0... .... .... = Opcode: Standard query (0)
+         .... .1.. .... .... = Authoritative: Server is an authority for domain
+         .... ..0. .... .... = Truncated: Message is not truncated
+         .... ...0 .... .... = Recursion desired: Do not query recursively
+         .... .... 0... .... = Recursion available: Server can not do recursive queries
+         .... .... .0.. .... = Z: reserved (0)
+         .... .... ..0. .... = Answer authenticated: Answer/authority portion was authenticated by the server
+         .... .... ...1 .... = Non-authenticated data: Acceptable
+         .... .... .... 0000 = Reply code: No error (0)
+         */
+        msg_write_word(msg,  2, 0x8410);
+        
+        /* Change Opcode and flags */
+        msg_write_word(msg,  8, 0); /* NSCOUNT */
+        msg_write_word(msg, 10, 0); /* ARCOUNT */
+        
+        if (rec) {
+            msg_write_word(msg, 6, 1); /* Num answers */
+            
+            /* Keep request in message and add answer */
+            msg_write_word(msg, n, 0xc000 | off); /* Offset to the domain name */
+            n += 2;
+            msg_write_word(msg, n, rec->type);    /* Type */
+            n += 2;
+            msg_write_word(msg, n, 1);            /* Class 1 */
+            n += 2;
+            msg_write_long(msg, n, 60);           /* TTL */
+            n += 4;
+            
+            printf("[DNS] reply '%s' -> %d.%d.%d.%d\n", rec->key, (rec->inaddr>>24)&0xFF, (rec->inaddr>>16)&0xFF, (rec->inaddr>>8)&0xFF, rec->inaddr&0xFF);
+            switch(rec->type) {
+                case REC_A:
+                case REC_PTR:
+                    msg_write_word(msg, n, rec->size);
+                    n += 2;
+                    memcpy(&msg[n], rec->data, rec->size);
+                    n += rec->size;
+                    break;
+                default:
+                    printf("[DNS] unknown query:%d ('%s')\n", rec->type, rec->key);
+                    break;
+            }
+        } else {
+            msg_write_word(msg, 6, 0); /* no answers */
+            printf("[DNS] no record found.\n");
+        }
+    }
+    
+    /* Send the answer */
+    memcpy(m_out->data, msg, n);
+    m_out->size = n;
+    
+#if DBG
+    for (int i = 0; i < n; i++) {
+        printf("%02x ", msg[i]);
+    }
+    printf("\n");
+    for (int i = 0; i < m_out->size; i++) {
+        printf("%02x ", m_out->data[i]);
+    }
+    printf("\n");
+#endif
+    
+    csocket_send(pSocket);
+    
+    host_mutex_unlock(vdns.mutex);
+}
+
 
 void vdns_init(void) {
     uint32_t port;
@@ -239,53 +400,6 @@ void vdns_uninit(void) {
     vdns_delete_db();
 }
 
-static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
-    int j;
-    const uint8_t* end    = &src[size];
-    uint8_t        count  = 0;
-    uint16_t       result = REC_UNKNOWN;
-    while (*src) {
-        if (src >= end) return REC_UNKNOWN;
-        count = *src++;
-        if (count > 63) return REC_UNKNOWN;
-        for (j = 0; j < count; j++) {
-            if (src >= end) return REC_UNKNOWN;
-            *dst++ = tolower(*src++);
-        }
-        *dst++ = '.';
-    }
-    src++;
-    result = *src++;
-    result <<= 8;
-    result |= *src;
-    return (vdns_rec_type)result;
-}
-
-static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
-    struct vdns_record_t* rec;
-    size_t n, offset;
-    char qname[RPC_MAXNAMELEN];
-    char domain[RPC_MAXNAMELEN];
-    vdns_rec_type qtype = to_dot(qname, data, size);
-    printf("[DNS] query(%d) '%s'\n", qtype, qname);
-    
-    if (qtype < 0) return NULL;
-    
-    rec = vdns_find_record(qname, qtype);
-    if (rec) {
-        return rec;
-    }
-    
-    snprintf(domain, RPC_MAXNAMELEN, "%s.", NAME_DOMAIN);
-    offset = strlen(qname) - strlen(domain);
-    if (offset >= 0) {
-        if (strncmp(qname + offset, domain, strlen(domain)) == 0) {
-            return &vdns.errNoSuchName;
-        }
-    }
-    return NULL;
-}
-
 
 int vdns_match(struct mbuf *m, uint32_t addr, int dport) {
     if(m->m_len > 40 &&
@@ -306,107 +420,4 @@ void vdns_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
         default:
             break;
     }
-}
-
-void vdns_input(struct csocket_t* pSocket) {
-    host_mutex_lock(vdns.mutex);
-    
-    struct xdr_t* m_in  = pSocket->m_Input;
-    struct xdr_t* m_out = pSocket->m_Output;
-    
-    uint8_t*      msg   = m_in->data;
-    int           n     = m_in->size;
-    size_t        off   = 12;
-    
-    struct vdns_record_t* rec = vdns_query(msg + off, n - off);
-    
-    if (rec == &vdns.errNoSuchName) {
-        /*
-         1... .... .... .... = Response: Message is a response
-         .000 0... .... .... = Opcode: Standard query (0)
-         .... .1.. .... .... = Authoritative: Server is an authority for domain
-         .... ..0. .... .... = Truncated: Message is not truncated
-         .... ...0 .... .... = Recursion desired: Do not query recursively
-         .... .... 0... .... = Recursion available: Server can not do recursive queries
-         .... .... .0.. .... = Z: reserved (0)
-         .... .... ..0. .... = Answer authenticated: Answer/authority portion was authenticated by the server
-         .... .... ...1 .... = Non-authenticated data: Acceptable
-         .... .... .... 0011 = Reply code: No such name (3)
-         */
-        msg[2]=0x84;
-        msg[3]=0x13;
-        
-        /* Change Opcode and flags */
-        msg[6]=0;msg[7]   = 0; /* no answers */
-        msg[8]=0;msg[9]   = 0; /* NSCOUNT */
-        msg[10]=0;msg[11] = 0; /* ARCOUNT */
-        
-        printf("[DNS] no record found.\n");
-    } else {
-        /*
-         1... .... .... .... = Response: Message is a response
-         .000 0... .... .... = Opcode: Standard query (0)
-         .... .1.. .... .... = Authoritative: Server is an authority for domain
-         .... ..0. .... .... = Truncated: Message is not truncated
-         .... ...0 .... .... = Recursion desired: Do not query recursively
-         .... .... 0... .... = Recursion available: Server can not do recursive queries
-         .... .... .0.. .... = Z: reserved (0)
-         .... .... ..0. .... = Answer authenticated: Answer/authority portion was authenticated by the server
-         .... .... ...1 .... = Non-authenticated data: Acceptable
-         .... .... .... 0000 = Reply code: No error (0)
-         */
-        
-        msg[2]=0x84;
-        msg[3]=0x10;
-        /* Change Opcode and flags */
-        msg[8]=0;msg[9]=0;   /* NSCOUNT */
-        msg[10]=0;msg[11]=0; /* ARCOUNT */
-        
-        if (rec) {
-            /* Keep request in message and add answer */
-            msg[n++]=0xC0; msg[n++]=off; /* Offset to the domain name */
-            
-            msg[n++]=0x00;
-            msg[n++]=rec->type;  /* Type */
-            
-            msg[n++]=0x00;msg[n++]=0x01; /* Class 1 */
-            msg[n++]=0x00;msg[n++]=0x00;msg[n++]=0x00;msg[n++]=0x3c; /* TTL */
-            
-            msg[6]=0;msg[7] = 1; /* Num answers */
-            uint32_t inaddr = rec->inaddr;
-            printf("[DNS] reply '%s' -> %d.%d.%d.%d\n", rec->key, (inaddr>>24)&0xFF, (inaddr>>16)&0xFF, (inaddr>>8)&0xFF, inaddr&0xFF);
-            switch(rec->type) {
-                case REC_A:
-                case REC_PTR:
-                    msg[n++]=0x00;msg[n++]=rec->size;
-                    memcpy(&msg[n], rec->data, rec->size);
-                    n += rec->size;
-                    break;
-                default:
-                    printf("[DNS] unknown query:%d ('%s')\n", rec->type, rec->key);
-                    break;
-            }
-        } else {
-            msg[6]=0;msg[7] = 0; /* Num answers */
-            printf("[DNS] no record found.\n");
-        }
-    }
-    
-    /* Send the answer */
-    xdr_write_data(m_out, msg, n);
-#if DBG
-    for (int i = 0; i < n; i++) {
-        printf("%02x ", msg[i]);
-    }
-    printf("\n");
-    for (int i = 0; i < m_out->size; i++) {
-        printf("%02x ", (m_out->data - m_out->size)[i]);
-    }
-    printf("\n");
-#endif
-    m_out->size = n; /* undo alignment */
-
-    csocket_send(pSocket);
-    
-    host_mutex_unlock(vdns.mutex);
 }
