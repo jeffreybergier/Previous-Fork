@@ -30,7 +30,7 @@
 #include "ctl.h"
 
 
-#define DBG 1
+#define DBG 0
 
 typedef enum {
     REC_A     = 1,  /* Host address */
@@ -112,6 +112,10 @@ static void vdns_delete_db(void) {
     }
 }
 
+static uint32_t swap_uint32(uint32_t val) {
+    val = ((val << 8) & 0xFF00FF00 ) | ((val >> 8) & 0xFF00FF ); 
+    return (val << 16) | (val >> 16);
+}
 
 static size_t domain_name(uint8_t* dst, const char* src) {
     size_t   result = strlen(src) + 2;
@@ -175,11 +179,10 @@ static void addRecord(uint32_t addr, const char* name) {
     rec = (struct vdns_record_t*)malloc(sizeof(struct vdns_record_t));
     rec->type   = REC_PTR;
     rec->inaddr = addr;
-    rec->key    = alloc_ip_addr_str(SDL_Swap32(addr), ".in-addr.arpa.");
+    rec->key    = alloc_ip_addr_str(swap_uint32(addr), ".in-addr.arpa.");
     rec->size   = domain_name(rec->data , name);
     vdns_add_record(rec);
 }
-
 
 static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
     int j;

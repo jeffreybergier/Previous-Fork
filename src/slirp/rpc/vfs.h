@@ -102,7 +102,7 @@ int vfs_stat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
 
 void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
 void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
-uint64_t vfs_get_fhandle(struct vfs_t* vfs, char* vfs_path);
+uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path);
 int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result);
 int vfs_read(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);
 int vfs_write(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);

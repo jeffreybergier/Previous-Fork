@@ -175,10 +175,6 @@ static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
     p[0] = '\0';
 }
 
-static void path_append(char* dst, const char* src) {
-    strcat(dst, src);
-}
-
 static int vfs_path_is_absolute(const char* path) {
     return strlen(path) > 0 && path[0] == '/';
 }
@@ -193,8 +189,7 @@ static const char* path_relative(const char* path, const char* base_path) {
 
 static void vfs_make_relative_path(struct vfs_t* vfs, const char* vfs_path, char* result) {
     strcpy(result, "/");
-    path_append(result, path_relative(vfs_path, vfs->vfs_base_path));
-    assert(vfs_path_is_absolute(result));
+    strcat(result, path_relative(vfs_path, vfs->vfs_base_path));
 }
 
 static void make_host_path(const char* host_base, char* vfs_path, char* host_path) {
@@ -222,7 +217,11 @@ static void make_host_path(const char* host_base, char* vfs_path, char* host_pat
 static void to_host_path(struct vfs_t* vfs, const char* vfs_path, char* host_path) {
     char path[RPC_MAXPATHLEN];
     
-    assert(vfs_path_is_absolute(vfs_path));
+    if (!vfs_path_is_absolute(vfs_path)) {
+        printf("path is not absolute\n");
+        strcpy(host_path, "");
+        return;
+    }
 
     vfs_make_relative_path(vfs, vfs_path, path);
     vfs_path_canonicalize(path, path);
@@ -399,7 +398,7 @@ int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
         mode &= ~(S_IWUSR  | S_IRUSR | S_ISVTX);
         mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restrcted delete from attributes */
 #endif
-        if(S_ISREG(fstat->st_mode) && fstat->st_size == 0 && (sattr.mode & S_IFMT)) {
+        if (S_ISREG(fstat->st_mode) && fstat->st_size == 0 && (sattr.mode & S_IFMT)) {
             /* mode heursitics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */
             mode &= ~S_IFMT;               /* clear format */
             mode |= (sattr.mode & S_IFMT); /* copy format from attributes */
@@ -487,7 +486,7 @@ void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
     to_host_path(vfs, vfs_path, host_path);
 #if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
-    if(lsetxattr(host_path, NFSD_ATTRS, buffer, strlen(buffer), 0) != 0)
+    if (lsetxattr(host_path, NFSD_ATTRS, buffer, strlen(buffer), 0) != 0)
 #else
     if (setxattr(host_path, NFSD_ATTRS, buffer, strlen(buffer), 0, XATTR_NOFOLLOW) != 0)
 #endif
@@ -502,7 +501,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
     to_host_path(vfs, vfs_path, host_path);
 #if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
-    if(lgetxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer)) == 0)
+    if (lgetxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer)) == 0)
 #else
     if (getxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer), 0, XATTR_NOFOLLOW) > 0)
 #endif
@@ -536,7 +535,7 @@ static uint64_t make_file_handle(struct stat* fstat) {
     return result;
 }
 
-uint64_t vfs_get_fhandle(struct vfs_t* vfs, char* vfs_path) {
+uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path) {
     struct stat fstat;
     uint64_t result = 0;
     
@@ -694,9 +693,9 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
 #else
     char zzPath[PATH_MAX];
     int len, ret;
-    strcpy(zzPath, fpath);
-    len = strlen(zzPath);
-    zzPath[len+1] = '\0';
+    strncpy(zzPath, fpath, PATH_MAX);
+    len = strnlen(zzPath, PATH_MAX - 1);
+    zzPath[len + 1] = '\0';
     SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
         FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
         false, 0, ""};
