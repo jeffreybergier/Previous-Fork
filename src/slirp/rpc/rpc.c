@@ -42,6 +42,8 @@
 
 #define DBG 0
 
+struct rpc_prog_t* rpc_prog_list;
+
 const struct rpc_prog_t rpc_prog_table_template[] = 
 {
     { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_UDP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL },

@@ -66,6 +66,8 @@
 #endif
 
 
+struct vfs_t* vfs;
+
 /* ----- VFS and host path */
 void vfs_path_canonicalize(const char* vfs_path, char* result) {
     memcpy(result, vfs_path, strnlen(vfs_path, RPC_MAXPATHLEN) + 1);

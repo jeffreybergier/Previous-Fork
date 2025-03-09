@@ -29,6 +29,8 @@
 #include "netinfobind.h"
 
 
+struct ni_prog_t* ni_register;
+
 const struct rpc_prog_t ni_rpc_prog_template = 
 {
     NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL

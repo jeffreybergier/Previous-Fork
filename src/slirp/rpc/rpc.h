@@ -80,7 +80,7 @@ struct rpc_prog_t {
     struct rpc_prog_t* next;
 };
 
-struct rpc_prog_t* rpc_prog_list;
+extern struct rpc_prog_t* rpc_prog_list;
 
 #define TBL_SIZE(x) (sizeof(x)/sizeof(x[0]))
 

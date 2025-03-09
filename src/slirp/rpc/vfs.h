@@ -1,11 +1,4 @@
-//
-//  FileTableNFSD.hpp
-//  Previous
-//
-//  Created by Simon Schubiger on 04.03.2019
-//  Wrapper to C language added by Andreas Grabher
-//  Renamed to vfs.h
-//
+/* Virtual File System */
 
 #ifndef _VFS_H_
 #define _VFS_H_
@@ -13,6 +6,8 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
+
+#define __USE_XOPEN_EXTENDED 1 /* required for Linux */
 #include <ftw.h>
 
 #ifdef _WIN32
@@ -86,7 +81,7 @@ struct vfs_t {
     uint32_t gid;
 };
 
-struct vfs_t* vfs;
+extern struct vfs_t* vfs;
 
 
 void vfs_path_canonicalize(const char* vfs_path, char* result);
