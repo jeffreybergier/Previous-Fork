@@ -29,7 +29,6 @@
 #include <sys/statvfs.h>
 #endif
 
-#include "vfs.h"
 #include "filetable.h"
 #include "rpc.h"
 #include "nfs.h"
@@ -100,23 +99,15 @@ static void setUserID(uint32_t uid, uint32_t gid) {
     vfs_set_default_uid_gid(vfs, uid, gid);
 }
 
-static int getPath(struct xdr_t* m_in, char* path, uint64_t* fhandle) {
-    char* vfs_path;
+static int getPath(struct xdr_t* m_in, char* vfs_path, uint64_t* fhandle) {
     uint64_t data[4];
-    int result;
     
     if (m_in->size < FHSIZE) return -1;
     xdr_read_data(m_in, (void*)data, FHSIZE);
     
     if (fhandle) *fhandle = data[0];
     
-    result = ft_get_canonical_path(nfsd_fts[0], data[0], &vfs_path);
-    
-    if (result) {
-        strncpy(path, vfs_path, RPC_MAXPATHLEN);
-    }
-    
-    return result;
+    return ft_get_canonical_path(nfsd_fts[0], data[0], vfs_path);
 }
 
 static int getFullPath(struct xdr_t* m_in, char* result) {

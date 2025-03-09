@@ -27,14 +27,14 @@ struct ft_t* nfsd_fts[1];
 uint64_t ft_get_fhandle(struct ft_t* ft, char* vfs_path);
 void ft_set_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr);
 void ft_get_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr);
-int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char** result);
+int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char* vfs_path);
 
 int ft_stat(struct ft_t* ft, const char* vfs_path, struct stat* fstat);
-void ft_move(struct ft_t* ft, uint64_t fhandle_from, char* absolute_path_to);
+void ft_move(struct ft_t* ft, uint64_t fhandle_from, char* vfs_path_to);
 void ft_remove(struct ft_t* ft, uint64_t fhandle);
 
 int ft_is_inited(struct ft_t* ft);
-int ft_path_changed(struct ft_t* ft, char* path);
+int ft_path_changed(struct ft_t* ft, char* host_path);
 
 struct ft_t* ft_init(const char* host_path, const char* base_path_alias);
 struct ft_t* ft_uninit(struct ft_t* ft);

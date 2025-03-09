@@ -136,21 +136,24 @@ int ft_is_inited(struct ft_t* ft) {
     return 0;
 }
 
-int ft_path_changed(struct ft_t* ft, char* path) {
-    if (strcmp(vfs->host_base_path, path)) {
+int ft_path_changed(struct ft_t* ft, char* host_path) {
+    if (strcmp(vfs->host_base_path, host_path)) {
         return 1;
     }
     return 0;
 }
 
-int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char** result) {
+int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char* vfs_path) {
+    char* result;
     int retval = 0;
     host_mutex_lock(ft->mutex);
     
-    *result = ft_find(ft, fhandle);
-    if (*result == NULL) {
+    result = ft_find(ft, fhandle);
+    if (result == NULL) {
+        strncpy(vfs_path, "", RPC_MAXPATHLEN);
         retval = 0;
     } else {
+        strncpy(vfs_path, result, RPC_MAXPATHLEN);
         retval = 1;
     }
     host_mutex_unlock(ft->mutex);
