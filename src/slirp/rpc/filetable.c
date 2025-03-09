@@ -26,8 +26,6 @@
 #include <stdlib.h>
 
 #include "rpc.h"
-#include "nfs.h"
-#include "vfs.h"
 #include "filetable.h"
 
 

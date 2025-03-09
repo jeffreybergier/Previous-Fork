@@ -48,7 +48,6 @@ static void write_in_addr(struct xdr_t* m_out, uint32_t addr) {
 }
 
 static int proc_whoami(struct rpc_t* rpc) {
-    int len;
     uint32_t addr, addr_type;
     char hostname[NAME_HOST_MAX];
     char domain[NAME_DOMAIN_MAX];

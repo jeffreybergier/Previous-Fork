@@ -71,7 +71,7 @@ int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
 
 
 static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
-    int i, result, mismatch;
+    int result, mismatch;
     struct rpc_prog_t* prog = rpc_prog_list;
     
     mismatch  = 0;
@@ -101,7 +101,6 @@ static void rpc_input(struct csocket_t* cs) {
     struct rpc_t rpc;
     uint32_t status;
     uint8_t* status_ptr;
-    uint8_t* header_ptr;
     
     struct xdr_t* m_in;
     struct xdr_t* m_out;

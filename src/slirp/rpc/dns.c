@@ -87,7 +87,6 @@ static void vdns_add_record(struct vdns_record_t* rec) {
 
 static struct vdns_record_t* vdns_find_record(char* key, vdns_rec_type type) {
     struct vdns_entry_t** entry = &vdns.db;
-    struct vdns_entry_t* next = NULL;
     
     while (*entry) {
         if (((*entry)->rec->type == type) &&  
@@ -156,7 +155,6 @@ static char* alloc_lowercase_name(const char* name, const char* suffix) {
 
 static void addRecord(uint32_t addr, const char* name) {
     struct vdns_record_t* rec;
-    size_t i;
     uint32_t inaddr = htonl(addr);
 
     rec = (struct vdns_record_t*)malloc(sizeof(struct vdns_record_t));
@@ -208,7 +206,7 @@ static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
 
 static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
     struct vdns_record_t* rec;
-    size_t n, offset;
+    size_t offset;
     char qname[RPC_MAXNAMELEN];
     char domain[RPC_MAXNAMELEN];
     vdns_rec_type qtype = to_dot(qname, data, size);

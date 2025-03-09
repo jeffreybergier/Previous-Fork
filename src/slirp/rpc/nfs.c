@@ -95,9 +95,6 @@ enum NFTYPE {
 
 static const int BLOCK_SIZE = 4096;
 
-static void setUserID(uint32_t uid, uint32_t gid) {
-    vfs_set_default_uid_gid(vfs, uid, gid);
-}
 
 static int getPath(struct xdr_t* m_in, char* vfs_path, uint64_t* fhandle) {
     uint64_t data[4];
@@ -258,27 +255,6 @@ static void set_sattr(struct vfs_t* vfs, char* vfs_path, struct sattr_t* sattr) 
     ft_set_sattr(nfsd_fts[0], vfs_path, &new);
 }
 
-static struct stat from_sattr(struct sattr_t* sattr) {
-    struct stat fstat;
-    
-    fstat.st_mode              = sattr->mode;
-    fstat.st_uid               = sattr->uid;
-    fstat.st_gid               = sattr->gid;
-    fstat.st_size              = sattr->size;
-#ifdef _WIN32
-    fstat.st_atime             = sattr->atime.sec;
-    fstat.st_mtime             = sattr->mtime.sec;
-#else
-    fstat.st_atimespec.tv_sec  = sattr->atime.sec;
-    fstat.st_atimespec.tv_nsec = sattr->atime.usec * 1000;
-    fstat.st_mtimespec.tv_sec  = sattr->mtime.sec;
-    fstat.st_mtimespec.tv_nsec = sattr->mtime.usec * 1000;
-#endif
-    fstat.st_rdev              = sattr->rdev;
-    
-    return fstat;
-}
-
 static void write_handle(struct xdr_t* m_out, uint64_t handle) {
     uint64_t data[4] = {handle,0,0,0};
     xdr_write_data(m_out, (void*)data, FHSIZE);
@@ -399,17 +375,16 @@ static int proc_read(struct rpc_t* rpc) {
     
     uint32_t offset;
     uint32_t count;
-    uint32_t totalcount;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
-        
+    
     if (m_in->size < 3 * 4) return RPC_GARBAGE_ARGS;
-    offset     = xdr_read_long(m_in);
-    count      = xdr_read_long(m_in);
-    totalcount = xdr_read_long(m_in); /* unused */
+    offset = xdr_read_long(m_in);
+    count  = xdr_read_long(m_in);
+    xdr_read_skip(m_in, 4); /* totalcount unused */
     
     rpc_log(rpc, "READ %s", path);
     
@@ -450,19 +425,17 @@ static int proc_write(struct rpc_t* rpc) {
     int len;
     int status;
     
-    uint32_t beginoffset; /* unused */
     uint32_t offset;
-    uint32_t totalcount;  /* unused */
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
-        
+    
     if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
-    beginoffset = xdr_read_long(m_in);
-    offset      = xdr_read_long(m_in);
-    totalcount  = xdr_read_long(m_in);
+    xdr_read_skip(m_in, 4); /* beginoffset unused */
+    offset = xdr_read_long(m_in);
+    xdr_read_skip(m_in, 4); /* totalcount unused */
     
     len = xdr_read_long(m_in);
     data = xdr_get_pointer(m_in); /* read by vfs_write() */
@@ -597,7 +570,6 @@ static int proc_rename(struct rpc_t* rpc) {
 static int proc_link(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
-    int err;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;

@@ -199,6 +199,7 @@ static int ni_prop_add(struct ni_prop_t** props, const char* key, const char* va
     }
     *props = (struct ni_prop_t*)malloc(sizeof(struct ni_prop_t));
     (*props)->key = strndup(key, RPC_MAXPATHLEN);
+    (*props)->val = NULL;
     ni_val_add(&(*props)->val, val);
     (*props)->next = NULL;
     return 0;
@@ -564,7 +565,7 @@ static uint32_t ni_node_checksum(struct ni_node_t* node) {
 }
 
 static struct ni_val_t* ni_node_get_prop_names(struct ni_node_t* node) {
-    struct ni_val_t* names;
+    struct ni_val_t* names = NULL;
     struct ni_prop_t* props = node->props;
     
     while (props) {

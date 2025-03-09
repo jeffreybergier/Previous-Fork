@@ -80,8 +80,6 @@ static void ni_add_program(struct ni_prog_t* prog) {
 
 void nibind_init(void) {
     int i;
-    struct rpc_prog_t* udp_prog;
-    struct rpc_prog_t* tcp_prog;
     
     struct ni_prog_t* prog;
     for (i = 0; i < TBL_SIZE(ni_prog_table_template); i++) {
@@ -118,7 +116,6 @@ static int proc_unregister(struct rpc_t* rpc) {
 }
 
 static int proc_getregister(struct rpc_t* rpc) {
-    int i;
     struct ni_prog_t* prog = NULL;
     char tag[RPC_MAXNAMELEN];
     
