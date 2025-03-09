@@ -14,7 +14,7 @@ const char Enet_slirp_fileid[] = "Previous enet_slirp.c";
 #include "queue.h"
 #include "host.h"
 #include "libslirp.h"
-#include "nfs/nfsd.h"
+#include "rpc/rpc.h"
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -170,6 +170,7 @@ void enet_slirp_stop(void) {
 
 void enet_slirp_uninit(void) {
     enet_slirp_stop();
+    rpc_uninit();
 }
 
 void enet_slirp_start(uint8_t *mac) {
@@ -196,5 +197,5 @@ void enet_slirp_start(uint8_t *mac) {
     }
     
     /* (re)start local nfs deamon */
-    nfsd_start();
+    rpc_reset();
 }
