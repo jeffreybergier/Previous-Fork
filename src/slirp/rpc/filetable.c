@@ -211,12 +211,10 @@ void ft_set_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr) {
     host_mutex_unlock(ft->mutex);
 }
 
-struct sattr_t ft_get_sattr(struct ft_t* ft, char* vfs_path) {
-    struct sattr_t fstat;
+void ft_get_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr) {
     host_mutex_lock(ft->mutex);
     
-    vfs_get_sattr(ft->vfs, vfs_path, &fstat);
+    vfs_get_sattr(ft->vfs, vfs_path, sattr);
     
     host_mutex_unlock(ft->mutex);
-    return fstat;
 }

@@ -26,7 +26,7 @@ struct ft_t* nfsd_fts[1];
 
 uint64_t ft_get_fhandle(struct ft_t* ft, char* vfs_path);
 void ft_set_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr);
-struct sattr_t ft_get_sattr(struct ft_t* ft, char* vfs_path);
+void ft_get_sattr(struct ft_t* ft, char* vfs_path, struct sattr_t* sattr);
 int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char** result);
 
 int ft_stat(struct ft_t* ft, const char* vfs_path, struct stat* fstat);

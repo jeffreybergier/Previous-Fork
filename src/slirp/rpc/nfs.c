@@ -127,7 +127,9 @@ static int getFullPath(struct xdr_t* m_in, char* result) {
     if (status <= 0) return status;
     
     if (xdr_read_string(m_in, path) < 0) return -1;
-    if (result[strlen(result)-1] != '/') strncat(result, "/", RPC_MAXPATHLEN);
+    if (strlen(result) > 0 && result[strlen(result)-1] != '/') {
+        strncat(result, "/", RPC_MAXPATHLEN);
+    }
     strncat(result, path, RPC_MAXPATHLEN);
     return 1;
 }
@@ -233,7 +235,9 @@ static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
 }
 
 static void set_sattr(struct vfs_t* vfs, char* vfs_path, struct sattr_t* sattr) {
-    struct sattr_t new = ft_get_sattr(nfsd_fts[0], vfs_path);
+    struct sattr_t new;
+    
+    ft_get_sattr(nfsd_fts[0], vfs_path, &new);
     
     if (valid16(sattr->mode)) {
         new.mode &= S_IFMT;
@@ -478,7 +482,7 @@ static int proc_write(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    sattr = ft_get_sattr(nfsd_fts[0], path);
+    ft_get_sattr(nfsd_fts[0], path, &sattr);
     if ((sattr.mode & S_IFMT) == S_IFREG) {
         status = vfs_write(vfs, path, offset, data, len);
         if (status > 0) {
@@ -741,7 +745,7 @@ static int proc_readdir(struct rpc_t* rpc) {
 #ifdef _WIN32
             char pth[RPC_MAXPATHLEN];
             strncpy(pth, path, RPC_MAXPATHLEN);
-            if (pth[strlen(pth)-1] != '/') strncat(pth, "/", RPC_MAXPATHLEN);
+            if (strlen(pth) > 0 && pth[strlen(pth)-1] != '/') strncat(pth, "/", RPC_MAXPATHLEN);
             strncat(pth, name, RPC_MAXPATHLEN);
             const uint64_t fileno = ft_get_fhandle(nfsd_fts[0], pth);
             xdr_write_long(m_out, 1); /* value follows */

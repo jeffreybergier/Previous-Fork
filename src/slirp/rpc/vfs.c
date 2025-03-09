@@ -172,7 +172,7 @@ static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
     char* p;
     strncpy(parent_path, vfs_path, RPC_MAXPATHLEN);
     p = strrchr(parent_path, '/');
-    p[0] = '\0';
+    if (p) p[0] = '\0';
 }
 
 static int vfs_path_is_absolute(const char* path) {

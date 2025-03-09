@@ -27,7 +27,6 @@
 
 #include "rpc.h"
 #include "mount.h"
-#include "vfs.h"
 #include "filetable.h"
 
 

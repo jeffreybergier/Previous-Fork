@@ -98,7 +98,7 @@ static int proc_getfile(struct rpc_t* rpc) {
     
     vfs_get_basepath_alias(vfs, path, RPC_MAXPATHLEN);
     if (strncmp("root", key, RPC_MAXNAMELEN)) {
-        if (strlen(path) > 1 || path[0] != '/') {
+        if (strlen(path) > 0 && path[strlen(path)-1] != '/') {
             strncat(path, "/", RPC_MAXPATHLEN);
         }
         strncat(path, key, RPC_MAXPATHLEN);
