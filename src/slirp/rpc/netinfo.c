@@ -130,7 +130,7 @@ static int ni_val_add(struct ni_val_t** vals, const char* val) {
         return 1;
     }
     *vals = (struct ni_val_t*)malloc(sizeof(struct ni_val_t));
-    (*vals)->val = strndup(val, RPC_MAXPATHLEN);
+    (*vals)->val = strdup(val);
     (*vals)->next = NULL;
     return 0;
 }
@@ -198,7 +198,7 @@ static int ni_prop_add(struct ni_prop_t** props, const char* key, const char* va
         return 1;
     }
     *props = (struct ni_prop_t*)malloc(sizeof(struct ni_prop_t));
-    (*props)->key = strndup(key, RPC_MAXPATHLEN);
+    (*props)->key = strdup(key);
     (*props)->val = NULL;
     ni_val_add(&(*props)->val, val);
     (*props)->next = NULL;

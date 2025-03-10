@@ -60,8 +60,8 @@ uint16_t udpsocket_open(struct udpsocket_t* us, uint16_t nPort) {
     socklen_t size = 64 * 1024;
     socklen_t len  = sizeof(size);
 #ifdef _WIN32
-    setsockopt(m_Socket, SOL_SOCKET, SO_SNDBUF, (const char*)&size, len);
-    setsockopt(m_Socket, SOL_SOCKET, SO_RCVBUF, (const char*)&size, len);
+    setsockopt(us->m_Socket, SOL_SOCKET, SO_SNDBUF, (const char*)&size, len);
+    setsockopt(us->m_Socket, SOL_SOCKET, SO_RCVBUF, (const char*)&size, len);
 #else
     setsockopt(us->m_Socket, SOL_SOCKET, SO_SNDBUF, &size, len);
     setsockopt(us->m_Socket, SOL_SOCKET, SO_RCVBUF, &size, len);

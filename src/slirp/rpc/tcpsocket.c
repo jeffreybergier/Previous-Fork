@@ -30,7 +30,7 @@
 #include "tcpsocket.h"
 
 
-static const int BACKLOG = 16;
+#define BACKLOG 16
 
 static int ThreadProc(void *lpParameter) {
     tcpsocket_run((struct tcpsocket_t*)lpParameter);

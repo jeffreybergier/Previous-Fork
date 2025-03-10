@@ -39,10 +39,10 @@
 #endif
 
 #ifdef _WIN32
-#include <Windows.h>
 #include <fileapi.h>
 #include <errhandlingapi.h>
 #include <shellapi.h>
+#include <stdbool.h>
 
 #else
 
@@ -395,7 +395,7 @@ int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
         uint32_t mode = fstat->st_mode; /* copy format & permissions from actual file in the file system */
 #ifdef _WIN32
         mode &= ~(S_IWUSR  | S_IRUSR);
-        mode |= attrs.mode & (S_IWUSR | S_IRUSR); /* copy user R/W permissions and directory restrcted delete from attributes */
+        mode |= sattr.mode & (S_IWUSR | S_IRUSR); /* copy user R/W permissions and directory restrcted delete from attributes */
 #else
         mode &= ~(S_IWUSR  | S_IRUSR | S_ISVTX);
         mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restrcted delete from attributes */
@@ -735,12 +735,11 @@ int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) 
     if (!res) {
         return GetLastError();
     }
-    static const int BLOCK_SIZE = sectorsPerCluster * bytesPerSector;
-    fsstat.f_bsize = BLOCK_SIZE;
-    fsstat.f_frsize = BLOCK_SIZE;
-    fsstat.f_blocks = totalClusters;
-    fsstat.f_bfree = freeClusters;
-    fsstat.f_bavail = freeClusters;
+    fsstat->f_bsize  = sectorsPerCluster * bytesPerSector; /* BLOCK_SIZE */
+    fsstat->f_frsize = sectorsPerCluster * bytesPerSector;
+    fsstat->f_blocks = totalClusters;
+    fsstat->f_bfree  = freeClusters;
+    fsstat->f_bavail = freeClusters;
     return 0;
 #endif
 }

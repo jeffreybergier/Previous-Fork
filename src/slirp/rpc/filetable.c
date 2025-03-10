@@ -191,7 +191,7 @@ void ft_remove(struct ft_t* ft, uint64_t fhandle) {
     host_mutex_unlock(ft->mutex);
 }
 
-uint64_t ft_get_fhandle(struct ft_t* ft, char* vfs_path) {
+uint64_t ft_get_fhandle(struct ft_t* ft, const char* vfs_path) {
     char path[RPC_MAXPATHLEN];
     uint64_t fhandle;
 

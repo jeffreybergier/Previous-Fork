@@ -60,8 +60,8 @@ static int mnt_add(char* name, char* path) {
         return 1;
     }
     *entry = (struct mount_t*)malloc(sizeof(struct mount_t));
-    (*entry)->name = strndup(name, INET_ADDRSTRLEN);
-    (*entry)->path = strndup(path, RPC_MAXPATHLEN);
+    (*entry)->name = strdup(name);
+    (*entry)->path = strdup(path);
     (*entry)->next = NULL;
     return 0;
 }
