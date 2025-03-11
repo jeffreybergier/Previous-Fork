@@ -11,10 +11,6 @@
 #include <ftw.h>
 
 #ifdef _WIN32
-#include <Winsock2.h>
-#include <Windows.h>
-#include <ws2tcpip.h>
-#include <stdint.h>
 typedef uint32_t fsblkcnt_t;
 typedef uint32_t fsfilcnt_t;
 struct statvfs

@@ -39,6 +39,9 @@
 #endif
 
 #ifdef _WIN32
+#include <Winsock2.h>
+#include <Windows.h>
+#include <ws2tcpip.h>
 #include <fileapi.h>
 #include <errhandlingapi.h>
 #include <shellapi.h>
