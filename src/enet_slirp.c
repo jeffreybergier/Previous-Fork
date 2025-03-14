@@ -16,14 +16,6 @@ const char Enet_slirp_fileid[] = "Previous enet_slirp.c";
 #include "libslirp.h"
 #include "rpc/rpc.h"
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#else
-#undef TCHAR
-#include <winsock2.h>
-int inet_aton(const char *cp, struct in_addr *addr);
-#endif
-
 #define LOG_EN_SLIRP_LEVEL LOG_DEBUG
 
 /****************/
