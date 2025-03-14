@@ -389,12 +389,14 @@ int VirtualFS::remove(const char* fpath, const struct stat* /*sb*/, int /*typefl
     return 0;
 }
 
+#ifndef _WIN32
 static uint64_t make_file_handle(const struct stat& fstat) {
     uint64_t result = fstat.st_dev;
     result = rotl(result, 32) ^ fstat.st_ino;
     if(result == 0) result = ~result;
     return result;
 }
+#endif
 
 uint64_t VirtualFS::getFileHandle(const VFSPath& absoluteVFSPath) {
     VFSPath path = removeAlias(absoluteVFSPath);
