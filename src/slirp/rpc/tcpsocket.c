@@ -37,7 +37,7 @@ static int ThreadProc(void *lpParameter) {
     return 0;
 }
 
-struct tcpsocket_t* tcpsocket_init(socket_listener_t pListener) {
+struct tcpsocket_t* tcpsocket_init(socket_listener_t* pListener) {
     struct tcpsocket_t* ts = (struct tcpsocket_t*)malloc(sizeof(struct tcpsocket_t));
     if (ts) {
         ts->m_nPort        = 0;
@@ -123,7 +123,7 @@ void tcpsocket_run(struct tcpsocket_t* ts) {
     int i;
     socklen_t nSize;
     struct sockaddr_in remoteAddr;
-    int socket;
+    sock_t socket;
     
     nSize = sizeof(remoteAddr);
     while (!(ts->m_nClosed)) {

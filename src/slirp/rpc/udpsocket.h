@@ -6,14 +6,14 @@
 #include "csocket.h"
 
 struct udpsocket_t {
-    uint16_t          m_nPort;
-    int               m_Socket;
-    struct csocket_t* m_pSocket;
-    int               m_nClosed;
-    socket_listener_t m_pListener;
+    uint16_t           m_nPort;
+    sock_t             m_Socket;
+    struct csocket_t*  m_pSocket;
+    int                m_nClosed;
+    socket_listener_t* m_pListener;
 };
 
-struct udpsocket_t* udpsocket_init(socket_listener_t pListener);
+struct udpsocket_t* udpsocket_init(socket_listener_t* pListener);
 struct udpsocket_t* udpsocket_uninit(struct udpsocket_t* us);
 
 uint16_t udpsocket_open(struct udpsocket_t* us, uint16_t nPort);

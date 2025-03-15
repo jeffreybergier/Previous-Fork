@@ -30,7 +30,7 @@
 #include "udpsocket.h"
 
 
-struct udpsocket_t* udpsocket_init(socket_listener_t pListener) {
+struct udpsocket_t* udpsocket_init(socket_listener_t* pListener) {
     struct udpsocket_t* us = (struct udpsocket_t*)malloc(sizeof(struct udpsocket_t));
     if (us) {
         us->m_nPort     = 0;

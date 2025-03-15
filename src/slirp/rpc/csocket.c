@@ -66,7 +66,7 @@ struct csocket_t* csocket_uninit(struct csocket_t* cs) {
     return NULL;
 }
 
-void csocket_open(struct csocket_t* cs, int socket, socket_listener_t pListener, struct sockaddr_in *pRemoteAddr) {
+void csocket_open(struct csocket_t* cs, sock_t socket, socket_listener_t* pListener, struct sockaddr_in *pRemoteAddr) {
     csocket_close(cs);
     
     cs->m_Socket = socket;

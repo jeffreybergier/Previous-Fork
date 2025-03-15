@@ -8,13 +8,20 @@
 
 struct csocket_t;
 
-typedef void (*socket_listener_t)(struct csocket_t* pSocket);
+typedef void (socket_listener_t)(struct csocket_t* pSocket);
+
+#ifdef _WIN32
+typedef SOCKET sock_t;
+#else
+#define INVALID_SOCKET -1
+typedef int sock_t;
+#endif
 
 struct csocket_t {
     int                m_nType;
-    int                m_Socket;
+    sock_t             m_Socket;
     struct sockaddr_in m_RemoteAddr;
-    socket_listener_t  m_pListener;
+    socket_listener_t* m_pListener;
     int                m_nActive;
     thread_t*          m_hThread;
     struct xdr_t*      m_Input;
@@ -22,15 +29,11 @@ struct csocket_t {
     int                m_serverPort;
 };
 
-#ifndef _WIN32
-#define INVALID_SOCKET -1
-#endif
-
 struct csocket_t* csocket_init(int nType, int serverPort);
 struct csocket_t* csocket_uninit(struct csocket_t* cs);
 
 void csocket_run(struct csocket_t* cs);
-void csocket_open(struct csocket_t* cs, int socket, socket_listener_t pListener, struct sockaddr_in *pRemoteAddr);
+void csocket_open(struct csocket_t* cs, sock_t socket, socket_listener_t* pListener, struct sockaddr_in *pRemoteAddr);
 void csocket_close(struct csocket_t* cs);
 void csocket_send(struct csocket_t* cs);
 
