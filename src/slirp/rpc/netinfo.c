@@ -332,6 +332,7 @@ static struct ni_node_t* ni_node_init(struct ni_id_map_t** idmap, struct ni_node
     new->parent   = parent;
     new->props    = NULL;
     new->children = NULL;
+    new->next     = NULL;
     return new;
 }
 
