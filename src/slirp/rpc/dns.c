@@ -149,7 +149,7 @@ static char* alloc_lowercase_name(const char* name, const char* suffix) {
         result[i] = tolower(name[i]);
     }
     result[size] = '\0';
-    strncat(result, suffix, RPC_MAXNAMELEN);
+    strlcat(result, suffix, RPC_MAXNAMELEN);
     return result;
 }
 
@@ -219,7 +219,7 @@ static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
         return rec;
     }
     
-    snprintf(domain, RPC_MAXNAMELEN, "%s.", NAME_DOMAIN);
+    snprintf(domain, sizeof(domain), "%s.", NAME_DOMAIN);
     offset = strlen(qname) - strlen(domain);
     if (offset >= 0) {
         if (strncmp(qname + offset, domain, strlen(domain)) == 0) {

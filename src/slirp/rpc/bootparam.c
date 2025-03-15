@@ -69,10 +69,10 @@ static int proc_whoami(struct rpc_t* rpc) {
             return RPC_GARBAGE_ARGS;
     }
     
-    strncpy(hostname, NAME_HOST, NAME_HOST_MAX);
-    strncpy(domain, "", NAME_DOMAIN_MAX); /* No NIS domain */
-    xdr_write_string(m_out, NAME_HOST_MAX, hostname);
-    xdr_write_string(m_out, NAME_DOMAIN_MAX, &domain[domain[0] == '.' ? 1 : 0]);
+    strlcpy(hostname, NAME_HOST, NAME_HOST_MAX);
+    strlcpy(domain, "", NAME_DOMAIN_MAX); /* No NIS domain */
+    xdr_write_string(m_out, hostname, sizeof(hostname));
+    xdr_write_string(m_out, domain, sizeof(domain));
     xdr_write_long(m_out, IP_ADDR_TYPE);
     write_in_addr(m_out, ntohl(special_addr.s_addr) | CTL_GATEWAY);
     return RPC_SUCCESS;
@@ -88,26 +88,27 @@ static int proc_getfile(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    client_len = xdr_read_string(m_in, client);
-    key_len    = xdr_read_string(m_in, key);
+    client_len = xdr_read_string(m_in, client, sizeof(client));
+    key_len    = xdr_read_string(m_in, key, sizeof(key));
     
     if (client_len < 0 || key_len < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key);
     
-    vfs_get_basepath_alias(vfs, path, RPC_MAXPATHLEN);
-    if (strncmp("root", key, RPC_MAXNAMELEN)) {
-        if (strlen(path) > 0 && path[strlen(path)-1] != '/') {
-            strncat(path, "/", RPC_MAXPATHLEN);
+    vfs_get_basepath_alias(vfs, path, sizeof(path));
+    if (strncmp("root", key, sizeof(key))) {
+        int len = strlen(path);
+        if (len > 0 && path[len-1] != '/') {
+            strlcat(path, "/", sizeof(path));
         }
-        strncat(path, key, RPC_MAXPATHLEN);
+        strlcat(path, key, sizeof(path));
     }
     
     if (strlen(path)) {
-        xdr_write_string(m_out, NAME_HOST_MAX, NAME_NFSD);
+        xdr_write_string(m_out, NAME_NFSD, sizeof(NAME_NFSD));
         xdr_write_long(m_out, IP_ADDR_TYPE);
         write_in_addr(m_out, ntohl(special_addr.s_addr) | CTL_NFSD);
-        xdr_write_string(m_out, RPC_MAXPATHLEN, path);
+        xdr_write_string(m_out, path, sizeof(path));
         return RPC_SUCCESS;
     } else {
         rpc_log(rpc, "Unknown key: %s", key);

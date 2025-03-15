@@ -107,19 +107,19 @@ static int getPath(struct xdr_t* m_in, char* vfs_path, uint64_t* fhandle) {
     return ft_get_canonical_path(nfsd_fts[0], data[0], vfs_path);
 }
 
-static int getFullPath(struct xdr_t* m_in, char* result) {
+static int getFullPath(struct xdr_t* m_in, char* vfs_path, int maxlen) {
     char path[RPC_MAXPATHLEN];
-    int status;
+    int status, len;
     
-    status = getPath(m_in, result, NULL);
+    status = getPath(m_in, vfs_path, NULL);
     if (status <= 0) return status;
     
-    if (xdr_read_string(m_in, path) < 0) return -1;
-    if (strlen(result) > 0 && result[strlen(result)-1] != '/') {
-        strncat(result, "/", RPC_MAXPATHLEN);
+    if (xdr_read_string(m_in, path, sizeof(path)) < 0) return -1;
+    len = strlen(vfs_path);
+    if (len > 0 && vfs_path[len-1] != '/') {
+        strlcat(vfs_path, "/", maxlen);
     }
-    strncat(result, path, RPC_MAXPATHLEN);
-    return 1;
+    return strlcat(vfs_path, path, maxlen);
 }
 
 static int checkFile(struct xdr_t* m_out, const char* path) {
@@ -141,6 +141,21 @@ static int checkFile(struct xdr_t* m_out, const char* path) {
     }
     
     return 1;
+}
+
+static int checkSize(struct xdr_t* m_out, int len, int maxlen) {
+    if (len >= maxlen) {
+        xdr_write_long(m_out, NFSERR_NAMETOOLONG);
+        return 0;
+    }
+    return 1;
+}
+
+static int checkSizeAndFile(struct xdr_t* m_out, const char* path, int len, int maxlen) {
+    if (checkSize(m_out, len, maxlen)) {
+        return checkFile(m_out, path);
+    }
+    return 0;
 }
 
 static int write_fattr(struct xdr_t* m_out, const char* path) {
@@ -318,15 +333,15 @@ static int proc_root(struct rpc_t* rpc) {
 
 static int proc_lookup(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    int len;
     uint64_t fhandle;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
-
-    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
     
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
+    if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
+    
+    if (checkSizeAndFile(m_out, path, len, sizeof(path)) == 0) return RPC_SUCCESS;
     
     fhandle = ft_get_fhandle(nfsd_fts[0], path);
     if (fhandle) {
@@ -361,7 +376,7 @@ static int proc_readlink(struct rpc_t* rpc) {
         xdr_write_long(m_out, nfs_err(err));
     } else {
         xdr_write_long(m_out, NFS_OK);
-        xdr_write_string(m_out, RPC_MAXPATHLEN, result);
+        xdr_write_string(m_out, result, sizeof(result));
     }
     
     return RPC_SUCCESS;
@@ -465,20 +480,21 @@ static int proc_write(struct rpc_t* rpc) {
 
 static int proc_create(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    int len;
     struct sattr_t sattr;
     int status;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    status = getFullPath(m_in, path);
-    if (status < 0) return RPC_GARBAGE_ARGS;
+    if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "CREATE %s", path);
     
-    if (status == 0) return RPC_SUCCESS;
-        
+    if (len == 0) return RPC_SUCCESS;
+    if (checkSize(m_out, len, sizeof(path)) == 0) return RPC_SUCCESS;
+    
     if (!(valid16(sattr.uid))) sattr.uid = vfs_get_uid(vfs, path, 0);
     if (!(valid16(sattr.gid))) sattr.gid = vfs_get_gid(vfs, path, 1);
     
@@ -521,18 +537,18 @@ static int proc_create(struct rpc_t* rpc) {
 
 static int proc_remove(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    int len;
     uint64_t fhandle;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
+    if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "REMOVE %s", path);
     
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
+    if (checkSizeAndFile(m_out, path, len, sizeof(path)) == 0) return RPC_SUCCESS;
     
     fhandle = ft_get_fhandle(nfsd_fts[0], path);
     err = nfs_err(vfs_remove(vfs, path));
@@ -545,19 +561,21 @@ static int proc_remove(struct rpc_t* rpc) {
 static int proc_rename(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
+    int lenFrom;
+    int lenTo;
     uint64_t fhandleFrom;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (getFullPath(m_in, pathFrom) < 0) return RPC_GARBAGE_ARGS;
-    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
+    if ((lenFrom = getFullPath(m_in, pathFrom, sizeof(pathFrom))) < 0) return RPC_GARBAGE_ARGS;
+    if ((lenTo = getFullPath(m_in, pathTo, sizeof(pathTo))) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "RENAME %s->%s", pathFrom, pathTo);
     
-    if (!(checkFile(m_out, pathFrom)))
-        return RPC_SUCCESS;
+    if (checkSizeAndFile(m_out, pathFrom, lenFrom, sizeof(pathFrom)) == 0) return RPC_SUCCESS;
+    if (checkSize(m_out, lenTo, sizeof(pathTo)) == 0) return RPC_SUCCESS;
     
     fhandleFrom = ft_get_fhandle(nfsd_fts[0], pathFrom);
     err = nfs_err(vfs_rename(vfs, pathFrom, pathTo));
@@ -570,14 +588,17 @@ static int proc_rename(struct rpc_t* rpc) {
 static int proc_link(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
+    int lenTo;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
     if (getPath(m_in, pathFrom, NULL) < 0) return RPC_GARBAGE_ARGS;
-    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
+    if ((lenTo = getFullPath(m_in, pathTo, sizeof(pathTo))) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "LINK %s->%s", pathFrom, pathTo);
+    
+    if (checkSize(m_out, lenTo, sizeof(pathTo)) == 0) return RPC_SUCCESS;
     
     xdr_write_long(m_out, nfs_err(vfs_link(vfs, pathFrom, pathTo, 0)));
     
@@ -587,18 +608,23 @@ static int proc_link(struct rpc_t* rpc) {
 static int proc_symlink(struct rpc_t* rpc) {
     char pathFrom[RPC_MAXPATHLEN];
     char pathTo[RPC_MAXPATHLEN];
+    int lenFrom;
+    int lenTo;
     int err;
     struct sattr_t sattr;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (getFullPath(m_in, pathTo) < 0) return RPC_GARBAGE_ARGS;
-    if (xdr_read_string(m_in, pathFrom) < 0) return RPC_GARBAGE_ARGS;
+    if ((lenTo = getFullPath(m_in, pathTo, sizeof(pathTo))) < 0) return RPC_GARBAGE_ARGS;
+    if ((lenFrom = xdr_read_string(m_in, pathFrom, sizeof(pathFrom))) < 0) return RPC_GARBAGE_ARGS;
         
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "SYMLINK %s->%s", pathFrom, pathTo);
+    
+    if (checkSize(m_out, lenFrom, sizeof(pathFrom)) == 0) return RPC_SUCCESS;
+    if (checkSize(m_out, lenTo, sizeof(pathTo)) == 0) return RPC_SUCCESS;
     
     err = vfs_link(vfs, pathFrom, pathTo, 1);
     if(!(err)) set_sattr(vfs, pathTo, &sattr);
@@ -609,20 +635,21 @@ static int proc_symlink(struct rpc_t* rpc) {
 
 static int proc_mkdir(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
-    int status;
+    int len;
     int err;
     struct sattr_t sattr;
 
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
 
-    status = getFullPath(m_in, path);
-    if (status < 0) return RPC_GARBAGE_ARGS;
-    if (status == 0) return RPC_SUCCESS;
+    if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
     
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "MKDIR");
+    
+    if (len == 0) return RPC_SUCCESS;
+    if (checkSize(m_out, len, sizeof(path)) == 0) return RPC_SUCCESS;
     
     err = vfs_mkdir(vfs, path, DEFAULT_PERM);
     if (err) {
@@ -639,18 +666,18 @@ static int proc_mkdir(struct rpc_t* rpc) {
 
 static int proc_rmdir(struct rpc_t* rpc) {
     char path[RPC_MAXPATHLEN];
+    int len;
     uint64_t fhandle;
     int err;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (getFullPath(m_in, path) < 0) return RPC_GARBAGE_ARGS;
+    if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "RMDIR");
     
-    if (!(checkFile(m_out, path)))
-        return RPC_SUCCESS;
+    if (checkSizeAndFile(m_out, path, len, sizeof(path)) == 0) return RPC_SUCCESS;
     
     fhandle = ft_get_fhandle(nfsd_fts[0], path);
     err = nfs_err(vfs_nftw(vfs, path, vfs_rmdir, 3, FTW_DEPTH | FTW_PHYS));
@@ -702,19 +729,22 @@ static int proc_readdir(struct rpc_t* rpc) {
             xdr_write_long(m_out, 1); /* value follows */
             xdr_write_long(m_out, vfs_file_id(fileinfo->d_ino));
 #endif
-            strncpy(name, fileinfo->d_name, namelen);
+            if (namelen >= sizeof(name)) {
+                rpc_log(rpc, "name too long");
+                namelen = sizeof(name) - 1;
+            }
+            memcpy(name, fileinfo->d_name, namelen);
             name[namelen] = '\0';
             rpc_log(rpc, "%d %s %s", cookie, path, name);
 #ifdef _WIN32
             char pth[RPC_MAXPATHLEN];
-            strncpy(pth, path, RPC_MAXPATHLEN);
-            if (strlen(pth) > 0 && pth[strlen(pth)-1] != '/') strncat(pth, "/", RPC_MAXPATHLEN);
-            strncat(pth, name, RPC_MAXPATHLEN);
-            const uint64_t fileno = ft_get_fhandle(nfsd_fts[0], pth);
+            int pth_len = strlcpy(pth, path, sizeof(pth));
+            if (pth_len > 0 && pth[pth_len-1] != '/') strlcat(pth, "/", sizeof(pth));
+            strlcat(pth, name, sizeof(pth));
             xdr_write_long(m_out, 1); /* value follows */
-            xdr_write_long(m_out, vfs_file_id(fileno));
+            xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(nfsd_fts[0], pth)));
 #endif
-            xdr_write_string(m_out, RPC_MAXNAMELEN, name);
+            xdr_write_string(m_out, name, sizeof(name));
             xdr_write_long(m_out, cookie+1);
             cookie++;
             if (m_out->size >= count - 128) { /* 128: give some space for XDR data */

@@ -124,7 +124,7 @@ static int proc_getregister(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (xdr_read_string(m_in, tag) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, tag, sizeof(tag)) < 0) return RPC_GARBAGE_ARGS;
     
     prog = ni_register;
     while (prog) {
@@ -182,8 +182,8 @@ static int proc_bind(struct rpc_t* rpc) {
     if (m_in->size < 4) return RPC_GARBAGE_ARGS;
     clientAddr = xdr_read_long(m_in);
     
-    if (xdr_read_string(m_in, clientTag) < 0) return RPC_GARBAGE_ARGS;
-    if (xdr_read_string(m_in, serverTag) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, clientTag, sizeof(clientTag)) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, serverTag, sizeof(serverTag)) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "BIND '%s' to '%s'", clientTag, serverTag);
 

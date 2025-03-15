@@ -11,12 +11,12 @@ struct xdr_t {
 };
 
 uint32_t xdr_read_long(struct xdr_t* xdr);
-int      xdr_read_string(struct xdr_t* xdr, char* str);
+int      xdr_read_string(struct xdr_t* xdr, char* str, int maxlen);
 int      xdr_read_data(struct xdr_t* xdr, void* data, int len);
 int      xdr_read_skip(struct xdr_t* xdr, int size);
 
 void xdr_write_long(struct xdr_t* xdr, uint32_t val);
-void xdr_write_string(struct xdr_t* xdr, int maxlen, const char* str);
+void xdr_write_string(struct xdr_t* xdr, const char* str, int maxlen);
 void xdr_write_data(struct xdr_t* xdr, void* data, int len);
 void xdr_write_skip(struct xdr_t* xdr, int size);
 

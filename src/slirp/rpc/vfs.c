@@ -175,7 +175,7 @@ static const char* vfs_get_filename(const char* vfs_path) {
 
 static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
     char* p;
-    strncpy(parent_path, vfs_path, RPC_MAXPATHLEN);
+    strcpy(parent_path, vfs_path);
     p = strrchr(parent_path, '/');
     if (p) p[0] = '\0';
 }
@@ -200,10 +200,10 @@ static void vfs_make_relative_path(struct vfs_t* vfs, const char* vfs_path, char
 static void make_host_path(const char* host_base, char* vfs_path, char* host_path) {
     char* p;
     
-    strncpy(host_path, host_base, PATH_MAX);
+    strlcpy(host_path, host_base, PATH_MAX);
     
     if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR)) {
-        strncat(host_path, HOST_SEPARATOR, PATH_MAX);
+        strlcat(host_path, HOST_SEPARATOR, PATH_MAX);
     }
     
     if (vfs_path_is_absolute(vfs_path)) {
@@ -212,11 +212,11 @@ static void make_host_path(const char* host_base, char* vfs_path, char* host_pat
     
     while ((p = strchr(vfs_path, '/'))) {
         p[0] = '\0';
-        strncat(host_path, vfs_path, PATH_MAX);
-        strncat(host_path, HOST_SEPARATOR, PATH_MAX);
+        strlcat(host_path, vfs_path, PATH_MAX);
+        strlcat(host_path, HOST_SEPARATOR, PATH_MAX);
         vfs_path = p + 1;
     }
-    strncat(host_path, vfs_path, PATH_MAX);
+    strlcat(host_path, vfs_path, PATH_MAX);
 }
 
 static void to_host_path(struct vfs_t* vfs, const char* vfs_path, char* host_path) {
@@ -241,11 +241,11 @@ static void make_vfs_path(const char* vfs_base, const char* host_path, char* vfs
     
     while ((p = strstr(host_path, HOST_SEPARATOR))) {
         p[0] = '\0';
-        strncat(vfs_path, host_path, RPC_MAXPATHLEN);
-        strncat(vfs_path, "/", RPC_MAXPATHLEN);
+        strlcat(vfs_path, host_path, RPC_MAXPATHLEN);
+        strlcat(vfs_path, "/", RPC_MAXPATHLEN);
         host_path = p + strlen(HOST_SEPARATOR);
     }
-    strncat(vfs_path, host_path, RPC_MAXPATHLEN);
+    strlcat(vfs_path, host_path, RPC_MAXPATHLEN);
 }
 
 static void to_vfs_path(struct vfs_t* vfs, const char* host_path, char* vfs_path) {    
@@ -698,7 +698,7 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
 #else
     char zzPath[PATH_MAX];
     int len, ret;
-    strncpy(zzPath, fpath, PATH_MAX);
+    strlcpy(zzPath, fpath, PATH_MAX);
     len = strnlen(zzPath, PATH_MAX - 1);
     zzPath[len + 1] = '\0';
     SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
@@ -776,5 +776,5 @@ void vfs_set_default_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid) {
 }
 
 void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen) {
-    strncpy(path, vfs->vfs_base_path, maxlen);
+    strlcpy(path, vfs->vfs_base_path, maxlen);
 }
