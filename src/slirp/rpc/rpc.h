@@ -28,10 +28,6 @@
 #define RPC_PROC_UNAVAIL  3
 #define RPC_GARBAGE_ARGS  4
 
-/* Some definitions */
-#define RPC_MAXPATHLEN    1024
-#define RPC_MAXNAMELEN    255
-
 /* The size in bytes of the opaque file handle. */
 #define FHSIZE      32
 #define FHSIZE_NFS3 64

@@ -80,6 +80,12 @@ struct vfs_t {
 
 extern struct vfs_t* vfs;
 
+/* The maximum number of bytes in a pathname argument. */
+#define MAXPATHLEN 1024
+
+/* The maximum number of bytes in a filename argument. */
+#define MAXNAMELEN 255
+
 int vfscpy(char* dst, const char* src, int size);
 int vfscat(char* dst, const char* src, int size);
 

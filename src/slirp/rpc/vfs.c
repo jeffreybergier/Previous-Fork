@@ -24,7 +24,6 @@
  */
 #include "config.h"
 
-#include <limits.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <assert.h>
@@ -60,7 +59,6 @@
 #endif
 
 #include "vfs.h"
-#define RPC_MAXPATHLEN 1024
 
 #ifdef _WIN32
 #define HOST_SEPARATOR "\\"
@@ -237,10 +235,10 @@ static void vfs_make_relative_path(struct vfs_t* vfs, const char* vfs_path, char
 static void make_host_path(const char* host_base, char* vfs_path, char* host_path) {
     char* p;
     
-    vfscpy(host_path, host_base, PATH_MAX);
+    vfscpy(host_path, host_base, FILENAME_MAX);
     
     if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR)) {
-        vfscat(host_path, HOST_SEPARATOR, PATH_MAX);
+        vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
     }
     
     if (vfs_path_is_absolute(vfs_path)) {
@@ -249,15 +247,15 @@ static void make_host_path(const char* host_base, char* vfs_path, char* host_pat
     
     while ((p = strchr(vfs_path, '/'))) {
         p[0] = '\0';
-        vfscat(host_path, vfs_path, PATH_MAX);
-        vfscat(host_path, HOST_SEPARATOR, PATH_MAX);
+        vfscat(host_path, vfs_path, FILENAME_MAX);
+        vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
         vfs_path = p + 1;
     }
-    vfscat(host_path, vfs_path, PATH_MAX);
+    vfscat(host_path, vfs_path, FILENAME_MAX);
 }
 
 static void to_host_path(struct vfs_t* vfs, const char* vfs_path, char* host_path) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     
     if (!vfs_path_is_absolute(vfs_path)) {
         printf("path is not absolute\n");
@@ -278,11 +276,11 @@ static void make_vfs_path(const char* vfs_base, const char* host_path, char* vfs
     
     while ((p = strstr(host_path, HOST_SEPARATOR))) {
         p[0] = '\0';
-        vfscat(vfs_path, host_path, RPC_MAXPATHLEN);
-        vfscat(vfs_path, "/", RPC_MAXPATHLEN);
+        vfscat(vfs_path, host_path, MAXPATHLEN);
+        vfscat(vfs_path, "/", MAXPATHLEN);
         host_path = p + strlen(HOST_SEPARATOR);
     }
-    vfscat(vfs_path, host_path, RPC_MAXPATHLEN);
+    vfscat(vfs_path, host_path, MAXPATHLEN);
 }
 
 static void to_vfs_path(struct vfs_t* vfs, const char* host_path, char* vfs_path) {    
@@ -323,7 +321,7 @@ struct file_t {
 };
 
 static struct file_t* file_init(struct vfs_t* vfs, const char* vfs_path, const char* mode) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     struct file_t* file = (struct file_t*)malloc(sizeof(struct file_t));
     
     to_host_path(vfs, vfs_path, host_path);
@@ -388,11 +386,11 @@ uint32_t vfs_file_id(uint64_t ino) {
 
 uint32_t vfs_get_uid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
     if (use_parent) {
-        char parent_path[RPC_MAXPATHLEN];
+        char parent_path[MAXPATHLEN];
         if (strlen(vfs_path) == 0) {
             return vfs->uid;
         } else {
-            char host_path[PATH_MAX];
+            char host_path[FILENAME_MAX];
             to_host_path(vfs, vfs_path, host_path);
             if (host_path_is_directory(host_path)) {
                 struct sattr_t sattr;
@@ -407,12 +405,12 @@ uint32_t vfs_get_uid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
 }
 
 uint32_t vfs_get_gid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
-    char parent_path[RPC_MAXPATHLEN];
+    char parent_path[MAXPATHLEN];
     
     if (strlen(vfs_path) == 0) {
         return vfs->gid;
     } else {
-        char host_path[PATH_MAX];
+        char host_path[FILENAME_MAX];
         to_host_path(vfs, vfs_path, host_path);
         if (host_path_is_directory(host_path)) {
             struct sattr_t sattr;
@@ -481,7 +479,7 @@ int vfs_chmod(struct vfs_t* vfs, char* vfs_path, mode_t mode) {
 #ifdef _WIN32
     return 0; /* not supported */
 #else
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     return get_error(fchmodat(AT_FDCWD, host_path, mode | S_IWUSR  | S_IRUSR, AT_SYMLINK_NOFOLLOW));
 #endif
@@ -491,14 +489,14 @@ int vfs_utimes(struct vfs_t* vfs, char* vfs_path, struct timeval times[2]) {
 #ifdef _WIN32
     return 0; /* not supported */
 #else
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     return get_error(lutimes(host_path, times));
 #endif
 }
 
 int vfs_stat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
 #ifdef _WIN32
     return get_error(stat(host_path, fstat));
@@ -518,7 +516,7 @@ static void serialize(const struct sattr_t* sattr, char* buffer) {
 }
 
 void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     char buffer[128];
     const char* fname = vfs_get_filename(vfs_path);
     
@@ -537,7 +535,7 @@ void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
 }
 
 void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     char buffer[128];
     memset(buffer, 0, sizeof(buffer));
     to_host_path(vfs, vfs_path, host_path);
@@ -551,7 +549,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
     else
 #endif
     {
-        char parent_path[RPC_MAXPATHLEN];
+        char parent_path[MAXPATHLEN];
         struct stat fstat;
 #ifdef _WIN32
         stat(host_path, &fstat);
@@ -585,7 +583,7 @@ uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path) {
 #ifndef _WIN32
         result = make_file_handle(&fstat);
 #else
-        char host_path[RPC_MAXPATHLEN];
+        char host_path[FILENAME_MAX];
         HANDLE fhandle;
         to_host_path(vfs, vfs_path, host_path);
         fhandle = CreateFileA(host_path,
@@ -611,8 +609,8 @@ int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result) {
 #ifdef _WIN32
     return EACCES; /* not supported */
 #else
-    char host_path[PATH_MAX];
-    char link_host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
+    char link_host_path[FILENAME_MAX];
     struct stat sb;
     ssize_t nbytes, bufsiz;
     
@@ -631,7 +629,7 @@ int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result) {
      a "good enough" estimate. */
     
     if (sb.st_size == 0)
-        bufsiz = PATH_MAX;
+        bufsiz = FILENAME_MAX;
         
     nbytes = readlink(host_path, link_host_path, bufsiz);
     if (nbytes == -1)
@@ -687,14 +685,14 @@ int vfs_touch(struct vfs_t* vfs, const char* vfs_path) {
 }
 
 int vfs_remove(struct vfs_t* vfs, const char* vfs_path) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     return get_error(remove(host_path));
 }
 
 int vfs_rename(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to) {
-    char host_path_from[PATH_MAX];
-    char host_path_to[PATH_MAX];
+    char host_path_from[FILENAME_MAX];
+    char host_path_to[FILENAME_MAX];
     to_host_path(vfs, vfs_path_from, host_path_from);
     to_host_path(vfs, vfs_path_to, host_path_to);
     return get_error(rename(host_path_from, host_path_to));
@@ -704,8 +702,8 @@ int vfs_link(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_
 #ifdef _WIN32
     return EACCES; /* not supported */
 #else
-    char host_path_from[PATH_MAX];
-    char host_path_to[PATH_MAX];
+    char host_path_from[FILENAME_MAX];
+    char host_path_to[FILENAME_MAX];
     to_host_path(vfs, vfs_path_from, host_path_from);
     to_host_path(vfs, vfs_path_to, host_path_to);
     
@@ -718,7 +716,7 @@ int vfs_link(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_
 }
 
 int vfs_mkdir(struct vfs_t* vfs, const char* vfs_path, mode_t mode) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     
 #ifdef _WIN32
@@ -733,9 +731,9 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
     fchmodat(AT_FDCWD, fpath, ACCESSPERMS, AT_SYMLINK_NOFOLLOW);
     remove(fpath);
 #else
-    char zzPath[PATH_MAX];
+    char zzPath[FILENAME_MAX];
     int len, ret;
-    vfscpy(zzPath, fpath, PATH_MAX - 1);
+    vfscpy(zzPath, fpath, FILENAME_MAX - 1);
     len = strlen(zzPath);
     zzPath[len + 1] = '\0';
     SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
@@ -750,20 +748,20 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
 }
 
 int vfs_nftw(struct vfs_t* vfs, const char* vfs_path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     
     return get_error(nftw(host_path, fn, depth, flags));
 }
 
 DIR* vfs_opendir(struct vfs_t* vfs, const char* vfs_path) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     return opendir(host_path);
 }
 
 int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     
 #ifndef _WIN32
@@ -785,7 +783,7 @@ int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) 
 }
 
 int vfs_access(struct vfs_t* vfs, const char* vfs_path, int mode) {
-    char host_path[PATH_MAX];
+    char host_path[FILENAME_MAX];
     to_host_path(vfs, vfs_path, host_path);
     return get_error(access(host_path, mode));
 }

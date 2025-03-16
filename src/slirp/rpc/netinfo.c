@@ -124,7 +124,7 @@ static int ni_val_add(struct ni_val_t** vals, const char* val) {
         return -1;
     }
     while (*vals) {
-        if (strncmp((*vals)->val, val, RPC_MAXPATHLEN)) {
+        if (strncmp((*vals)->val, val, MAXNAMELEN)) {
             vals = &(*vals)->next;
             continue;
         }
@@ -138,7 +138,7 @@ static int ni_val_add(struct ni_val_t** vals, const char* val) {
 
 static int ni_val_find(struct ni_val_t* vals, const char* val) {
     while (vals) {
-        if (strncmp(vals->val, val, RPC_MAXPATHLEN) == 0) {
+        if (strncmp(vals->val, val, MAXNAMELEN) == 0) {
             return 1;
         }
         vals = vals->next;
@@ -160,7 +160,7 @@ static int ni_val_remove(struct ni_val_t** vals, char* val) {
     struct ni_val_t* next;
     
     while (*vals) {
-        if (strncmp((*vals)->val, val, RPC_MAXPATHLEN)) {
+        if (strncmp((*vals)->val, val, MAXNAMELEN)) {
             vals = &(*vals)->next;
             continue;
         }
@@ -191,7 +191,7 @@ static int ni_prop_add(struct ni_prop_t** props, const char* key, const char* va
         return -1;
     }
     while (*props) {
-        if (strncmp((*props)->key, key, RPC_MAXPATHLEN)) {
+        if (strncmp((*props)->key, key, MAXNAMELEN)) {
             props = &(*props)->next;
             continue;
         }
@@ -208,7 +208,7 @@ static int ni_prop_add(struct ni_prop_t** props, const char* key, const char* va
 
 static struct ni_prop_t* ni_prop_find(struct ni_prop_t* props, const char* key) {
     while (props) {
-        if (strncmp(props->key, key, RPC_MAXPATHLEN) == 0) {
+        if (strncmp(props->key, key, MAXNAMELEN) == 0) {
             return props;
         }
         props = props->next;
@@ -230,7 +230,7 @@ static int ni_prop_remove(struct ni_prop_t** props, const char* key) {
     struct ni_prop_t* next;
     
     while (*props) {
-        if (strncmp((*props)->key, key, RPC_MAXPATHLEN)) {
+        if (strncmp((*props)->key, key, MAXNAMELEN)) {
             props = &(*props)->next;
             continue;
         }
@@ -430,7 +430,7 @@ void netinfo_build_nidb(void) {
     
     local = ni_register;
     while (local) {
-        if (strncmp(local->tag, "local", RPC_MAXPATHLEN) == 0) {
+        if (strncmp(local->tag, "local", MAXNAMELEN) == 0) {
             break;
         }
         local = local->next;
@@ -438,7 +438,7 @@ void netinfo_build_nidb(void) {
     
     network = ni_register;
     while (network) {
-        if (strncmp(network->tag, "network", RPC_MAXPATHLEN) == 0) {
+        if (strncmp(network->tag, "network", MAXNAMELEN) == 0) {
             break;
         }
         network = network->next;
@@ -873,8 +873,8 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char key[RPC_MAXPATHLEN];
-    char val[RPC_MAXPATHLEN];
+    char key[MAXNAMELEN];
+    char val[MAXNAMELEN];
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_id_map_t* idmap = NULL;
@@ -933,7 +933,7 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char name[RPC_MAXPATHLEN];
+    char name[MAXNAMELEN];
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_node_t* child;
@@ -1165,8 +1165,8 @@ static int proc_resync(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char key[RPC_MAXPATHLEN];
-    char val[RPC_MAXPATHLEN];
+    char key[MAXNAMELEN];
+    char val[MAXNAMELEN];
     int count;
     struct ni_id_t ni_id;
     struct ni_node_t* node;

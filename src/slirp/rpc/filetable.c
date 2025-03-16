@@ -153,7 +153,7 @@ int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char* vfs_path) {
         strcpy(vfs_path, "");
         retval = 0;
     } else {
-        vfscpy(vfs_path, result, RPC_MAXPATHLEN);
+        vfscpy(vfs_path, result, MAXPATHLEN);
         retval = 1;
     }
     host_mutex_unlock(ft->mutex);
@@ -171,7 +171,7 @@ int ft_stat(struct ft_t* ft, const char* vfs_path, struct stat* fstat) {
 }
 
 void ft_move(struct ft_t* ft, uint64_t fhandle_from, char* vfs_path_to) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     
     vfs_path_canonicalize(vfs_path_to, path);
     
@@ -192,7 +192,7 @@ void ft_remove(struct ft_t* ft, uint64_t fhandle) {
 }
 
 uint64_t ft_get_fhandle(struct ft_t* ft, const char* vfs_path) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     uint64_t fhandle;
 
     vfs_path_canonicalize(vfs_path, path);

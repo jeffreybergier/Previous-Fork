@@ -81,9 +81,9 @@ static int proc_whoami(struct rpc_t* rpc) {
 static int proc_getfile(struct rpc_t* rpc) {
     int client_len;
     int key_len;
-    char client[RPC_MAXNAMELEN];
-    char key[RPC_MAXNAMELEN];
-    char path[RPC_MAXPATHLEN];
+    char client[MAXNAMELEN];
+    char key[MAXNAMELEN];
+    char path[MAXPATHLEN];
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;

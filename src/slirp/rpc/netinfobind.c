@@ -25,6 +25,7 @@
 #include <slirp.h>
 #include <stdlib.h>
 
+#include "vfs.h"
 #include "rpc.h"
 #include "netinfobind.h"
 
@@ -119,7 +120,7 @@ static int proc_unregister(struct rpc_t* rpc) {
 
 static int proc_getregister(struct rpc_t* rpc) {
     struct ni_prog_t* prog = NULL;
-    char tag[RPC_MAXNAMELEN];
+    char tag[MAXNAMELEN];
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -128,7 +129,7 @@ static int proc_getregister(struct rpc_t* rpc) {
     
     prog = ni_register;
     while (prog) {
-        if (strncmp(prog->tag, tag, RPC_MAXNAMELEN) == 0) {
+        if (strncmp(prog->tag, tag, MAXNAMELEN) == 0) {
             break;
         }
         prog = prog->next;
@@ -173,8 +174,8 @@ static int proc_destroydomain(struct rpc_t* rpc) {
 
 static int proc_bind(struct rpc_t* rpc) {
     uint32_t clientAddr;
-    char clientTag[RPC_MAXNAMELEN];
-    char serverTag[RPC_MAXNAMELEN];
+    char clientTag[MAXNAMELEN];
+    char serverTag[MAXNAMELEN];
 
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;

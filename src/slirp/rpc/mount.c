@@ -53,7 +53,7 @@ static int mnt_add(char* name, char* path) {
     
     while (*entry) {
         if (strncmp((*entry)->name, name, INET_ADDRSTRLEN) || 
-            strncmp((*entry)->path, path, RPC_MAXPATHLEN)) {
+            strncmp((*entry)->path, path, MAXPATHLEN)) {
             entry = &(*entry)->next;
             continue;
         }
@@ -72,7 +72,7 @@ static int mnt_remove(char* name, char* path) {
     
     while (*entry) {
         if (strncmp((*entry)->name, name, INET_ADDRSTRLEN) || 
-            strncmp((*entry)->path, path, RPC_MAXPATHLEN)) {
+            strncmp((*entry)->path, path, MAXPATHLEN)) {
             entry = &(*entry)->next;
             continue;
         }
@@ -101,7 +101,7 @@ static void mnt_delete(void) {
 
 
 static int proc_mnt(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     char name[INET_ADDRSTRLEN];
     uint64_t handle;
     
@@ -143,7 +143,7 @@ static int proc_mnt(struct rpc_t* rpc) {
 }
 
 static int proc_umnt(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     char name[INET_ADDRSTRLEN];
     
     inet_ntop(AF_INET, &rpc->remote_addr, name, INET_ADDRSTRLEN);
@@ -169,7 +169,7 @@ static int proc_umnt(struct rpc_t* rpc) {
 }
 
 static int proc_export(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     uint8_t group[4] = { '*', '.', '.', '.' }; /* "*..." */
     
     struct xdr_t* m_out = rpc->m_out;

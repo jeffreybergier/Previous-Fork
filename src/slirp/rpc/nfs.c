@@ -108,7 +108,7 @@ static int getPath(struct xdr_t* m_in, char* vfs_path, uint64_t* fhandle) {
 }
 
 static int getFullPath(struct xdr_t* m_in, char* vfs_path, int maxlen) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int status, len;
     
     status = getPath(m_in, vfs_path, NULL);
@@ -287,7 +287,7 @@ static uint32_t nfs_blocks(const struct statvfs* fsstat, uint32_t fsblocks) {
 
 
 static int proc_getattr(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -305,7 +305,7 @@ static int proc_getattr(struct rpc_t* rpc) {
 }
 
 static int proc_setattr(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     struct sattr_t sattr;
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -332,7 +332,7 @@ static int proc_root(struct rpc_t* rpc) {
 }
 
 static int proc_lookup(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int len;
     uint64_t fhandle;
     
@@ -358,8 +358,8 @@ static int proc_lookup(struct rpc_t* rpc) {
 
 static int proc_readlink(struct rpc_t* rpc) {
     int err;
-    char path[RPC_MAXPATHLEN];
-    char result[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
+    char result[MAXPATHLEN];
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -383,7 +383,7 @@ static int proc_readlink(struct rpc_t* rpc) {
 }
 
 static int proc_read(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     uint8_t* data;
     int len;
     int skip;
@@ -434,7 +434,7 @@ static int proc_writecache(struct rpc_t* rpc) {
 }
 
 static int proc_write(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     struct sattr_t sattr;
     uint8_t* data;
     int len;
@@ -479,7 +479,7 @@ static int proc_write(struct rpc_t* rpc) {
 }
 
 static int proc_create(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int len;
     struct sattr_t sattr;
     int status;
@@ -536,7 +536,7 @@ static int proc_create(struct rpc_t* rpc) {
 }
 
 static int proc_remove(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int len;
     uint64_t fhandle;
     int err;
@@ -559,8 +559,8 @@ static int proc_remove(struct rpc_t* rpc) {
 }
 
 static int proc_rename(struct rpc_t* rpc) {
-    char pathFrom[RPC_MAXPATHLEN];
-    char pathTo[RPC_MAXPATHLEN];
+    char pathFrom[MAXPATHLEN];
+    char pathTo[MAXPATHLEN];
     int lenFrom;
     int lenTo;
     uint64_t fhandleFrom;
@@ -586,8 +586,8 @@ static int proc_rename(struct rpc_t* rpc) {
 }
 
 static int proc_link(struct rpc_t* rpc) {
-    char pathFrom[RPC_MAXPATHLEN];
-    char pathTo[RPC_MAXPATHLEN];
+    char pathFrom[MAXPATHLEN];
+    char pathTo[MAXPATHLEN];
     int lenTo;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -606,8 +606,8 @@ static int proc_link(struct rpc_t* rpc) {
 }
 
 static int proc_symlink(struct rpc_t* rpc) {
-    char pathFrom[RPC_MAXPATHLEN];
-    char pathTo[RPC_MAXPATHLEN];
+    char pathFrom[MAXPATHLEN];
+    char pathTo[MAXPATHLEN];
     int lenFrom;
     int lenTo;
     int err;
@@ -634,7 +634,7 @@ static int proc_symlink(struct rpc_t* rpc) {
 }
 
 static int proc_mkdir(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int len;
     int err;
     struct sattr_t sattr;
@@ -665,7 +665,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
 }
 
 static int proc_rmdir(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     int len;
     uint64_t fhandle;
     int err;
@@ -688,8 +688,8 @@ static int proc_rmdir(struct rpc_t* rpc) {
 }
 
 static int proc_readdir(struct rpc_t* rpc) {
-    char path[RPC_MAXPATHLEN];
-    char name[RPC_MAXNAMELEN];
+    char path[MAXPATHLEN];
+    char name[MAXNAMELEN];
     
     struct dirent* fileinfo;
     DIR* handle;
@@ -737,7 +737,7 @@ static int proc_readdir(struct rpc_t* rpc) {
             name[namelen] = '\0';
             rpc_log(rpc, "%d %s %s", cookie, path, name);
 #ifdef _WIN32
-            char pth[RPC_MAXPATHLEN];
+            char pth[MAXPATHLEN];
             int pth_len = vfscpy(pth, path, sizeof(pth));
             if (pth_len > 0 && pth[pth_len - 1] != '/' && strlen(name) > 0) {
                 vfscat(pth, "/", sizeof(pth));
@@ -765,9 +765,9 @@ static int proc_readdir(struct rpc_t* rpc) {
 }
 
 static int proc_statfs(struct rpc_t* rpc) {
-    int err;
-    char path[RPC_MAXPATHLEN];
+    char path[MAXPATHLEN];
     struct statvfs fsstat;
+    int err;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;

@@ -70,7 +70,7 @@ static void vdns_add_record(struct vdns_record_t* rec) {
 
     while (*entry) {
         if (((*entry)->rec->type != rec->type) || 
-            strncmp((*entry)->rec->key, rec->key, RPC_MAXPATHLEN)) {
+            strcmp((*entry)->rec->key, rec->key)) {
             entry = &(*entry)->next;
             continue;
         }
@@ -90,7 +90,7 @@ static struct vdns_record_t* vdns_find_record(char* key, vdns_rec_type type) {
     
     while (*entry) {
         if (((*entry)->rec->type == type) &&  
-            (strncmp((*entry)->rec->key, key, RPC_MAXPATHLEN) == 0)) {
+            (strcmp((*entry)->rec->key, key) == 0)) {
             return (*entry)->rec;
         }
         entry = &(*entry)->next;
@@ -207,8 +207,8 @@ static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
 static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
     struct vdns_record_t* rec;
     size_t offset;
-    char qname[RPC_MAXNAMELEN];
-    char domain[RPC_MAXNAMELEN];
+    char qname[256];
+    char domain[256];
     vdns_rec_type qtype = to_dot(qname, data, size);
     printf("[DNS] query(%d) '%s'\n", qtype, qname);
     
