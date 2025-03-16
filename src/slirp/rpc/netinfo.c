@@ -25,6 +25,7 @@
 #include <slirp.h>
 #include <stdlib.h>
 
+#include "vfs.h"
 #include "rpc.h"
 #include "netinfobind.h"
 #include "netinfo.h"
@@ -72,14 +73,14 @@ static const char* status_to_string(enum ni_status status) {
 
 static void val_to_string(char* dbg, struct ni_val_t* vals) {
     while (vals) {
-        snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " '%s'", vals->val);
+        snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " '%s'", vals->val);
         vals = vals->next;
     }
 }
 
 static void prop_to_string(char* dbg, struct ni_prop_t* prop) {
     while (prop) {
-        snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " [%s] =", prop->key);
+        snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " [%s] =", prop->key);
         val_to_string(dbg, prop->val);
         prop = prop->next;
     }
@@ -93,9 +94,9 @@ static void node_path_to_string(char* dbg, struct ni_node_t* node) {
     if (node->parent) {
         node_path_to_string(dbg, node->parent);
         prop = ni_prop_find(node->props, "name");
-        strlcat(dbg, prop->val->val, DBGMAX);
+        vfscat(dbg, prop->val->val, DBGMAX);
     }
-    strlcat(dbg, "/", DBGMAX);
+    vfscat(dbg, "/", DBGMAX);
 }
 
 static void prop_val_to_string(char* dbg, struct ni_prop_t* props, char* key) {
@@ -107,9 +108,9 @@ static void prop_val_to_string(char* dbg, struct ni_prop_t* props, char* key) {
     vals = prop->val;
     
     while (vals) {
-        strlcat(dbg, vals->val, DBGMAX);
+        vfscat(dbg, vals->val, DBGMAX);
         if (vals->next) {
-            strlcat(dbg, ",", DBGMAX);
+            vfscat(dbg, ",", DBGMAX);
         }
         vals = vals->next;
     }
@@ -444,14 +445,14 @@ void netinfo_build_nidb(void) {
     }
     
     /* Configure some strings */
-    strlcpy(system_type, "NeXT", sizeof(system_type));
+    vfscpy(system_type, "NeXT", sizeof(system_type));
     if (ConfigureParams.System.nMachineType == NEXT_STATION) {
-        strlcat(system_type, "station", sizeof(system_type));
+        vfscat(system_type, "station", sizeof(system_type));
         if (ConfigureParams.System.bColor) {
-            strlcat(system_type, " Color", sizeof(system_type));
+            vfscat(system_type, " Color", sizeof(system_type));
         }
     } else {
-        strlcat(system_type, "cube", sizeof(system_type));
+        vfscat(system_type, "cube", sizeof(system_type));
     }
     memset(hostname, 0, sizeof(hostname));
     gethostname(hostname, sizeof(hostname));
@@ -538,7 +539,7 @@ void netinfo_delete_nidb(void) {
 static uint32_t checksum(char* str) {
     int i;
     uint32_t result = 0;
-    for (i = 0; i < strnlen(str, RPC_MAXPATHLEN); ++i)
+    for (i = 0; i < strlen(str); ++i)
         result = result * 31 + (int)(str[i]);
     return result;
 }
@@ -751,9 +752,9 @@ static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "PARENT: ", DBGMAX);
+    vfscpy(dbg, "PARENT: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    strlcat(dbg, " = ", DBGMAX);
+    vfscat(dbg, " = ", DBGMAX);
 #endif
     
     if (node && node->parent == NULL)
@@ -765,7 +766,7 @@ static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
         xdr_write_long(m_out, node->parent->id.object);
         write_ni_id(m_out, &ni_id);
 #if DBG
-        snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, "%d", node->parent->id.object);
+        snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), "%d", node->parent->id.object);
 #endif
     }
     
@@ -803,7 +804,7 @@ static int proc_read(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "READ: ", DBGMAX);
+    vfscpy(dbg, "READ: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
 #endif
     
@@ -845,9 +846,9 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "CHILDREN: ", DBGMAX);
+    vfscpy(dbg, "CHILDREN: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    strlcat(dbg, " =", DBGMAX);
+    vfscat(dbg, " =", DBGMAX);
 #endif
     
     xdr_write_long(m_out, status);
@@ -857,7 +858,7 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
         while (child) {
             xdr_write_long(m_out, child->id.object);
 #if DBG
-            snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " %d", child->id.object);
+            snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " %d", child->id.object);
 #endif
             child = child->next;
         }
@@ -895,9 +896,9 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
 
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "LOOKUP: ", DBGMAX);
+    vfscpy(dbg, "LOOKUP: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " %s:%s =", key, val);
+    snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " %s:%s =", key, val);
 #endif
     
     if (node) {
@@ -915,7 +916,7 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
         while (list) {
             xdr_write_long(m_out, list->node->id.object);
 #if DBG
-            snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " %d", list->node->id.object);
+            snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " %d", list->node->id.object);
 #endif
             list = list->next;
         }
@@ -952,9 +953,9 @@ static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "LIST: ", DBGMAX);
+    vfscpy(dbg, "LIST: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " %s", name);
+    snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " %s", name);
 #endif
     
     xdr_write_long(m_out, status);
@@ -970,7 +971,7 @@ static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
                 xdr_write_long(m_out, 1);
                 write_ni_namelist(m_out, values);
 #if DBG
-                snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " [%d] =", child->id.object);
+                snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " [%d] =", child->id.object);
                 val_to_string(dbg, values);
 #endif
             }
@@ -1020,9 +1021,9 @@ static int proc_readprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "READPROP: ", DBGMAX);
+    vfscpy(dbg, "READPROP: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " [%d] =", index);
+    snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " [%d] =", index);
 #endif
     
     if (node) {
@@ -1078,9 +1079,9 @@ static int proc_listprops(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "LISTPROPS: ", DBGMAX);
+    vfscpy(dbg, "LISTPROPS: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    strlcat(dbg, " =", DBGMAX);
+    vfscat(dbg, " =", DBGMAX);
 #endif
     
     xdr_write_long(m_out, status);
@@ -1189,9 +1190,9 @@ static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
     
 #if DBG
     char dbg[DBGMAX];
-    strlcpy(dbg, "LOOKUPREAD: ", DBGMAX);
+    vfscpy(dbg, "LOOKUPREAD: ", DBGMAX);
     if (node) node_path_to_string(dbg, node);
-    snprintf(dbg + strnlen(dbg, DBGMAX), DBGMAX, " %s:%s", key, val);
+    snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), " %s:%s", key, val);
 #endif
     
     if (node) { 

@@ -80,6 +80,8 @@ struct vfs_t {
 
 extern struct vfs_t* vfs;
 
+int vfscpy(char* dst, const char* src, int size);
+int vfscat(char* dst, const char* src, int size);
 
 void vfs_path_canonicalize(const char* vfs_path, char* result);
 

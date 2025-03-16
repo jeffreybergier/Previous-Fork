@@ -95,8 +95,8 @@ int xdr_read_string(struct xdr_t* xdr, char* str, int maxlen) {
         str[len] = '\0';
     } else {
         printf("[XDR] Error: Read string truncated\n");
-        memcpy(str, xdr->data, maxlen);
-        str[maxlen-1] = '\0';
+        memcpy(str, xdr->data, maxlen - 1);
+        str[maxlen - 1] = '\0';
     }
     xdr->data += len;
     xdr->size -= len;
@@ -105,12 +105,23 @@ int xdr_read_string(struct xdr_t* xdr, char* str, int maxlen) {
 }
 
 void xdr_write_string(struct xdr_t* xdr, const char* str, int maxlen) {
-    uint32_t len = strnlen(str, maxlen);
-    if (xdr->capacity - xdr->size < len + 4) {
-        printf("[XDR] Error: Write string overflow\n");
+    uint32_t len;
+    if (xdr->capacity - xdr->size < 4) {
+        printf("[XDR] Error: Write string overflow 1\n");
+        return;
     }
+    len = strlen(str);
     xdr_write_long(xdr, len);
-    memcpy(xdr->data, str, len);
+    if (xdr->capacity - xdr->size < len) {
+        printf("[XDR] Error: Write string overflow 2\n");
+        return;
+    }
+    if (len > maxlen) {
+        printf("[XDR] Error: Write string truncated\n");
+        memcpy(xdr->data, str, maxlen);
+    } else {
+        memcpy(xdr->data, str, len);
+    }
     xdr->data += len;
     xdr->size += len;
     xdr_write_align(xdr);

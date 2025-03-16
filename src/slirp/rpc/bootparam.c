@@ -69,8 +69,8 @@ static int proc_whoami(struct rpc_t* rpc) {
             return RPC_GARBAGE_ARGS;
     }
     
-    strlcpy(hostname, NAME_HOST, NAME_HOST_MAX);
-    strlcpy(domain, "", NAME_DOMAIN_MAX); /* No NIS domain */
+    vfscpy(hostname, NAME_HOST, NAME_HOST_MAX);
+    vfscpy(domain, "", NAME_DOMAIN_MAX); /* No NIS domain */
     xdr_write_string(m_out, hostname, sizeof(hostname));
     xdr_write_string(m_out, domain, sizeof(domain));
     xdr_write_long(m_out, IP_ADDR_TYPE);
@@ -98,10 +98,10 @@ static int proc_getfile(struct rpc_t* rpc) {
     vfs_get_basepath_alias(vfs, path, sizeof(path));
     if (strncmp("root", key, sizeof(key))) {
         int len = strlen(path);
-        if (len > 0 && path[len-1] != '/') {
-            strlcat(path, "/", sizeof(path));
+        if (len > 0 && path[len-1] != '/' && strlen(key) > 0) {
+            vfscat(path, "/", sizeof(path));
         }
-        strlcat(path, key, sizeof(path));
+        vfscat(path, key, sizeof(path));
     }
     
     if (strlen(path)) {

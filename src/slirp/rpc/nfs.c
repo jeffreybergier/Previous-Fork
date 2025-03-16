@@ -116,10 +116,10 @@ static int getFullPath(struct xdr_t* m_in, char* vfs_path, int maxlen) {
     
     if (xdr_read_string(m_in, path, sizeof(path)) < 0) return -1;
     len = strlen(vfs_path);
-    if (len > 0 && vfs_path[len-1] != '/') {
-        strlcat(vfs_path, "/", maxlen);
+    if (len > 0 && vfs_path[len-1] != '/' && strlen(path) > 0) {
+        vfscat(vfs_path, "/", maxlen);
     }
-    return strlcat(vfs_path, path, maxlen);
+    return vfscat(vfs_path, path, maxlen);
 }
 
 static int checkFile(struct xdr_t* m_out, const char* path) {
@@ -646,7 +646,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
-    rpc_log(rpc, "MKDIR");
+    rpc_log(rpc, "MKDIR %s", path);
     
     if (len == 0) return RPC_SUCCESS;
     if (checkSize(m_out, len, sizeof(path)) == 0) return RPC_SUCCESS;
@@ -675,7 +675,7 @@ static int proc_rmdir(struct rpc_t* rpc) {
     
     if ((len = getFullPath(m_in, path, sizeof(path))) < 0) return RPC_GARBAGE_ARGS;
     
-    rpc_log(rpc, "RMDIR");
+    rpc_log(rpc, "RMDIR %s", path);
     
     if (checkSizeAndFile(m_out, path, len, sizeof(path)) == 0) return RPC_SUCCESS;
     
@@ -738,9 +738,11 @@ static int proc_readdir(struct rpc_t* rpc) {
             rpc_log(rpc, "%d %s %s", cookie, path, name);
 #ifdef _WIN32
             char pth[RPC_MAXPATHLEN];
-            int pth_len = strlcpy(pth, path, sizeof(pth));
-            if (pth_len > 0 && pth[pth_len-1] != '/') strlcat(pth, "/", sizeof(pth));
-            strlcat(pth, name, sizeof(pth));
+            int pth_len = vfscpy(pth, path, sizeof(pth));
+            if (pth_len > 0 && pth[pth_len - 1] != '/' && strlen(name) > 0) {
+                vfscat(pth, "/", sizeof(pth));
+            }
+            vfscat(pth, name, sizeof(pth));
             xdr_write_long(m_out, 1); /* value follows */
             xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(nfsd_fts[0], pth)));
 #endif
@@ -772,7 +774,7 @@ static int proc_statfs(struct rpc_t* rpc) {
 
     if (getPath(m_in, path, NULL) < 0) return RPC_GARBAGE_ARGS;
     
-    rpc_log(rpc, "STATFS");
+    rpc_log(rpc, "STATFS %s", path);
     
     if(!(checkFile(m_out, path)))
         return RPC_SUCCESS;

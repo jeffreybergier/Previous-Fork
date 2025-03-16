@@ -150,10 +150,10 @@ int ft_get_canonical_path(struct ft_t* ft, uint64_t fhandle, char* vfs_path) {
     
     result = ft_find(ft, fhandle);
     if (result == NULL) {
-        strlcpy(vfs_path, "", RPC_MAXPATHLEN);
+        strcpy(vfs_path, "");
         retval = 0;
     } else {
-        strlcpy(vfs_path, result, RPC_MAXPATHLEN);
+        vfscpy(vfs_path, result, RPC_MAXPATHLEN);
         retval = 1;
     }
     host_mutex_unlock(ft->mutex);
