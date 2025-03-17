@@ -71,13 +71,13 @@ uint16_t udpsocket_open(struct udpsocket_t* us, uint16_t nPort) {
     localAddr.sin_port = htons(nPort ? udpsocket_toLocalPort(us, nPort) : nPort);
     localAddr.sin_addr = loopback_addr;
     if (bind(us->m_Socket, (struct sockaddr *)&localAddr, sizeof(struct sockaddr)) < 0) {
-        close(us->m_Socket);
+        closesocket(us->m_Socket);
         return 0;
     }
     
     size = sizeof(localAddr);
     if (getsockname(us->m_Socket, (struct sockaddr *)&localAddr, &size) < 0) {
-        close(us->m_Socket);
+        closesocket(us->m_Socket);
         return 0;
     }
     
@@ -98,7 +98,6 @@ void udpsocket_close(struct udpsocket_t* us) {
         return;
     
     us->m_nClosed = 1;
-    close(us->m_Socket);
     udpsocket_portUnmap(us, us->m_nPort);
     us->m_pSocket = csocket_uninit(us->m_pSocket);
 }

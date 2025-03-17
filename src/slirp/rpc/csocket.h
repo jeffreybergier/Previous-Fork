@@ -13,8 +13,9 @@ typedef void (socket_listener_t)(struct csocket_t* pSocket);
 #ifdef _WIN32
 typedef SOCKET sock_t;
 #else
-#define INVALID_SOCKET -1
 typedef int sock_t;
+#define INVALID_SOCKET -1
+#define closesocket(s) close(s)
 #endif
 
 struct csocket_t {

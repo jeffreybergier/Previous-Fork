@@ -82,7 +82,7 @@ void csocket_open(struct csocket_t* cs, sock_t socket, socket_listener_t* pListe
 
 void csocket_close(struct csocket_t* cs) {
     if (cs->m_Socket != INVALID_SOCKET) {
-        close(cs->m_Socket);
+        closesocket(cs->m_Socket);
         cs->m_Socket = INVALID_SOCKET;
     }
     if (cs->m_hThread) {

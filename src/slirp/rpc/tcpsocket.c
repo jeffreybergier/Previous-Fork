@@ -71,20 +71,20 @@ uint16_t tcpsocket_open(struct tcpsocket_t* ts, uint16_t nPort) {
     localAddr.sin_port = htons(nPort ? tcpsocket_toLocalPort(nPort) : nPort);
     localAddr.sin_addr = loopback_addr;
     if (bind(ts->m_ServerSocket, (struct sockaddr *)&localAddr, sizeof(localAddr)) < 0) {
-        close(ts->m_ServerSocket);
+        closesocket(ts->m_ServerSocket);
         return 0;
     }
     
     socklen_t size = sizeof(localAddr);
     if(getsockname(ts->m_ServerSocket,  (struct sockaddr *)&localAddr, &size) < 0) {
-        close(ts->m_ServerSocket);
+        closesocket(ts->m_ServerSocket);
         return 0;
     }
     ts->m_nPort = nPort == 0 ? ntohs(localAddr.sin_port) : nPort;
     tcpsocket_portMap(ts->m_nPort, ntohs(localAddr.sin_port));
     
     if (listen(ts->m_ServerSocket, BACKLOG) < 0) {
-        close(ts->m_ServerSocket);
+        closesocket(ts->m_ServerSocket);
         return 0;
     }
     
@@ -104,7 +104,7 @@ void tcpsocket_close(struct tcpsocket_t* ts) {
         return;
     
     ts->m_nClosed = 1;
-    close(ts->m_ServerSocket);
+    closesocket(ts->m_ServerSocket);
     tcpsocket_portUnmap(ts->m_nPort);
     
     if (ts->m_hThread != NULL) {
