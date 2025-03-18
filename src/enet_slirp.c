@@ -8,13 +8,14 @@
 */
 const char Enet_slirp_fileid[] = "Previous enet_slirp.c";
 
+#include "libslirp.h"
+#include "nfs/nfsd.h"
+
 #include "m68000.h"
 #include "ethernet.h"
 #include "enet_slirp.h"
 #include "queue.h"
 #include "host.h"
-#include "libslirp.h"
-#include "nfs/nfsd.h"
 
 #define LOG_EN_SLIRP_LEVEL LOG_DEBUG
 
