@@ -197,6 +197,7 @@ static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
         }
         *dst++ = '.';
     }
+    *dst = '\0';
     src++;
     result = *src++;
     result <<= 8;
@@ -207,8 +208,12 @@ static vdns_rec_type to_dot(char* dst, const uint8_t* src, size_t size) {
 static struct vdns_record_t* vdns_query(uint8_t* data, size_t size) {
     struct vdns_record_t* rec;
     size_t offset;
-    char qname[256];
+    char qname[1024];
     char domain[256];
+    if (size > sizeof(qname)) {
+        printf("[DNS] query too long (%d)\n", (int)size);
+        return NULL;
+    }
     vdns_rec_type qtype = to_dot(qname, data, size);
     printf("[DNS] query(%d) '%s'\n", qtype, qname);
     
