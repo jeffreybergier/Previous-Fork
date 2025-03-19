@@ -8,12 +8,13 @@
 */
 const char Enet_pcap_fileid[] = "Previous enet_pcap.c";
 
-#include "config.h"
+#include "main.h"
 
 #if HAVE_PCAP
 #include <pcap.h>
 
-#include "m68000.h"
+#include "configuration.h"
+#include "log.h"
 #include "ethernet.h"
 #include "enet_pcap.h"
 #include "queue.h"
