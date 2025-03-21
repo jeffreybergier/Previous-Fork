@@ -21,9 +21,9 @@ void udpsocket_close(struct udpsocket_t* us);
 int  udpsocket_getPort(struct udpsocket_t* us);
 void udpspcket_run(struct udpsocket_t* us);
 
-void      udpsocket_portMap(struct udpsocket_t* us, uint16_t src, uint16_t local);
-void      udpsocket_portUnmap(struct udpsocket_t* us, uint16_t src);
-uint16_t  udpsocket_toLocalPort(struct udpsocket_t* us, uint16_t src);
-uint16_t  udpsocket_fromLocalPort(struct udpsocket_t* us, uint16_t local);
+void      udpsocket_portMap(uint16_t src, uint16_t local);
+void      udpsocket_portUnmap(uint16_t src);
+uint16_t  udpsocket_toLocalPort(uint16_t src);
+uint16_t  udpsocket_fromLocalPort(uint16_t local);
 
 #endif /* _UDPSOCKET_H_ */

@@ -107,8 +107,6 @@ static int proc_mnt(struct rpc_t* rpc) {
     
     inet_ntop(AF_INET, &rpc->remote_addr, name, INET_ADDRSTRLEN);
     
-    int found = 0;
-    
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
@@ -130,9 +128,7 @@ static int proc_mnt(struct rpc_t* rpc) {
             xdr_write_long(m_out, 0);  /* flavor */
         }
         
-        found = mnt_add(name, path);
-        
-        if (found) {
+        if (mnt_add(name, path)) {
             rpc_log(rpc, "MNT '%s' already mounted from %s", path, name);
         }
     } else {

@@ -254,7 +254,7 @@ void rpc_add_program(struct rpc_prog_t* prog) {
             prog->port = udpsocket_open(prog->sock, prog->port);
             if (prog->port) {
                 printf("[RPC] %s daemon started (UDP: %d -> %d).\n", prog->name, prog->port, 
-                       udpsocket_toLocalPort(prog->sock, prog->port));
+                       udpsocket_toLocalPort(prog->port));
             } else {
                 printf("[RPC] %s daemon start failed.\n", prog->name);
                 udpsocket_close(prog->sock);
@@ -308,6 +308,7 @@ void rpc_reset(void) {
 
 void rpc_init(void) {
     int i;
+    struct rpc_prog_t* prog;
     char hostname[NAME_HOST_MAX];
     
     if (inited) return;
@@ -321,7 +322,6 @@ void rpc_init(void) {
     vdns_uninit();
     rpc_remove_all_programs();
     
-    struct rpc_prog_t* prog;
     for (i = 0; i < TBL_SIZE(rpc_prog_table_template); i++) {
         prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
         *prog = rpc_prog_table_template[i];
@@ -362,7 +362,7 @@ int rpc_match_addr(uint32_t addr) {
 
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
     uint16_t dport = ntohs(*dportNBO);
-    uint16_t port  = udpsocket_toLocalPort(NULL, dport);
+    uint16_t port  = udpsocket_toLocalPort(dport);
     if(port) {
         *dportNBO = htons(port);
         *ipNBO    = loopback_addr;
@@ -376,7 +376,7 @@ void rpc_tcp_map_to_local_port(uint16_t port, uint16_t* sin_portNBO) {
 }
 
 void rpc_udp_map_from_local_port(uint16_t port, struct in_addr* saddrNBO, uint16_t* sin_portNBO) {
-    uint16_t localPort = udpsocket_fromLocalPort(NULL, port);
+    uint16_t localPort = udpsocket_fromLocalPort(port);
     if(localPort) {
         *sin_portNBO = htons(localPort);
         switch(localPort) {

@@ -545,7 +545,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
 #else
     if (getxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer), 0, XATTR_NOFOLLOW) > 0)
 #endif
-        return deserialize(buffer, sattr);
+        deserialize(buffer, sattr);
     else
 #endif
     {

@@ -73,6 +73,7 @@ static int nfs_err(int error) {
         case 0:      return NFS_OK;
         case ENOENT: return NFSERR_NOENT;
         case EACCES: return NFSERR_ACCES;
+        case EISDIR: return NFSERR_ISDIR;
         case EINVAL: return NFSERR_IO;
         default:
             return NFSERR_IO;
@@ -511,27 +512,18 @@ static int proc_create(struct rpc_t* rpc) {
         sattr.size = 0;
     }
     
-    if (vfs_access(vfs, path, F_OK) == 0) {
-        if(!(valid32(sattr.size)) || sattr.size) {
-            set_sattr(vfs, path, &sattr);
-            xdr_write_long(m_out, NFS_OK);
-            write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
-            write_fattr(m_out, path);
-            
+    /* if file does not exist or must be truncated (sattr.size == 0) */
+    if (vfs_access(vfs, path, F_OK) != 0 || sattr.size == 0) {
+        if (vfs_touch(vfs, path) < 0) {
+            xdr_write_long(m_out, nfs_err(errno));
             return RPC_SUCCESS;
         }
     }
-    /* file does not exist or must be truncated (fstat.size == 0) */
+    set_sattr(vfs, path, &sattr);
+    xdr_write_long(m_out, NFS_OK);
+    write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
+    write_fattr(m_out, path);
     
-    status = vfs_touch(vfs, path);
-    if (status > 0) {
-        set_sattr(vfs, path, &sattr);
-        xdr_write_long(m_out, NFS_OK);
-        write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
-        write_fattr(m_out, path);
-    } else {
-        nfs_err(errno);
-    }
     return RPC_SUCCESS;
 }
 

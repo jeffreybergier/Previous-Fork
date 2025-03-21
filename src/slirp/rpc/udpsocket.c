@@ -68,7 +68,7 @@ uint16_t udpsocket_open(struct udpsocket_t* us, uint16_t nPort) {
 #endif
     memset(&localAddr, 0, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
-    localAddr.sin_port = htons(nPort ? udpsocket_toLocalPort(us, nPort) : nPort);
+    localAddr.sin_port = htons(nPort ? udpsocket_toLocalPort(nPort) : nPort);
     localAddr.sin_addr = loopback_addr;
     if (bind(us->m_Socket, (struct sockaddr *)&localAddr, sizeof(struct sockaddr)) < 0) {
         closesocket(us->m_Socket);
@@ -82,7 +82,7 @@ uint16_t udpsocket_open(struct udpsocket_t* us, uint16_t nPort) {
     }
     
     us->m_nPort = nPort == 0 ? ntohs(localAddr.sin_port) : nPort;
-    udpsocket_portMap(us, us->m_nPort, ntohs(localAddr.sin_port));
+    udpsocket_portMap(us->m_nPort, ntohs(localAddr.sin_port));
     
     us->m_nClosed = 0;
     us->m_pSocket = csocket_init(SOCK_DGRAM, us->m_nPort);
@@ -98,7 +98,7 @@ void udpsocket_close(struct udpsocket_t* us) {
         return;
     
     us->m_nClosed = 1;
-    udpsocket_portUnmap(us, us->m_nPort);
+    udpsocket_portUnmap(us->m_nPort);
     us->m_pSocket = csocket_uninit(us->m_pSocket);
 }
 
@@ -107,7 +107,7 @@ static lock_t   udpsocket_natLock;
 static uint16_t udpsocket_toLocal[1<<16];
 static uint16_t udpsocket_fromLocal[1<<16];
 
-void udpsocket_portMap(struct udpsocket_t* us, uint16_t src, uint16_t local) {
+void udpsocket_portMap(uint16_t src, uint16_t local) {
     assert(local);
     host_lock(&udpsocket_natLock);
     udpsocket_toLocal[src] = local;
@@ -115,7 +115,7 @@ void udpsocket_portMap(struct udpsocket_t* us, uint16_t src, uint16_t local) {
     host_unlock(&udpsocket_natLock);
 }
 
-void udpsocket_portUnmap(struct udpsocket_t* us, uint16_t src) {
+void udpsocket_portUnmap(uint16_t src) {
     host_lock(&udpsocket_natLock);
     uint16_t local = udpsocket_toLocal[src];
     udpsocket_toLocal[src] = 0;
@@ -123,7 +123,7 @@ void udpsocket_portUnmap(struct udpsocket_t* us, uint16_t src) {
     host_unlock(&udpsocket_natLock);
 }
 
-uint16_t udpsocket_toLocalPort(struct udpsocket_t* us, uint16_t src) {
+uint16_t udpsocket_toLocalPort(uint16_t src) {
     assert(src);
     host_lock(&udpsocket_natLock);
     uint16_t result = udpsocket_toLocal[src];
@@ -131,7 +131,7 @@ uint16_t udpsocket_toLocalPort(struct udpsocket_t* us, uint16_t src) {
     return result;
 }
 
-uint16_t udpsocket_fromLocalPort(struct udpsocket_t* us, uint16_t local) {
+uint16_t udpsocket_fromLocalPort(uint16_t local) {
     assert(local);
     host_lock(&udpsocket_natLock);
     uint16_t result = udpsocket_fromLocal[local];

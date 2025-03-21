@@ -356,7 +356,7 @@ void vdns_init(void) {
     if (vdns.udp) {
         port = udpsocket_open(vdns.udp, PORT_DNS);
         if (port) {
-            printf("[DNS] started (UDP: %d -> %d).\n", port, udpsocket_toLocalPort(vdns.udp, port));
+            printf("[DNS] started (UDP: %d -> %d).\n", port, udpsocket_toLocalPort(port));
         } else {
             printf("[DNS] start failed.\n");
             udpsocket_close(vdns.udp);
@@ -420,7 +420,7 @@ void vdns_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
     switch(ntohs(*dportNBO)) {
         case PORT_DNS:
             /* map port and address for virtual DNS */
-            *dportNBO = htons(udpsocket_toLocalPort(vdns.udp, PORT_DNS));
+            *dportNBO = htons(udpsocket_toLocalPort(PORT_DNS));
             *ipNBO    = loopback_addr;
             break;
         default:

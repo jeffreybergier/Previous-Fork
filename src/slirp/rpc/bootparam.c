@@ -69,8 +69,8 @@ static int proc_whoami(struct rpc_t* rpc) {
             return RPC_GARBAGE_ARGS;
     }
     
-    vfscpy(hostname, NAME_HOST, NAME_HOST_MAX);
-    vfscpy(domain, "", NAME_DOMAIN_MAX); /* No NIS domain */
+    vfscpy(hostname, NAME_HOST, sizeof(hostname));
+    vfscpy(domain, "", sizeof(domain)); /* No NIS domain */
     xdr_write_string(m_out, hostname, sizeof(hostname));
     xdr_write_string(m_out, domain, sizeof(domain));
     xdr_write_long(m_out, IP_ADDR_TYPE);
