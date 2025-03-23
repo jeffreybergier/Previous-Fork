@@ -106,6 +106,11 @@ static void rpc_read_auth_unix(struct rpc_t* rpc) {
     struct auth_unix_t* auth = (struct auth_unix_t*)rpc->auth.auth;
     uint8_t* restore         = m_in->data + len;
     
+    if (len > m_in->size) {
+        printf("[RPC] Auth UNIX underrun\n");
+        return;
+    }
+    
     len -= 5 * 4;
     auth->time = xdr_read_long(m_in);
     len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
@@ -118,7 +123,7 @@ static void rpc_read_auth_unix(struct rpc_t* rpc) {
     for (i = 0; i < auth->len; i++) {
         auth->gids[i] = xdr_read_long(m_in);
     }
-#if DBG || 1
+#if DBG
     printf("RPC UNIX TIME:   %d\n", auth->time);
     printf("RPC UNIX NAME:   %s\n", auth->machine);
     printf("RPC UNIX UID:    %d\n", auth->uid);
@@ -126,8 +131,9 @@ static void rpc_read_auth_unix(struct rpc_t* rpc) {
     printf("RPC UNIX LEN:    %d\n", auth->len);
     printf("RPC UNIX GIDS:   [");
     for (i = 0; i < auth->len; i++) {
-        printf("%d%s", auth->gids[i], i == auth->len - 1 ? "]\n" : ", ");
+        printf("%d%s", auth->gids[i], i == auth->len - 1 ? "" : ", ");
     }
+    printf("]\n");
 #endif
     if (len) {
         printf("[RPC] Auth UNIX decode error\n");
@@ -161,12 +167,12 @@ static void rpc_input(struct csocket_t* cs) {
     
     rpc.xid = xdr_read_long(m_in);
     rpc.msg = xdr_read_long(m_in);
-    if (rpc.msg == RPC_REPLY) {
-        printf("[RPC] Reply received\n");
-        return;
-    } else if (rpc.msg == RPC_CALL) {
+    if (rpc.msg == RPC_CALL) {
         xdr_write_long(m_out, rpc.xid);
         xdr_write_long(m_out, RPC_REPLY); /* Message type */
+    } else {
+        printf("[RPC] %s received\n", rpc.msg == RPC_REPLY ? "Reply" : "Unknown message");
+        return;
     }
     rpc.rpcvers = xdr_read_long(m_in);
     if (rpc.rpcvers == RPCVERS) {
@@ -207,11 +213,11 @@ static void rpc_input(struct csocket_t* cs) {
         xdr_write_long(m_out, rpc.verif.length);
         xdr_write_zero(m_out, rpc.verif.length);
         status_ptr = xdr_get_pointer(m_out);
-        xdr_write_skip(m_out, 4); /* Will be updated later */
+        xdr_write_skip(m_out, 4); /* Status will be updated later */
         
         status = rpc_call(cs, &rpc);
         
-        xdr_write_long_at(status_ptr, status);
+        xdr_write_long_at(status_ptr, status); /* Status */
         
         if (status == RPC_PROG_MISMATCH) {
             rpc_log(&rpc, "[RPC] Version mismatch: req %d, min %d, max %d", rpc.vers, rpc.low, rpc.high);
@@ -229,6 +235,7 @@ static void rpc_input(struct csocket_t* cs) {
     } else { /* RPC version is not 2 */
         printf("[RPC] Version mismatch (%d)\n", rpc.rpcvers);
         xdr_write_long(m_out, RPC_MSG_DENIED); /* Message */
+        xdr_write_long(m_out, RPC_MISMATCH); /* Status */
         xdr_write_long(m_out, 2); /* Min version */
         xdr_write_long(m_out, 2); /* Max version */
     }
