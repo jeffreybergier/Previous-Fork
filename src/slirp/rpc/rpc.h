@@ -28,14 +28,34 @@
 #define RPC_PROC_UNAVAIL  3
 #define RPC_GARBAGE_ARGS  4
 
+/* Authentication type */
+#define RPC_AUTH_NONE     0
+#define RPC_AUTH_UNIX     1
+#define RPC_AUTH_SHORT    2
+#define RPC_AUTH_DES      3
+
+/* Authentication constants */
+#define MAX_MACHINE_NAME 255
+#define NUM_GROUPS       16
+
 /* The size in bytes of the opaque file handle. */
 #define FHSIZE      32
 #define FHSIZE_NFS3 64
 
 
+struct auth_unix_t {
+    uint32_t time;
+    char machine[MAX_MACHINE_NAME];
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t len;
+    uint32_t gids[NUM_GROUPS];
+};
+
 struct cred_t {
     uint32_t flavor;
     uint32_t length;
+    void* auth;
 };
 
 struct rpc_t {

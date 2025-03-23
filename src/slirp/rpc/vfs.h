@@ -92,8 +92,8 @@ int vfscat(char* dst, const char* src, int size);
 void vfs_path_canonicalize(const char* vfs_path, char* result);
 
 uint32_t vfs_file_id(uint64_t ino);
-uint32_t vfs_get_uid(struct vfs_t* vfs, const char* vfs_path, int use_parent);
-uint32_t vfs_get_gid(struct vfs_t* vfs, const char* vfs_path, int use_parent);
+
+uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const char* vfs_path);
 
 int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
 int vfs_chmod(struct vfs_t* vfs, char* vfs_path, mode_t mode);

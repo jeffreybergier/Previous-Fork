@@ -384,42 +384,20 @@ uint32_t vfs_file_id(uint64_t ino) {
     return (result ^ (ino >> 32LL)) & 0x7FFFFFFF;
 }
 
-uint32_t vfs_get_uid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
-    if (use_parent) {
-        char parent_path[MAXPATHLEN];
-        if (strlen(vfs_path) == 0) {
-            return vfs->uid;
-        } else {
-            char host_path[FILENAME_MAX];
-            to_host_path(vfs, vfs_path, host_path);
-            if (host_path_is_directory(host_path)) {
-                struct sattr_t sattr;
-                vfs_get_sattr(vfs, vfs_path, &sattr);
-                return sattr.uid;
-            }
-        }
-        vfs_get_parent_path(vfs_path, parent_path);
-        return vfs_get_uid(vfs, parent_path, use_parent);
-    }
-    return vfs->uid;
-}
-
-uint32_t vfs_get_gid(struct vfs_t* vfs, const char* vfs_path, int use_parent) {
+uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const char* vfs_path) {
     char parent_path[MAXPATHLEN];
     
-    if (strlen(vfs_path) == 0) {
-        return vfs->gid;
-    } else {
+    vfs_get_parent_path(vfs_path, parent_path);
+    if (strlen(vfs_path) > 0) {
         char host_path[FILENAME_MAX];
-        to_host_path(vfs, vfs_path, host_path);
+        to_host_path(vfs, parent_path, host_path);
         if (host_path_is_directory(host_path)) {
             struct sattr_t sattr;
-            vfs_get_sattr(vfs, vfs_path, &sattr);
-            return sattr.uid;
+            vfs_get_sattr(vfs, parent_path, &sattr);
+            return sattr.gid;
         }
     }
-    vfs_get_parent_path(vfs_path, parent_path);
-    return vfs_get_gid(vfs, parent_path, use_parent);
+    return vfs->gid;
 }
 
 int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
@@ -549,16 +527,14 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
     else
 #endif
     {
-        char parent_path[MAXPATHLEN];
         struct stat fstat;
 #ifdef _WIN32
         stat(host_path, &fstat);
 #else
         lstat(host_path, &fstat);
 #endif
-        vfs_get_parent_path(vfs_path, parent_path);
-        fstat.st_uid = vfs_get_uid(vfs, parent_path, 1);
-        fstat.st_gid = vfs_get_gid(vfs, parent_path, 1);
+        fstat.st_uid = vfs->uid;
+        fstat.st_gid = vfs->gid;
         stat_to_sattr(&fstat, sattr);
     }
 }

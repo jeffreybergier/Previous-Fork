@@ -238,11 +238,15 @@ static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
     return 0;
 }
 
-static void set_sattr(struct vfs_t* vfs, char* vfs_path, struct sattr_t* sattr) {
+static void set_sattr(struct vfs_t* vfs, char* vfs_path, struct sattr_t* sattr, int create) {
     struct sattr_t new;
     
     ft_get_sattr(nfsd_fts[0], vfs_path, &new);
     
+    if (create) {
+        sattr->uid = vfs->uid;
+        sattr->gid = vfs_get_parent_gid(vfs, vfs_path);
+    }
     if (valid16(sattr->mode)) {
         new.mode &= S_IFMT;
         new.mode |= sattr->mode & (S_IRWXU | S_IRWXG | S_IRWXO);
@@ -320,7 +324,7 @@ static int proc_setattr(struct rpc_t* rpc) {
     if (!(checkFile(m_out, path)))
         return RPC_SUCCESS;
     
-    set_sattr(vfs, path, &sattr);
+    set_sattr(vfs, path, &sattr, 0);
     
     xdr_write_long(m_out, NFS_OK);
     write_fattr(m_out, path);
@@ -483,7 +487,6 @@ static int proc_create(struct rpc_t* rpc) {
     char path[MAXPATHLEN];
     int len;
     struct sattr_t sattr;
-    int status;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -495,9 +498,6 @@ static int proc_create(struct rpc_t* rpc) {
     
     if (len == 0) return RPC_SUCCESS;
     if (checkSize(m_out, len, sizeof(path)) == 0) return RPC_SUCCESS;
-    
-    if (!(valid16(sattr.uid))) sattr.uid = vfs_get_uid(vfs, path, 0);
-    if (!(valid16(sattr.gid))) sattr.gid = vfs_get_gid(vfs, path, 1);
     
     /* size field is used to set device numbers for special devices over NFS */
     if (S_ISCHR(sattr.mode)) {
@@ -519,7 +519,7 @@ static int proc_create(struct rpc_t* rpc) {
             return RPC_SUCCESS;
         }
     }
-    set_sattr(vfs, path, &sattr);
+    set_sattr(vfs, path, &sattr, 1);
     xdr_write_long(m_out, NFS_OK);
     write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
     write_fattr(m_out, path);
@@ -619,7 +619,7 @@ static int proc_symlink(struct rpc_t* rpc) {
     if (checkSize(m_out, lenTo, sizeof(pathTo)) == 0) return RPC_SUCCESS;
     
     err = vfs_link(vfs, pathFrom, pathTo, 1);
-    if(!(err)) set_sattr(vfs, pathTo, &sattr);
+    if(!(err)) set_sattr(vfs, pathTo, &sattr, 1);
     xdr_write_long(m_out, nfs_err(err));
     
     return RPC_SUCCESS;
@@ -647,7 +647,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     if (err) {
         xdr_write_long(m_out, nfs_err(err));
     } else {
-        set_sattr(vfs, path, &sattr);
+        set_sattr(vfs, path, &sattr, 1);
         xdr_write_long(m_out, NFS_OK);
         write_handle(m_out, ft_get_fhandle(nfsd_fts[0], path));
         write_fattr(m_out, path);

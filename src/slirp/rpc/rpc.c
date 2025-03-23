@@ -98,9 +98,46 @@ static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
     return mismatch ? RPC_PROG_MISMATCH : RPC_PROG_UNAVAIL;
 }
 
+static void rpc_read_auth_unix(struct rpc_t* rpc) {
+    int i;
+    
+    struct xdr_t* m_in       = rpc->m_in;
+    int len                  = rpc->auth.length;
+    struct auth_unix_t* auth = (struct auth_unix_t*)rpc->auth.auth;
+    uint8_t* restore         = m_in->data + len;
+    
+    len -= 5 * 4;
+    auth->time = xdr_read_long(m_in);
+    len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
+    while (len & 3) len--; /* align */
+    auth->uid  = xdr_read_long(m_in);
+    auth->gid  = xdr_read_long(m_in);
+    auth->len  = xdr_read_long(m_in);
+    len -= auth->len * 4;
+    if (auth->len > NUM_GROUPS) auth->len = NUM_GROUPS;
+    for (i = 0; i < auth->len; i++) {
+        auth->gids[i] = xdr_read_long(m_in);
+    }
+#if DBG || 1
+    printf("RPC UNIX TIME:   %d\n", auth->time);
+    printf("RPC UNIX NAME:   %s\n", auth->machine);
+    printf("RPC UNIX UID:    %d\n", auth->uid);
+    printf("RPC UNIX GID:    %d\n", auth->gid);
+    printf("RPC UNIX LEN:    %d\n", auth->len);
+    printf("RPC UNIX GIDS:   [");
+    for (i = 0; i < auth->len; i++) {
+        printf("%d%s", auth->gids[i], i == auth->len - 1 ? "]\n" : ", ");
+    }
+#endif
+    if (len) {
+        printf("[RPC] Auth UNIX decode error\n");
+        m_in->data = restore;
+    }
+}
 
 static void rpc_input(struct csocket_t* cs) {
     struct rpc_t rpc;
+    struct auth_unix_t auth_unix;
     uint32_t status;
     uint8_t* status_ptr;
     
@@ -136,6 +173,8 @@ static void rpc_input(struct csocket_t* cs) {
         rpc.prog = xdr_read_long(m_in);
         rpc.vers = xdr_read_long(m_in);
         rpc.proc = xdr_read_long(m_in);
+        rpc.auth.flavor = xdr_read_long(m_in);
+        rpc.auth.length = xdr_read_long(m_in);
 #if DBG
         printf("RPC XID:     %08x\n", rpc.xid);
         printf("RPC MSG:     %d\n",   rpc.msg);
@@ -143,14 +182,18 @@ static void rpc_input(struct csocket_t* cs) {
         printf("RPC PROG:    %d\n",   rpc.prog);
         printf("RPC PROGVER: %d\n",   rpc.vers);
         printf("RPC PROC:    %d\n",   rpc.proc);
+        printf("RPC AUTH:    %d\n",   rpc.auth.flavor);
+        printf("RPC AUTHLEN: %d\n",   rpc.auth.length);
 #endif
-        rpc.auth.flavor = xdr_read_long(m_in);
-        rpc.auth.length = xdr_read_long(m_in);
-        xdr_read_skip(m_in, rpc.auth.length);
-#if DBG
-        printf("RPC AUTH:    %d\n", rpc.auth.flavor);
-        printf("RPC AUTHLEN: %d\n", rpc.auth.length);
-#endif
+        if (rpc.auth.flavor == RPC_AUTH_UNIX) {
+            rpc.auth.auth = &auth_unix;
+            rpc_read_auth_unix(&rpc);
+            vfs_set_default_uid_gid(vfs, auth_unix.uid, auth_unix.gid);
+        } else {
+            rpc.auth.auth = NULL;
+            xdr_read_skip(m_in, rpc.auth.length);
+            vfs_set_default_uid_gid(vfs, 0, 0);
+        }
         rpc.verif.flavor = xdr_read_long(m_in);
         rpc.verif.length = xdr_read_long(m_in);
         xdr_read_skip(m_in, rpc.verif.length);
@@ -171,17 +214,17 @@ static void rpc_input(struct csocket_t* cs) {
         xdr_write_long_at(status_ptr, status);
         
         if (status == RPC_PROG_MISMATCH) {
-            rpc_log(&rpc, "Version mismatch: req %d, min %d, max %d", rpc.vers, rpc.low, rpc.high);
+            rpc_log(&rpc, "[RPC] Version mismatch: req %d, min %d, max %d", rpc.vers, rpc.low, rpc.high);
             xdr_write_long(m_out, rpc.low);
             xdr_write_long(m_out, rpc.high);
         } else if (status == RPC_PROG_UNAVAIL) {
             printf("[RPC:%d:%d] Program not registered\n", rpc.prog, rpc.proc);
         } else if (status == RPC_GARBAGE_ARGS) {
-            rpc_log(&rpc, "Procedure cannot decode input (garbage args)");
+            rpc_log(&rpc, "[RPC] Procedure cannot decode input (garbage args)");
         } else if (status == RPC_PROC_UNAVAIL) {
-            rpc_log(&rpc, "Procedure not available");
+            rpc_log(&rpc, "[RPC] Procedure not available");
         } else if (m_in->size > 0) {
-            rpc_log(&rpc, "Unused data in buffer (%d bytes)", m_in->size);
+            rpc_log(&rpc, "[RPC] Unused data in buffer (%d bytes)", m_in->size);
         }
     } else { /* RPC version is not 2 */
         printf("[RPC] Version mismatch (%d)\n", rpc.rpcvers);
