@@ -94,14 +94,14 @@ static const char* status_str(int status) {
 
 static int nfs_err(int error) {
     switch (error) {
-        case 0:      return NFS_OK;
-        case ENOENT: return NFSERR_NOENT;
-        case EACCES: return NFSERR_ACCES;
-        case EEXIST: return NFSERR_EXIST;
-        case EISDIR: return NFSERR_ISDIR;
-        case EROFS:  return NFSERR_ROFS;
-        case EINVAL: return NFSERR_IO;
-        default:     return NFSERR_IO;
+        case 0:            return NFS_OK;
+        case ENOENT:       return NFSERR_NOENT;
+        case EACCES:       return NFSERR_ACCES;
+        case EEXIST:       return NFSERR_EXIST;
+        case EISDIR:       return NFSERR_ISDIR;
+        case EROFS:        return NFSERR_ROFS;
+        case ENOTEMPTY:    return NFSERR_NOTEMPTY;
+        default:           return NFSERR_IO;
     }
 }
 
@@ -666,7 +666,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
-        status = nfs_err(vfs_mkdir(&path, DEFAULT_PERM));
+        status = nfs_err(vfs_mkdir(&path));
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
@@ -691,7 +691,7 @@ static int proc_rmdir(struct rpc_t* rpc) {
         
     if (status == NFS_OK) {
         fhandle = ft_get_fhandle(nfsd_fts[0], &path);
-        status = nfs_err(vfs_nftw(&path, vfs_rmdir, 3, FTW_DEPTH | FTW_PHYS));
+        status = nfs_err(vfs_rmdir(&path));
         if (status == NFS_OK) ft_remove(nfsd_fts[0], fhandle);
     }
     xdr_write_long(m_out, status);

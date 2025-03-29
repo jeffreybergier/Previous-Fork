@@ -650,37 +650,16 @@ int vfs_link(const struct path_t* path_from, const struct path_t* path_to, int s
 #endif
 }
 
-int vfs_mkdir(const struct path_t* path, mode_t mode) {
+int vfs_mkdir(const struct path_t* path) {
 #ifdef _WIN32
     return get_error(mkdir(path->host));
 #else
-    return get_error(mkdir(path->host, mode));
+    return get_error(mkdir(path->host, DEFAULT_PERM));
 #endif
 }
 
-int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct FTW* ftwbuf) {
-#ifndef _WIN32
-    fchmodat(AT_FDCWD, fpath, ACCESSPERMS, AT_SYMLINK_NOFOLLOW);
-    remove(fpath);
-#else
-    char zzPath[FILENAME_MAX];
-    int len, ret;
-    vfscpy(zzPath, fpath, FILENAME_MAX - 1);
-    len = strlen(zzPath);
-    zzPath[len + 1] = '\0';
-    SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
-        FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
-        false, 0, ""};
-    ret = SHFileOperation(&file_op);
-    if (ret) {
-        return EINVAL;
-    }
-#endif
-    return 0;
-}
-
-int vfs_nftw(const struct path_t* path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags) {
-    return get_error(nftw(path->host, fn, depth, flags));
+int vfs_rmdir(const struct path_t* path) {
+    return get_error(rmdir(path->host));
 }
 
 DIR* vfs_opendir(const struct path_t* path) {

@@ -7,9 +7,6 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#define __USE_XOPEN_EXTENDED 1 /* required for Linux */
-#include <ftw.h>
-
 #ifdef _WIN32
 typedef uint32_t fsblkcnt_t;
 typedef uint32_t fsfilcnt_t;
@@ -116,9 +113,8 @@ int vfs_touch(const struct path_t* path);
 int vfs_remove(const struct path_t* path);
 int vfs_rename(const struct path_t* path_from, const struct path_t* path_to);
 int vfs_link(const struct path_t* path_from, const struct path_t* path_to, int soft);
-int vfs_mkdir(const struct path_t* path, mode_t mode);
-int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct FTW* ftwbuf);
-int vfs_nftw(const struct path_t* path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags);
+int vfs_mkdir(const struct path_t* path);
+int vfs_rmdir(const struct path_t* path);
 DIR* vfs_opendir(const struct path_t* path);
 int vfs_statfs(const struct path_t* path, struct statvfs* fsstat);
 int vfs_access(const struct path_t* path, int mode);
