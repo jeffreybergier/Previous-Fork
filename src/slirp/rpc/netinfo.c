@@ -873,8 +873,8 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char key[MAXNAMELEN];
-    char val[MAXNAMELEN];
+    char key[MAXNAMELEN+1];
+    char val[MAXNAMELEN+1];
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_id_map_t* idmap = NULL;
@@ -933,7 +933,7 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char name[MAXNAMELEN];
+    char name[MAXNAMELEN+1];
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_node_t* child;
@@ -1165,8 +1165,8 @@ static int proc_resync(struct rpc_t* rpc, struct ni_prog_t* ni) {
 }
 
 static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
-    char key[MAXNAMELEN];
-    char val[MAXNAMELEN];
+    char key[MAXNAMELEN+1];
+    char val[MAXNAMELEN+1];
     int count;
     struct ni_id_t ni_id;
     struct ni_node_t* node;

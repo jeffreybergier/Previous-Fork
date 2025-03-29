@@ -78,7 +78,6 @@ struct vfs_t {
     uint32_t gid;
 };
 
-extern struct vfs_t* vfs;
 
 /* The maximum number of bytes in a pathname argument. */
 #define MAXPATHLEN 1024
@@ -86,37 +85,43 @@ extern struct vfs_t* vfs;
 /* The maximum number of bytes in a filename argument. */
 #define MAXNAMELEN 255
 
+struct path_t {
+    char vfs[MAXPATHLEN];
+    char host[FILENAME_MAX];
+};
+
 int vfscpy(char* dst, const char* src, int size);
 int vfscat(char* dst, const char* src, int size);
 
 void vfs_path_canonicalize(const char* vfs_path, char* result);
-
 uint32_t vfs_file_id(uint64_t ino);
 
-uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const char* vfs_path);
+int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path);
+int vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path);
 
-int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
-int vfs_chmod(struct vfs_t* vfs, char* vfs_path, mode_t mode);
-int vfs_utimes(struct vfs_t* vfs, char* vfs_path, struct timeval times[2]);
-int vfs_stat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat);
+uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path);
+int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fstat);
+void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr);
+void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr);
 
-void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
-void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr);
-uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path);
-int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result);
-int vfs_read(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);
-int vfs_write(struct vfs_t* vfs, const char* path, size_t offset, uint8_t* data, size_t len);
-int vfs_touch(struct vfs_t* vfs, const char* path);
-int vfs_remove(struct vfs_t* vfs, const char* vfs_path);
-int vfs_rename(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to);
-int vfs_link(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to, int soft);
-int vfs_mkdir(struct vfs_t* vfs, const char* vfs_path, mode_t mode);
+int vfs_chmod(const struct path_t* path, mode_t mode);
+int vfs_utimes(const struct path_t* path, struct timeval times[2]);
+int vfs_stat(const struct path_t* path, struct stat* fstat);
+
+uint64_t vfs_get_fhandle(const struct path_t* path);
+int vfs_readlink(const struct path_t* path, struct path_t* result);
+int vfs_read(const struct path_t* path, size_t offset, uint8_t* data, size_t len);
+int vfs_write(const struct path_t* path, size_t offset, uint8_t* data, size_t len);
+int vfs_touch(const struct path_t* path);
+int vfs_remove(const struct path_t* path);
+int vfs_rename(const struct path_t* path_from, const struct path_t* path_to);
+int vfs_link(const struct path_t* path_from, const struct path_t* path_to, int soft);
+int vfs_mkdir(const struct path_t* path, mode_t mode);
 int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct FTW* ftwbuf);
-int vfs_nftw(struct vfs_t* vfs, const char* vfs_path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags);
-DIR* vfs_opendir(struct vfs_t* vfs, const char* vfs_path);
-int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat);
-
-int vfs_access(struct vfs_t* vfs, const char* vfs_path, int mode);
+int vfs_nftw(const struct path_t* path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags);
+DIR* vfs_opendir(const struct path_t* path);
+int vfs_statfs(const struct path_t* path, struct statvfs* fsstat);
+int vfs_access(const struct path_t* path, int mode);
 
 void vfs_set_default_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid);
 void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen);

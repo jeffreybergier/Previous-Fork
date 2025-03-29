@@ -26,7 +26,7 @@
 
 #include "rpc.h"
 #include "bootparam.h"
-#include "vfs.h"
+#include "filetable.h"
 
 
 #define IP_ADDR_TYPE 1
@@ -81,8 +81,8 @@ static int proc_whoami(struct rpc_t* rpc) {
 static int proc_getfile(struct rpc_t* rpc) {
     int client_len;
     int key_len;
-    char client[MAXNAMELEN];
-    char key[MAXNAMELEN];
+    char client[MAXNAMELEN+1];
+    char key[MAXNAMELEN+1];
     char path[MAXPATHLEN];
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -95,7 +95,7 @@ static int proc_getfile(struct rpc_t* rpc) {
     
     rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key);
     
-    vfs_get_basepath_alias(vfs, path, sizeof(path));
+    vfs_get_basepath_alias(nfsd_fts[0]->vfs, path, sizeof(path));
     if (strncmp("root", key, sizeof(key))) {
         int len = strlen(path);
         if (len > 0 && path[len-1] != '/' && strlen(key) > 0) {

@@ -112,6 +112,8 @@ void rpc_uninit(void);
 
 void rpc_log(struct rpc_t* rpc, const char *format, ...);
 
+int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len);
+
 int rpc_match_addr(uint32_t addr);
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO);
 void rpc_tcp_map_to_local_port(uint16_t port, uint16_t* sin_portNBO);

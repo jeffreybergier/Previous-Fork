@@ -67,8 +67,6 @@
 #endif
 
 
-struct vfs_t* vfs;
-
 /* ----- Helpers */
 int vfscpy(char* dst, const char* src, int size) {
     int srclen, retval;
@@ -208,11 +206,12 @@ static const char* vfs_get_filename(const char* vfs_path) {
     return strrchr(vfs_path, '/') + 1;
 }
 
-static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
-    char* p;
-    strcpy(parent_path, vfs_path);
-    p = strrchr(parent_path, '/');
-    if (p) p[0] = '\0';
+static void vfs_get_parent_path(struct vfs_t* vfs, const struct path_t* path, struct path_t* parent_path) {
+    char* sep;
+    strcpy(parent_path->vfs, path->vfs);
+    sep = strrchr(parent_path->vfs, '/');
+    if (sep) sep[0] = '\0';
+    vfs_to_host_path(vfs, parent_path);
 }
 
 static int vfs_path_is_absolute(const char* path) {
@@ -232,7 +231,7 @@ static void vfs_make_relative_path(struct vfs_t* vfs, const char* vfs_path, char
     strcat(result, path_relative(vfs_path, vfs->vfs_base_path));
 }
 
-static void make_host_path(const char* host_base, char* vfs_path, char* host_path) {
+static int make_host_path(const char* host_base, char* vfs_path, char* host_path) {
     char* p;
     
     vfscpy(host_path, host_base, FILENAME_MAX);
@@ -251,25 +250,25 @@ static void make_host_path(const char* host_base, char* vfs_path, char* host_pat
         vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
         vfs_path = p + 1;
     }
-    vfscat(host_path, vfs_path, FILENAME_MAX);
+    return vfscat(host_path, vfs_path, FILENAME_MAX);
 }
 
-static void to_host_path(struct vfs_t* vfs, const char* vfs_path, char* host_path) {
-    char path[MAXPATHLEN];
+int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path) {
+    char vfs_path[MAXPATHLEN];
     
-    if (!vfs_path_is_absolute(vfs_path)) {
+    if (!vfs_path_is_absolute(path->vfs)) {
         printf("path is not absolute\n");
-        strcpy(host_path, "");
-        return;
+        strcpy(path->host, "");
+        return 0;
     }
 
-    vfs_make_relative_path(vfs, vfs_path, path);
-    vfs_path_canonicalize(path, path);
+    vfs_make_relative_path(vfs, path->vfs, vfs_path);
+    vfs_path_canonicalize(vfs_path, vfs_path);
     
-    make_host_path(vfs->host_base_path, path, host_path);
+    return make_host_path(vfs->host_base_path, vfs_path, path->host);
 }
 
-static void make_vfs_path(const char* vfs_base, const char* host_path, char* vfs_path) {
+static int make_vfs_path(const char* vfs_base, const char* host_path, char* vfs_path) {
     char* p;
     
     vfs_path[0] = '\0';
@@ -280,13 +279,14 @@ static void make_vfs_path(const char* vfs_base, const char* host_path, char* vfs
         vfscat(vfs_path, "/", MAXPATHLEN);
         host_path = p + strlen(HOST_SEPARATOR);
     }
-    vfscat(vfs_path, host_path, MAXPATHLEN);
+    return vfscat(vfs_path, host_path, MAXPATHLEN);
 }
 
-static void to_vfs_path(struct vfs_t* vfs, const char* host_path, char* vfs_path) {    
+int vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path) {
+    const char* host_path = path->host;
     host_path = path_relative(host_path, vfs->host_base_path);
     
-    make_vfs_path(vfs->vfs_base_path, host_path, vfs_path);
+    return make_vfs_path(vfs->vfs_base_path, path->host, path->vfs);
 }
 
 
@@ -313,35 +313,28 @@ static int host_path_is_directory(const char* host_path) {
 
 /*----- file io */
 struct file_t {
-    struct vfs_t* ft;
-    char* path;
     struct stat fstat;
     int restore_stat;
     FILE* file;
 };
 
-static struct file_t* file_init(struct vfs_t* vfs, const char* vfs_path, const char* mode) {
-    char host_path[FILENAME_MAX];
+static struct file_t* file_open(const struct path_t* path, const char* mode) {
     struct file_t* file = (struct file_t*)malloc(sizeof(struct file_t));
     
-    to_host_path(vfs, vfs_path, host_path);
-    
-    file->ft = vfs;
-    file->path = strdup(vfs_path);
     file->restore_stat = 0;
-    file->file = fopen(host_path, mode);
+    file->file = fopen(path->host, mode);
     if (file->file == NULL && errno == EACCES) {
         file->restore_stat = 1;
-        vfs_stat(vfs, file->path, &file->fstat);
-        vfs_chmod(vfs, file->path, file->fstat.st_mode);
-        file->file = fopen(host_path, mode);
+        vfs_stat(path, &file->fstat);
+        vfs_chmod(path, file->fstat.st_mode);
+        file->file = fopen(path->host, mode);
     }
     return file;
 }
 
-static void file_uninit(struct file_t* file) {
+static void file_close(const struct path_t* path, struct file_t* file) {
     if (file->restore_stat) {
-        vfs_chmod(file->ft, file->path, file->fstat.st_mode);
+        vfs_chmod(path, file->fstat.st_mode);
         struct timeval times[2];
 #ifdef _WIN32
         times[0].tv_sec  = file->fstat.st_atime;
@@ -354,10 +347,9 @@ static void file_uninit(struct file_t* file) {
         times[1].tv_sec  = file->fstat.st_mtimespec.tv_sec;
         times[1].tv_usec = (int32_t)(file->fstat.st_mtimespec.tv_nsec / 1000);
 #endif
-        vfs_utimes(file->ft, file->path, times);
+        vfs_utimes(path, times);
     }
     if (file->file) fclose(file->file);
-    free(file->path);
     free(file);
 }
 
@@ -384,28 +376,26 @@ uint32_t vfs_file_id(uint64_t ino) {
     return (result ^ (ino >> 32LL)) & 0x7FFFFFFF;
 }
 
-uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const char* vfs_path) {
-    char parent_path[MAXPATHLEN];
+uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path) {
+    struct path_t parent_path;
     
-    vfs_get_parent_path(vfs_path, parent_path);
-    if (strlen(vfs_path) > 0) {
-        char host_path[FILENAME_MAX];
-        to_host_path(vfs, parent_path, host_path);
-        if (host_path_is_directory(host_path)) {
+    vfs_get_parent_path(vfs, path, &parent_path);
+    if (strlen(path->vfs) > 0) {
+        if (host_path_is_directory(parent_path.host)) {
             struct sattr_t sattr;
-            vfs_get_sattr(vfs, parent_path, &sattr);
+            vfs_get_sattr(vfs, &parent_path, &sattr);
             return sattr.gid;
         }
     }
     return vfs->gid;
 }
 
-int vfs_get_fstat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
+int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fstat) {
     struct sattr_t sattr;
     int result;
     
-    result = vfs_stat(vfs, vfs_path, fstat);
-    vfs_get_sattr(vfs, vfs_path, &sattr);
+    result = vfs_stat(path, fstat);
+    vfs_get_sattr(vfs, path, &sattr);
     
     if (valid16(sattr.mode)) {
         uint32_t mode = fstat->st_mode; /* copy format & permissions from actual file in the file system */
@@ -453,33 +443,27 @@ static int get_error(int result) {
     return result < 0 ? errno : result;
 }
 
-int vfs_chmod(struct vfs_t* vfs, char* vfs_path, mode_t mode) {
+int vfs_chmod(const struct path_t* path, mode_t mode) {
 #ifdef _WIN32
     return 0; /* not supported */
 #else
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    return get_error(fchmodat(AT_FDCWD, host_path, mode | S_IWUSR  | S_IRUSR, AT_SYMLINK_NOFOLLOW));
+    return get_error(fchmodat(AT_FDCWD, path->host, mode | S_IWUSR  | S_IRUSR, AT_SYMLINK_NOFOLLOW));
 #endif
 }
 
-int vfs_utimes(struct vfs_t* vfs, char* vfs_path, struct timeval times[2]) {
+int vfs_utimes(const struct path_t* path, struct timeval times[2]) {
 #ifdef _WIN32
     return 0; /* not supported */
 #else
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    return get_error(lutimes(host_path, times));
+    return get_error(lutimes(path->host, times));
 #endif
 }
 
-int vfs_stat(struct vfs_t* vfs, const char* vfs_path, struct stat* fstat) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
+int vfs_stat(const struct path_t* path, struct stat* fstat) {
 #ifdef _WIN32
-    return get_error(stat(host_path, fstat));
+    return get_error(stat(path->host, fstat));
 #else
-    return get_error(lstat(host_path, fstat));
+    return get_error(lstat(path->host, fstat));
 #endif
 }
 
@@ -493,35 +477,31 @@ static void serialize(const struct sattr_t* sattr, char* buffer) {
     snprintf(buffer, 128, "0%o:%d:%d:%d", sattr->mode, sattr->uid, sattr->gid, sattr->rdev);
 }
 
-void vfs_set_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr) {
-    char host_path[FILENAME_MAX];
+void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr) {
     char buffer[128];
-    const char* fname = vfs_get_filename(vfs_path);
+    const char* fname = vfs_get_filename(path->vfs);
     
     assert(strcmp(fname, ".") && strcmp(fname, ".."));
     
     serialize(sattr, buffer);
-    to_host_path(vfs, vfs_path, host_path);
 #if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
-    if (lsetxattr(host_path, NFSD_ATTRS, buffer, strlen(buffer), 0) != 0)
+    if (lsetxattr(path->host, NFSD_ATTRS, buffer, strlen(buffer), 0) != 0)
 #else
-    if (setxattr(host_path, NFSD_ATTRS, buffer, strlen(buffer), 0, XATTR_NOFOLLOW) != 0)
+    if (setxattr(path->host, NFSD_ATTRS, buffer, strlen(buffer), 0, XATTR_NOFOLLOW) != 0)
 #endif
-        printf("setxattr(%s) failed\n", host_path);
+        printf("setxattr(%s) failed\n", path->host);
 #endif
 }
 
-void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* sattr) {
-    char host_path[FILENAME_MAX];
+void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr) {
     char buffer[128];
     memset(buffer, 0, sizeof(buffer));
-    to_host_path(vfs, vfs_path, host_path);
 #if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
-    if (lgetxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer)) == 0)
+    if (lgetxattr(path->host, NFSD_ATTRS, buffer, sizeof(buffer)) == 0)
 #else
-    if (getxattr(host_path, NFSD_ATTRS, buffer, sizeof(buffer), 0, XATTR_NOFOLLOW) > 0)
+    if (getxattr(path->host, NFSD_ATTRS, buffer, sizeof(buffer), 0, XATTR_NOFOLLOW) > 0)
 #endif
         deserialize(buffer, sattr);
     else
@@ -529,9 +509,9 @@ void vfs_get_sattr(struct vfs_t* vfs, const char* vfs_path, struct sattr_t* satt
     {
         struct stat fstat;
 #ifdef _WIN32
-        stat(host_path, &fstat);
+        stat(path->host, &fstat);
 #else
-        lstat(host_path, &fstat);
+        lstat(path->host, &fstat);
 #endif
         fstat.st_uid = vfs->uid;
         fstat.st_gid = vfs->gid;
@@ -551,18 +531,16 @@ static uint64_t make_file_handle(struct stat* fstat) {
     return result;
 }
 
-uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path) {
+uint64_t vfs_get_fhandle(const struct path_t* path) {
     struct stat fstat;
     uint64_t result = 0;
     
-    if (vfs_stat(vfs, vfs_path, &fstat) == 0) {
+    if (vfs_stat(path, &fstat) == 0) {
 #ifndef _WIN32
         result = make_file_handle(&fstat);
 #else
-        char host_path[FILENAME_MAX];
         HANDLE fhandle;
-        to_host_path(vfs, vfs_path, host_path);
-        fhandle = CreateFileA(host_path,
+        fhandle = CreateFileA(path->host,
                               GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
                               FILE_FLAG_BACKUP_SEMANTICS, NULL);
         if (fhandle) {
@@ -574,25 +552,21 @@ uint64_t vfs_get_fhandle(struct vfs_t* vfs, const char* vfs_path) {
         }
 #endif
     } else {
-        printf("No file handle for %s\n", vfs_path);
+        printf("No file handle for %s\n", path->vfs);
     }
     
     return result;
 }
 
 /* ----- VFS functions */
-int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result) {
+int vfs_readlink(const struct path_t* path, struct path_t* result) {
 #ifdef _WIN32
     return EACCES; /* not supported */
 #else
-    char host_path[FILENAME_MAX];
-    char link_host_path[FILENAME_MAX];
     struct stat sb;
     ssize_t nbytes, bufsiz;
     
-    to_host_path(vfs, vfs_path, host_path);
-    
-    if (lstat(host_path, &sb) == -1)
+    if (lstat(path->host, &sb) == -1)
         return errno;
     
     /* Add one to the link size, so that we can determine whether
@@ -606,37 +580,33 @@ int vfs_readlink(struct vfs_t* vfs, const char* vfs_path, char* result) {
     
     if (sb.st_size == 0)
         bufsiz = FILENAME_MAX;
-        
-    nbytes = readlink(host_path, link_host_path, bufsiz);
+    
+    nbytes = readlink(path->host, result->host, bufsiz);
     if (nbytes == -1)
         return errno;
     
-    link_host_path[nbytes] = '\0';
+    result->host[nbytes] = '\0';
     
-    to_vfs_path(vfs, link_host_path, result);
-        
     return 0;
 #endif
 }
 
-int vfs_read(struct vfs_t* vfs, const char* vfs_path, size_t offset, uint8_t* data, size_t len) {
+int vfs_read(const struct path_t* path, size_t offset, uint8_t* data, size_t len) {
     struct file_t* file;
     int retval = 0;
     
-    if (vfs == NULL) return -1;
-    
-    file = file_init(vfs, vfs_path, "rb");
+    file = file_open(path, "rb");
     if (file_is_open(file)) {
         retval = file_read(file, offset, data, len);
     } else {
         retval = -1;
     }
-    file_uninit(file);
+    file_close(path, file);
     return retval;
 }
 
-int vfs_write(struct vfs_t* vfs, const char* vfs_path, size_t offset, uint8_t* data, size_t len) {
-    struct file_t* file = file_init(vfs, vfs_path, "r+b");
+int vfs_write(const struct path_t* path, size_t offset, uint8_t* data, size_t len) {
+    struct file_t* file = file_open(path, "r+b");
     int retval = 0;
     if (file_is_open(file)) {
         file_write(file, offset, data, len);
@@ -644,61 +614,47 @@ int vfs_write(struct vfs_t* vfs, const char* vfs_path, size_t offset, uint8_t* d
     } else {
         retval = -1;
     }
-    file_uninit(file);
+    file_close(path, file);
     return retval;
 }
 
-int vfs_touch(struct vfs_t* vfs, const char* vfs_path) {
-    struct file_t* file = file_init(vfs, vfs_path, "wb");
+int vfs_touch(const struct path_t* path) {
+    struct file_t* file = file_open(path, "wb");
     int retval = 0;
     if (file_is_open(file)) {
         retval = 1;
     } else {
         retval = -1;
     }
-    file_uninit(file);
+    file_close(path, file);
     return retval;
 }
 
-int vfs_remove(struct vfs_t* vfs, const char* vfs_path) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    return get_error(remove(host_path));
+int vfs_remove(const struct path_t* path) {
+    return get_error(remove(path->host));
 }
 
-int vfs_rename(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to) {
-    char host_path_from[FILENAME_MAX];
-    char host_path_to[FILENAME_MAX];
-    to_host_path(vfs, vfs_path_from, host_path_from);
-    to_host_path(vfs, vfs_path_to, host_path_to);
-    return get_error(rename(host_path_from, host_path_to));
+int vfs_rename(const struct path_t* path_from, const struct path_t* path_to) {
+    return get_error(rename(path_from->host, path_to->host));
 }
 
-int vfs_link(struct vfs_t* vfs, const char* vfs_path_from, const char* vfs_path_to, int soft) {
+int vfs_link(const struct path_t* path_from, const struct path_t* path_to, int soft) {
 #ifdef _WIN32
     return EACCES; /* not supported */
 #else
-    char host_path_from[FILENAME_MAX];
-    char host_path_to[FILENAME_MAX];
-    to_host_path(vfs, vfs_path_from, host_path_from);
-    to_host_path(vfs, vfs_path_to, host_path_to);
-    
-    const char* from = soft ? vfs_path_from : host_path_from;
-    const char* to   = host_path_to;
+    const char* from = soft ? path_from->vfs : path_from->host;
+    const char* to   = path_to->host;
     
     if(soft) return get_error(symlink(from, to));
     else     return get_error(link   (from, to));
 #endif
 }
 
-int vfs_mkdir(struct vfs_t* vfs, const char* vfs_path, mode_t mode) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    
+int vfs_mkdir(const struct path_t* path, mode_t mode) {
 #ifdef _WIN32
-    return get_error(mkdir(host_path));
+    return get_error(mkdir(path->host));
 #else
-    return get_error(mkdir(host_path, mode));
+    return get_error(mkdir(path->host, mode));
 #endif
 }
 
@@ -723,28 +679,20 @@ int vfs_rmdir(const char* fpath, const struct stat* fstat, int typeflag, struct 
     return 0;
 }
 
-int vfs_nftw(struct vfs_t* vfs, const char* vfs_path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    
-    return get_error(nftw(host_path, fn, depth, flags));
+int vfs_nftw(const struct path_t* path, int (*fn)(const char *, const struct stat *ptr, int flag, struct FTW *), int depth, int flags) {
+    return get_error(nftw(path->host, fn, depth, flags));
 }
 
-DIR* vfs_opendir(struct vfs_t* vfs, const char* vfs_path) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    return opendir(host_path);
+DIR* vfs_opendir(const struct path_t* path) {
+    return opendir(path->host);
 }
 
-int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    
+int vfs_statfs(const struct path_t* path, struct statvfs* fsstat) {
 #ifndef _WIN32
-    return get_error(statvfs(host_path, fsstat));
+    return get_error(statvfs(path->host, fsstat));
 #else
     DWORD sectorsPerCluster, bytesPerSector, freeClusters, totalClusters;
-    BOOL res = GetDiskFreeSpaceA(host_path, &sectorsPerCluster,
+    BOOL res = GetDiskFreeSpaceA(path->host, &sectorsPerCluster,
                                  &bytesPerSector, &freeClusters, &totalClusters);
     if (!res) {
         return GetLastError();
@@ -758,10 +706,8 @@ int vfs_statfs(struct vfs_t* vfs, const char* vfs_path, struct statvfs* fsstat) 
 #endif
 }
 
-int vfs_access(struct vfs_t* vfs, const char* vfs_path, int mode) {
-    char host_path[FILENAME_MAX];
-    to_host_path(vfs, vfs_path, host_path);
-    return get_error(access(host_path, mode));
+int vfs_access(const struct path_t* path, int mode) {
+    return get_error(access(path->host, mode));
 }
 
 /*----- VFS */

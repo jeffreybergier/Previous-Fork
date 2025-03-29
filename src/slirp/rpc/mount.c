@@ -101,7 +101,7 @@ static void mnt_delete(void) {
 
 
 static int proc_mnt(struct rpc_t* rpc) {
-    char path[MAXPATHLEN];
+    struct path_t path;
     char name[INET_ADDRSTRLEN];
     uint64_t handle;
     
@@ -110,11 +110,12 @@ static int proc_mnt(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if (xdr_read_string(m_in, path, sizeof(path)) < 0) return RPC_GARBAGE_ARGS;
+    if (xdr_read_string(m_in, path.vfs, sizeof(path.vfs)) < 0) return RPC_GARBAGE_ARGS;
+    vfs_to_host_path(nfsd_fts[0]->vfs, &path);
     
     rpc_log(rpc, "MNT from %s for '%s'", name, path);
     
-    handle = ft_get_fhandle(nfsd_fts[0], path);
+    handle = ft_get_fhandle(nfsd_fts[0], &path);
     if (handle) {
         uint64_t data[8] = {handle, 0, 0, 0, 0, 0, 0, 0};
         
@@ -128,7 +129,7 @@ static int proc_mnt(struct rpc_t* rpc) {
             xdr_write_long(m_out, 0);  /* flavor */
         }
         
-        if (mnt_add(name, path)) {
+        if (mnt_add(name, path.vfs)) {
             rpc_log(rpc, "MNT '%s' already mounted from %s", path, name);
         }
     } else {
@@ -172,7 +173,7 @@ static int proc_export(struct rpc_t* rpc) {
     
     rpc_log(rpc, "EXPORT");
     
-    vfs_get_basepath_alias(vfs, path, sizeof(path));
+    vfs_get_basepath_alias(nfsd_fts[0]->vfs, path, sizeof(path));
     
     /* dirpath */
     xdr_write_long(m_out, 1);

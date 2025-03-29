@@ -120,7 +120,7 @@ static int proc_unregister(struct rpc_t* rpc) {
 
 static int proc_getregister(struct rpc_t* rpc) {
     struct ni_prog_t* prog = NULL;
-    char tag[MAXNAMELEN];
+    char tag[MAXNAMELEN+1];
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -174,8 +174,8 @@ static int proc_destroydomain(struct rpc_t* rpc) {
 
 static int proc_bind(struct rpc_t* rpc) {
     uint32_t clientAddr;
-    char clientTag[MAXNAMELEN];
-    char serverTag[MAXNAMELEN];
+    char clientTag[MAXNAMELEN+1];
+    char serverTag[MAXNAMELEN+1];
 
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
