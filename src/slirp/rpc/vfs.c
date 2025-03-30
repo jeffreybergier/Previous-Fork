@@ -210,7 +210,8 @@ static void vfs_get_parent_path(struct vfs_t* vfs, const struct path_t* path, st
     char* sep;
     strcpy(parent_path->vfs, path->vfs);
     sep = strrchr(parent_path->vfs, '/');
-    if (sep) sep[0] = '\0';
+    if (sep == parent_path->vfs) sep[1] = '\0';
+    else if (sep) sep[0] = '\0';
     vfs_to_host_path(vfs, parent_path);
 }
 
@@ -270,7 +271,7 @@ static int make_vfs_path(const char* vfs_base, char* host_path, char* vfs_path, 
         vfs_path[0] = '\0';
     } else {
         vfscpy(vfs_path, vfs_base, MAXPATHLEN);
-        if (vfs_path[strlen(vfs_path) - 1] != '/') {
+        if (strncmp(vfs_path, "/", 1)) {
             vfscat(vfs_path, "/", MAXPATHLEN);
         }
         if (strncmp(host_path, HOST_SEPARATOR, strlen(HOST_SEPARATOR)) == 0) {
