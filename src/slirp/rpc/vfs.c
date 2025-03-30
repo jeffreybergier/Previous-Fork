@@ -105,10 +105,8 @@ int vfscat(char* dst, const char* src, int size) {
 }
 
 /* ----- VFS and host path */
-void vfs_path_canonicalize(const char* vfs_path, char* result) {
-    memcpy(result, vfs_path, strlen(vfs_path) + 1);
-    
-    char* vfsPath = result;
+void vfs_path_canonicalize(char* vfs_path) {    
+    char* vfsPath = vfs_path;
     char* slashslashptr;
     char* dotdotptr;
     char* slashdotptr;
@@ -203,16 +201,17 @@ void vfs_path_canonicalize(const char* vfs_path, char* result) {
 }
 
 static const char* vfs_get_filename(const char* vfs_path) {
-    return strrchr(vfs_path, '/') + 1;
+    char* sep = strrchr(vfs_path, '/');
+    return sep ? (sep + 1) : vfs_path;
 }
 
-static void vfs_get_parent_path(struct vfs_t* vfs, const struct path_t* path, struct path_t* parent_path) {
+static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
     char* sep;
-    strcpy(parent_path->vfs, path->vfs);
-    sep = strrchr(parent_path->vfs, '/');
-    if (sep == parent_path->vfs) sep[1] = '\0';
-    else if (sep) sep[0] = '\0';
-    vfs_to_host_path(vfs, parent_path);
+    strcpy(parent_path, vfs_path);
+    sep = strrchr(parent_path, '/');
+    if (sep == parent_path) sep[1] = '\0'; /* root directory */
+    else if (sep)           sep[0] = '\0';
+    else            parent_path[0] = '\0';
 }
 
 static int vfs_path_is_absolute(const char* path) {
@@ -259,7 +258,7 @@ int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path) {
     }
     
     snprintf(vfs_path, sizeof(vfs_path), "/%s", path_relative(path->vfs, vfs->vfs_base_path));
-    vfs_path_canonicalize(vfs_path, vfs_path);
+    vfs_path_canonicalize(vfs_path);
     
     return make_host_path(vfs->host_base_path, vfs_path, path->host);
 }
@@ -370,8 +369,9 @@ uint32_t vfs_file_id(uint64_t ino) {
 uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path) {
     struct path_t parent_path;
     
-    vfs_get_parent_path(vfs, path, &parent_path);
-    if (strlen(path->vfs) > 0) {
+    if (vfs_path_is_absolute(path->vfs)) {
+        vfs_get_parent_path(path->vfs, parent_path.vfs);
+        vfs_to_host_path(vfs, &parent_path);
         if (host_path_is_directory(parent_path.host)) {
             struct sattr_t sattr;
             vfs_get_sattr(vfs, &parent_path, &sattr);
@@ -398,7 +398,7 @@ int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fst
         mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restrcted delete from attributes */
 #endif
         if (S_ISREG(fstat->st_mode) && fstat->st_size == 0 && (sattr.mode & S_IFMT)) {
-            /* mode heursitics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */
+            /* mode heuristics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */
             mode &= ~S_IFMT;               /* clear format */
             mode |= (sattr.mode & S_IFMT); /* copy format from attributes */
         }

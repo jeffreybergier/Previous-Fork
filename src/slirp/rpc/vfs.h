@@ -90,7 +90,7 @@ struct path_t {
 int vfscpy(char* dst, const char* src, int size);
 int vfscat(char* dst, const char* src, int size);
 
-void vfs_path_canonicalize(const char* vfs_path, char* result);
+void vfs_path_canonicalize(char* vfs_path);
 uint32_t vfs_file_id(uint64_t ino);
 
 int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path);

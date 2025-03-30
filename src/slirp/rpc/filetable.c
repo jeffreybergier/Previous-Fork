@@ -183,7 +183,8 @@ int ft_stat(struct ft_t* ft, const struct path_t* path, struct stat* fstat) {
 void ft_move(struct ft_t* ft, uint64_t fhandle_from, struct path_t* path_to) {
     char vfs_path[MAXPATHLEN];
     
-    vfs_path_canonicalize(path_to->vfs, vfs_path);
+    vfscpy(vfs_path, path_to->vfs, sizeof(vfs_path));
+    vfs_path_canonicalize(vfs_path);
     
     host_mutex_lock(ft->mutex);
     
@@ -204,8 +205,9 @@ void ft_remove(struct ft_t* ft, uint64_t fhandle) {
 uint64_t ft_get_fhandle(struct ft_t* ft, const struct path_t* path) {
     char vfs_path[MAXPATHLEN];
     uint64_t fhandle;
-
-    vfs_path_canonicalize(path->vfs, vfs_path);
+    
+    vfscpy(vfs_path, path->vfs, sizeof(vfs_path));
+    vfs_path_canonicalize(vfs_path);
 
     host_mutex_lock(ft->mutex);
     
