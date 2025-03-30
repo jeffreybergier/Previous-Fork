@@ -113,7 +113,7 @@ static int proc_mnt(struct rpc_t* rpc) {
     if (xdr_read_string(m_in, path.vfs, sizeof(path.vfs)) < 0) return RPC_GARBAGE_ARGS;
     vfs_to_host_path(nfsd_fts[0]->vfs, &path);
     
-    rpc_log(rpc, "MNT from %s for '%s'", name, path);
+    rpc_log(rpc, "MNT from %s for '%s'", name, path.vfs);
     
     handle = ft_get_fhandle(nfsd_fts[0], &path);
     if (handle) {

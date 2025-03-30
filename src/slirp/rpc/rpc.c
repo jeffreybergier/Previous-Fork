@@ -352,8 +352,9 @@ void rpc_reset(void) {
     } else {
         nfsd_fts[0] = ft_init(ConfigureParams.Ethernet.szNFSroot, "/");
     }
-    
-    rpc_init();
+    if (nfsd_fts[0]) {
+        rpc_init();
+    }
 }
 
 void rpc_init(void) {

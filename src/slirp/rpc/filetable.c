@@ -107,25 +107,35 @@ static char* ft_find(struct ft_t* ft, uint64_t fhandle) {
 }
 
 
-struct ft_t* ft_init(const char* host_path, const char* base_path_alias) {
+struct ft_t* ft_init(const char* host_path, const char* vfs_path_alias) {
     int i;
-    struct ft_t* ft = (struct ft_t*)malloc(sizeof(struct ft_t));
-    for (i = 0; i < HASH_SIZE; i++) {
-        ft->table[i] = NULL;
+    struct ft_t* ft = NULL;
+    struct vfs_t* vfs = vfs_init(host_path, vfs_path_alias);
+    if (vfs) {
+        ft = (struct ft_t*)malloc(sizeof(struct ft_t));
+        if (ft) {
+            for (i = 0; i < HASH_SIZE; i++) {
+                ft->table[i] = NULL;
+            }
+            ft->mutex = host_mutex_create();
+            ft->vfs = vfs;
+        } else {
+            vfs_uninit(vfs);
+        }
     }
-    ft->mutex = host_mutex_create();
-    ft->vfs = vfs_init(host_path, base_path_alias);
     return ft;
 }
 
 struct ft_t* ft_uninit(struct ft_t* ft) {
     int i;
-    for (i = 0; i < HASH_SIZE; i++) {
-        ft_delete(ft, i);
+    if (ft) {
+        for (i = 0; i < HASH_SIZE; i++) {
+            ft_delete(ft, i);
+        }
+        host_mutex_destroy(ft->mutex);
+        ft->vfs = vfs_uninit(ft->vfs);
+        free(ft);
     }
-    host_mutex_destroy(ft->mutex);
-    ft->vfs = vfs_uninit(ft->vfs);
-    free(ft);
     return NULL;
 }
 
