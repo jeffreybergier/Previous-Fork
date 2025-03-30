@@ -164,17 +164,19 @@ static int get_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path) {
 
 static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, int create) {
     char vfs_path[MAXPATHLEN];
-    int len;
     
     int found = read_fhandle(ft, m_in, path->vfs);
+    int len   = xdr_read_string(m_in, vfs_path, sizeof(vfs_path));
     
-    if (found < 0 || xdr_read_string(m_in, vfs_path, sizeof(vfs_path)) < 0) {
+    if (found < 0 || len < 0) {
         return -1;
     }
     if (found == 0) {
         return NFSERR_NOENT;
     }
-    
+    if (len > MAXNAMELEN) {
+        return NFSERR_NAMETOOLONG;
+    }
     len = strlen(path->vfs);
     if (len > 0 && path->vfs[len-1] != '/' && strlen(vfs_path) > 0) {
         vfscat(path->vfs, "/", sizeof(path->vfs));
@@ -185,10 +187,7 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
     if (vfs_to_host_path(ft->vfs, path) >= sizeof(path->host)) {
         return NFSERR_NAMETOOLONG;
     }
-    if (create) {
-        return NFS_OK;
-    }
-    return check_file(ft, path, 0);    
+    return create ? NFS_OK : check_file(ft, path, 0);    
 }
 
 

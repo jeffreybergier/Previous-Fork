@@ -268,10 +268,20 @@ int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path) {
     return make_host_path(vfs->host_base_path, vfs_path, path->host);
 }
 
-static int make_vfs_path(const char* vfs_base, const char* host_path, char* vfs_path) {
+static int make_vfs_path(const char* vfs_base, const char* host_path, char* vfs_path, int relative) {
     char* p;
     
-    vfs_path[0] = '\0';
+    if (relative) {
+        vfs_path[0] = '\0';
+    } else {
+        vfscpy(vfs_path, vfs_base, MAXPATHLEN);
+        if (strcmp(vfs_path + strlen(vfs_path) - 1, "/")) {
+            vfscat(vfs_path, "/", MAXPATHLEN);
+        }
+        if (strncmp(host_path, HOST_SEPARATOR, strlen(HOST_SEPARATOR)) == 0) {
+            host_path += strlen(HOST_SEPARATOR); /* skip leading separator */
+        }
+    }
     
     while ((p = strstr(host_path, HOST_SEPARATOR))) {
         p[0] = '\0';
@@ -283,24 +293,9 @@ static int make_vfs_path(const char* vfs_base, const char* host_path, char* vfs_
 }
 
 int vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path) {
-    const char* host_path = path->host;
-    host_path = path_relative(host_path, vfs->host_base_path);
+    const char* host_path = path_relative(path->host, vfs->host_base_path);
     
-    return make_vfs_path(vfs->vfs_base_path, path->host, path->vfs);
-}
-
-
-static int host_path_exists(const char* host_path) {
-    struct stat fstat;
-    return stat(host_path, &fstat) == 0;
-}
-
-static int host_path_is_absolute(char* path) {
-#ifdef _WIN32
-    return strlen(path) > 1 && path[1] == ':' && toupper(path[0]) >= 'A' && toupper(path[0]) <= 'Z';
-#else
-    return strlen(path) > strlen(HOST_SEPARATOR) - 1 && strncmp(path, HOST_SEPARATOR, strlen(HOST_SEPARATOR)) == 0;
-#endif
+    return make_vfs_path(vfs->vfs_base_path, host_path, path->vfs, host_path == path->host);
 }
 
 static int host_path_is_directory(const char* host_path) {
@@ -579,9 +574,12 @@ int vfs_readlink(const struct path_t* path, struct path_t* result) {
      a "good enough" estimate. */
     
     if (sb.st_size == 0)
-        bufsiz = FILENAME_MAX;
+        bufsiz = sizeof(result->host);
     
-    nbytes = readlink(path->host, result->host, bufsiz);
+    if (bufsiz > sizeof(result->host))
+        return ENAMETOOLONG;
+    
+    nbytes = readlink(path->host, result->host, bufsiz - 1);
     if (nbytes == -1)
         return errno;
     
