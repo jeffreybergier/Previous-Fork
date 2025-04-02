@@ -119,7 +119,7 @@ DIR* vfs_opendir(const struct path_t* path);
 int vfs_statfs(const struct path_t* path, struct statvfs* fsstat);
 int vfs_access(const struct path_t* path, int mode);
 
-void vfs_set_default_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid);
+void vfs_set_process_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid);
 void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen);
 
 struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias);

@@ -702,8 +702,6 @@ static int proc_rmdir(struct rpc_t* rpc) {
 static int proc_readdir(struct rpc_t* rpc) {
     struct path_t path;
     int status;
-    char name[MAXNAMELEN+1];
-    struct dirent* fileinfo;
     DIR* handle;
     uint32_t cookie;
     uint32_t count;
@@ -724,20 +722,22 @@ static int proc_readdir(struct rpc_t* rpc) {
         }
     }
     xdr_write_long(m_out, status);
+    rpc_log(rpc, "READDIR %s (%s)", path.vfs, status_str(status));
+    
     if (status == NFS_OK && handle) {
+        char name[MAXNAMELEN+1];
+        size_t namelen;
+        size_t size;
+        struct dirent* fileinfo;
+        uint32_t fileid;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
-#if HAVE_STRUCT_DIRENT_D_NAMELEN
-            size_t namelen = fileinfo->d_namlen;
-#else
-            size_t namelen = strlen(fileinfo->d_name);
-#endif
             if(--skip >= 0) continue;
-            
-#ifndef _WIN32
-            xdr_write_long(m_out, 1); /* value follows */
-            xdr_write_long(m_out, vfs_file_id(fileinfo->d_ino));
+#if HAVE_STRUCT_DIRENT_D_NAMELEN
+            namelen = fileinfo->d_namlen;
+#else
+            namelen = strlen(fileinfo->d_name);
 #endif
             if (namelen >= sizeof(name)) {
                 rpc_log(rpc, "name too long");
@@ -745,7 +745,14 @@ static int proc_readdir(struct rpc_t* rpc) {
             }
             memcpy(name, fileinfo->d_name, namelen);
             name[namelen] = '\0';
+            size = (strlen(name) + 3) & ~3;  /* matches xdr_write_string() */
+            if (count < 4 * 4 + size + 4) {  /* includes final valid false */
+                eof = 0;
+                break;
+            }
+            count -= 4 * 4 + size; /* valid, fileid, namelen, name, cookie */
             rpc_log(rpc, "%d %s %s", cookie, path, name);
+            cookie++;
 #ifdef _WIN32
             struct path_t file_path;
             int len = vfscpy(file_path.vfs, path.vfs, sizeof(file_path.vfs));
@@ -754,22 +761,19 @@ static int proc_readdir(struct rpc_t* rpc) {
             }
             vfscat(file_path.vfs, name, sizeof(file_path.vfs));
             vfs_to_host_path(nfsd_fts[0]->vfs, &file_path);
-            xdr_write_long(m_out, 1); /* value follows */
-            xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(nfsd_fts[0], &file_path)));
+            fileid = vfs_file_id(ft_get_fhandle(nfsd_fts[0], &file_path));
+#else
+            fileid = vfs_file_id(fileinfo->d_ino);
 #endif
+            xdr_write_long(m_out, 1); /* valid entry follows */
+            xdr_write_long(m_out, fileid);
             xdr_write_string(m_out, name, sizeof(name));
-            xdr_write_long(m_out, cookie+1);
-            cookie++;
-            if (m_out->size >= count - 128) { /* 128: give some space for XDR data */
-                eof = 0;
-                break;
-            }
+            xdr_write_long(m_out, cookie);
         }
-        closedir(handle);
-        xdr_write_long(m_out, 0);  /* no value follows */
+        xdr_write_long(m_out, 0);  /* no valid entry follows */
         xdr_write_long(m_out, eof);
+        closedir(handle);
     }
-    rpc_log(rpc, "READDIR %s (%s)", path.vfs, status_str(status));
     
     return RPC_SUCCESS;
 }

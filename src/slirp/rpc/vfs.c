@@ -707,7 +707,7 @@ struct vfs_t* vfs_uninit(struct vfs_t* vfs) {
     return NULL;
 }
 
-void vfs_set_default_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid) {
+void vfs_set_process_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid) {
     vfs->uid = uid;
     vfs->gid = gid;
 }

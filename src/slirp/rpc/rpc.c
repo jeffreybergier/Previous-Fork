@@ -194,11 +194,11 @@ static void rpc_input(struct csocket_t* cs) {
         if (rpc.auth.flavor == RPC_AUTH_UNIX) {
             rpc.auth.auth = &auth_unix;
             rpc_read_auth_unix(&rpc);
-            vfs_set_default_uid_gid(nfsd_fts[0]->vfs, auth_unix.uid, auth_unix.gid);
+            vfs_set_process_uid_gid(nfsd_fts[0]->vfs, auth_unix.uid, auth_unix.gid);
         } else {
             rpc.auth.auth = NULL;
             xdr_read_skip(m_in, rpc.auth.length);
-            vfs_set_default_uid_gid(nfsd_fts[0]->vfs, 0, 0);
+            vfs_set_process_uid_gid(nfsd_fts[0]->vfs, 0, 0);
         }
         rpc.verif.flavor = xdr_read_long(m_in);
         rpc.verif.length = xdr_read_long(m_in);
