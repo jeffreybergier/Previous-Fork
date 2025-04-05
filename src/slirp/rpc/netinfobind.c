@@ -34,7 +34,7 @@ struct ni_prog_t* ni_register;
 
 const struct rpc_prog_t ni_rpc_prog_template = 
 {
-    NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL
+    NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL, NULL
 };
 
 const struct ni_prog_t ni_prog_table_template[] = 

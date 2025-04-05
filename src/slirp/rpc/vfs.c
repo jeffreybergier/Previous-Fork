@@ -24,7 +24,6 @@
  */
 #include "config.h"
 
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>

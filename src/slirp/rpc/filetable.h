@@ -22,8 +22,6 @@ struct ft_t {
     struct vfs_t* vfs;
 };
 
-extern struct ft_t* nfsd_fts[1];
-
 uint64_t ft_get_fhandle(struct ft_t* ft, const struct path_t* path);
 void ft_set_sattr(struct ft_t* ft, struct path_t* path, struct sattr_t* sattr);
 void ft_get_sattr(struct ft_t* ft, struct path_t* path, struct sattr_t* sattr);

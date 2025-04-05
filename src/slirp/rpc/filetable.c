@@ -26,10 +26,7 @@
 #include <stdlib.h>
 
 #include "rpc.h"
-#include "filetable.h"
 
-
-struct ft_t* nfsd_fts[1];
 
 static size_t ft_hash(uint64_t fhandle) {
     return fhandle & HASH_MASK;

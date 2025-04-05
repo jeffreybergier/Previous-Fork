@@ -95,7 +95,7 @@ static int proc_getfile(struct rpc_t* rpc) {
     
     rpc_log(rpc, "GETFILE client='%s', key='%s'", client, key);
     
-    vfs_get_basepath_alias(nfsd_fts[0]->vfs, path, sizeof(path));
+    vfs_get_basepath_alias(rpc->ft->vfs, path, sizeof(path));
     if (strncmp("root", key, sizeof(key))) {
         int len = strlen(path);
         if (len > 0 && path[len-1] != '/' && strlen(key) > 0) {

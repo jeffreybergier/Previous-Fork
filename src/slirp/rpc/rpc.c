@@ -29,7 +29,6 @@
 #include "portmap.h"
 #include "mount.h"
 #include "nfs.h"
-#include "filetable.h"
 #include "bootparam.h"
 #include "netinfobind.h"
 #include "csocket.h"
@@ -42,20 +41,22 @@
 
 #define DBG 0
 
+struct ft_t* nfsd_fts[1];
+
 struct rpc_prog_t* rpc_prog_list;
 
 const struct rpc_prog_t rpc_prog_table_template[] = 
 {
-    { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_UDP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL },
-    { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_TCP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL },
-    { MOUNTPROG,     MOUNTVERS,     IPPROTO_UDP, 0,        mount_prog,     1, "MOUNT"      , NULL, NULL },
-    { MOUNTPROG,     MOUNTVERS,     IPPROTO_TCP, 0,        mount_prog,     1, "MOUNT"      , NULL, NULL },
-    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_UDP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL },
-    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_TCP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL },
-    { NFSPROG,       NFSVERS,       IPPROTO_UDP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
-    { NFSPROG,       NFSVERS,       IPPROTO_TCP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
-    { NIBINDPROG,    NIBINDVERS,    IPPROTO_UDP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL },
-    { NIBINDPROG,    NIBINDVERS,    IPPROTO_TCP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL }
+    { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_UDP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL, NULL },
+    { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_TCP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL, NULL },
+    { MOUNTPROG,     MOUNTVERS,     IPPROTO_UDP, 0,        mount_prog,     1, "MOUNT"      , NULL, NULL, NULL },
+    { MOUNTPROG,     MOUNTVERS,     IPPROTO_TCP, 0,        mount_prog,     1, "MOUNT"      , NULL, NULL, NULL },
+    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_UDP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL, NULL },
+    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_TCP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL, NULL },
+    { NFSPROG,       NFSVERS,       IPPROTO_UDP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL, NULL },
+    { NFSPROG,       NFSVERS,       IPPROTO_TCP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL, NULL },
+    { NIBINDPROG,    NIBINDVERS,    IPPROTO_UDP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL, NULL },
+    { NIBINDPROG,    NIBINDVERS,    IPPROTO_TCP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL, NULL }
 };
 
 
@@ -63,6 +64,7 @@ int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
     if (prog->prog == rpc->prog && prog->prot == rpc->prot) {
         rpc->name = prog->name;
         rpc->log  = prog->log;
+        rpc->ft   = prog->ft;
         if (prog->vers == 0 || prog->vers == rpc->vers) {
             return 1;
         }
@@ -353,11 +355,11 @@ void rpc_reset(void) {
         nfsd_fts[0] = ft_init(ConfigureParams.Ethernet.szNFSroot, "/");
     }
     if (nfsd_fts[0]) {
-        rpc_init();
+        rpc_init(nfsd_fts[0]);
     }
 }
 
-void rpc_init(void) {
+void rpc_init(struct ft_t* ft) {
     int i;
     struct rpc_prog_t* prog;
     char hostname[NAME_HOST_MAX];
@@ -376,6 +378,7 @@ void rpc_init(void) {
     for (i = 0; i < TBL_SIZE(rpc_prog_table_template); i++) {
         prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
         *prog = rpc_prog_table_template[i];
+        (*prog).ft = ft;
         rpc_add_program(prog);
     }
     

@@ -4,6 +4,7 @@
 #define _RPC_H_
 
 #include "xdr.h"
+#include "filetable.h"
 
 #define PORT_RPC 111
 
@@ -71,6 +72,8 @@ struct rpc_t {
     struct xdr_t* m_in;
     struct xdr_t* m_out;
     
+    struct ft_t* ft;
+    
     uint16_t port;
     uint32_t prot;
     uint32_t low;
@@ -89,9 +92,10 @@ struct rpc_prog_t {
     uint16_t port;
     
     int (*run)(struct rpc_t* rpc);
-    int         log;
-    const char* name;
-    void*       sock;
+    int          log;
+    const char*  name;
+    void*        sock;
+    struct ft_t* ft;
     
     struct rpc_prog_t* next;
 };
@@ -107,7 +111,7 @@ int proc_null(struct rpc_t* rpc);
 int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog);
 
 void rpc_reset(void);
-void rpc_init(void);
+void rpc_init(struct ft_t* ft);
 void rpc_uninit(void);
 
 void rpc_log(struct rpc_t* rpc, const char *format, ...);

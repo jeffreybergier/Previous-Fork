@@ -191,11 +191,11 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
 }
 
 
-static int write_fattr(struct xdr_t* m_out, const struct path_t* path) {
+static int write_fattr(struct ft_t* ft, struct xdr_t* m_out, const struct path_t* path) {
     struct stat fstat;
     uint32_t type = NFNON;
 
-    if (ft_stat(nfsd_fts[0], path, &fstat) != 0) {
+    if (ft_stat(ft, path, &fstat) != 0) {
         return 0;
     }
     
@@ -270,14 +270,14 @@ static int read_sattr(struct xdr_t* m_in, struct sattr_t* sattr) {
     return 0;
 }
 
-static void set_sattr(struct vfs_t* vfs, struct path_t* path, struct sattr_t* sattr, int create) {
+static void set_sattr(struct ft_t* ft, struct path_t* path, struct sattr_t* sattr, int create) {
     struct sattr_t new;
     
-    ft_get_sattr(nfsd_fts[0], path, &new);
+    ft_get_sattr(ft, path, &new);
     
     if (create) {
-        sattr->uid = vfs->uid;
-        sattr->gid = vfs_get_parent_gid(vfs, path);
+        sattr->uid = ft->vfs->uid;
+        sattr->gid = vfs_get_parent_gid(ft->vfs, path);
     }
     if (valid16(sattr->mode)) {
         new.mode &= S_IFMT;
@@ -304,7 +304,7 @@ static void set_sattr(struct vfs_t* vfs, struct path_t* path, struct sattr_t* sa
         times[1].tv_usec = valid32(sattr->mtime.usec) ? sattr->mtime.usec : now.tv_usec;
         vfs_utimes(path, times);
     }
-    ft_set_sattr(nfsd_fts[0], path, &new);
+    ft_set_sattr(ft, path, &new);
 }
 
 static void write_handle(struct xdr_t* m_out, uint64_t handle) {
@@ -330,11 +330,11 @@ static int proc_getattr(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
         
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        write_fattr(m_out, &path);
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "GETATTR %s (%s)", path.vfs, status_str(status));
     
@@ -349,13 +349,13 @@ static int proc_setattr(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        set_sattr(nfsd_fts[0]->vfs, &path, &sattr, 0);
-        write_fattr(m_out, &path);
+        set_sattr(rpc->ft, &path, &sattr, 0);
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "SETATTR %s (%s)", path.vfs, status_str(status));
 
@@ -375,13 +375,13 @@ static int proc_lookup(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
-        status = check_file(nfsd_fts[0], &path, 1);
+        status = check_file(rpc->ft, &path, 1);
     }
     if (status == NFS_OK) {
-        fhandle = ft_get_fhandle(nfsd_fts[0], &path);
+        fhandle = ft_get_fhandle(rpc->ft, &path);
         if (fhandle == 0) {
             rpc_log(rpc, "LOOKUP %s not found", path);
             status = NFSERR_NOENT;
@@ -390,7 +390,7 @@ static int proc_lookup(struct rpc_t* rpc) {
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
         write_handle(m_out, fhandle);
-        write_fattr(m_out, &path);
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "LOOKUP %s=%"PRIu64" (%s)", path.vfs, fhandle, status_str(status));
     
@@ -405,14 +405,14 @@ static int proc_readlink(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
         status = nfs_err(vfs_readlink(&path, &link_path));
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        vfs_to_vfs_path(nfsd_fts[0]->vfs, &link_path);
+        vfs_to_vfs_path(rpc->ft->vfs, &link_path);
         xdr_write_string(m_out, link_path.vfs, sizeof(link_path.vfs));
     }
     rpc_log(rpc, "READLINK %s->%s (%s)", path.vfs, link_path.vfs, status_str(status));
@@ -432,7 +432,7 @@ static int proc_read(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     if (m_in->size < 3 * 4) return RPC_GARBAGE_ARGS;
     
     offset = xdr_read_long(m_in);
@@ -454,7 +454,7 @@ static int proc_read(struct rpc_t* rpc) {
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        write_fattr(m_out, &path);
+        write_fattr(rpc->ft, m_out, &path);
         xdr_write_long(m_out, count);
         xdr_write_skip(m_out, count); /* written before by vfs_read() */
     }
@@ -480,7 +480,7 @@ static int proc_write(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     if (m_in->size < 4 * 4) return RPC_GARBAGE_ARGS;
     
     xdr_read_skip(m_in, 4); /* beginoffset unused */
@@ -492,7 +492,7 @@ static int proc_write(struct rpc_t* rpc) {
     if (xdr_read_skip(m_in, len) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
-        ft_get_sattr(nfsd_fts[0], &path, &sattr);
+        ft_get_sattr(rpc->ft, &path, &sattr);
         if ((sattr.mode & S_IFMT) == S_IFREG) {
             if (vfs_write(&path, offset, data, len) < 0) {
                 status = nfs_err(errno);
@@ -503,7 +503,7 @@ static int proc_write(struct rpc_t* rpc) {
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        write_fattr(m_out, &path);
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "WRITE %s (%s)", path.vfs, status_str(status));
     
@@ -518,7 +518,7 @@ static int proc_create(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
@@ -545,9 +545,9 @@ static int proc_create(struct rpc_t* rpc) {
     
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        set_sattr(nfsd_fts[0]->vfs, &path, &sattr, 1);
-        write_handle(m_out, ft_get_fhandle(nfsd_fts[0], &path));
-        write_fattr(m_out, &path);
+        set_sattr(rpc->ft, &path, &sattr, 1);
+        write_handle(m_out, ft_get_fhandle(rpc->ft, &path));
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "CREATE %s (%s)", path.vfs, status_str(status));
     
@@ -562,12 +562,12 @@ static int proc_remove(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path, 0)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path, 0)) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
-        fhandle = ft_get_fhandle(nfsd_fts[0], &path);
+        fhandle = ft_get_fhandle(rpc->ft, &path);
         status = nfs_err(vfs_remove(&path));
-        if (status == NFS_OK) ft_remove(nfsd_fts[0], fhandle);
+        if (status == NFS_OK) ft_remove(rpc->ft, fhandle);
     }
     xdr_write_long(m_out, status);
     rpc_log(rpc, "REMOVE %s (%s)", path.vfs, status_str(status));
@@ -585,14 +585,14 @@ static int proc_rename(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path_from, 0)) < 0) return RPC_GARBAGE_ARGS;
-    if ((status_to = read_path(nfsd_fts[0], m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path_from, 0)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status_to = read_path(rpc->ft, m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
         
     if (status == NFS_OK) {
         if (status_to == NFS_OK) {
-            fhandle = ft_get_fhandle(nfsd_fts[0], &path_from);
+            fhandle = ft_get_fhandle(rpc->ft, &path_from);
             status = nfs_err(vfs_rename(&path_from, &path_to));
-            if (status == NFS_OK) ft_move(nfsd_fts[0], fhandle, &path_to);
+            if (status == NFS_OK) ft_move(rpc->ft, fhandle, &path_to);
         } else {
             status = status_to;
         }
@@ -612,8 +612,8 @@ static int proc_link(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path_from)) < 0) return RPC_GARBAGE_ARGS;
-    if ((status_to = read_path(nfsd_fts[0], m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path_from)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status_to = read_path(rpc->ft, m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
         if (status_to == NFS_OK) {
@@ -637,7 +637,7 @@ static int proc_symlink(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path_to, 1)) < 0) return RPC_GARBAGE_ARGS;
     if (xdr_read_string(m_in, path_from.vfs, sizeof(path_from.vfs)) < 0) return RPC_GARBAGE_ARGS;
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
@@ -646,7 +646,7 @@ static int proc_symlink(struct rpc_t* rpc) {
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        set_sattr(nfsd_fts[0]->vfs, &path_to, &sattr, 1);
+        set_sattr(rpc->ft, &path_to, &sattr, 1);
     }
     rpc_log(rpc, "SYMLINK %s->%s (%s)", path_from.vfs, path_to.vfs, status_str(status));
 
@@ -661,7 +661,7 @@ static int proc_mkdir(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
 
-    if ((status = read_path(nfsd_fts[0], m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path, 1)) < 0) return RPC_GARBAGE_ARGS;
     if (read_sattr(m_in, &sattr) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
@@ -669,9 +669,9 @@ static int proc_mkdir(struct rpc_t* rpc) {
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        set_sattr(nfsd_fts[0]->vfs, &path, &sattr, 1);
-        write_handle(m_out, ft_get_fhandle(nfsd_fts[0], &path));
-        write_fattr(m_out, &path);
+        set_sattr(rpc->ft, &path, &sattr, 1);
+        write_handle(m_out, ft_get_fhandle(rpc->ft, &path));
+        write_fattr(rpc->ft, m_out, &path);
     }
     rpc_log(rpc, "MKDIR %s (%s)", path.vfs, status_str(status));
     
@@ -686,12 +686,12 @@ static int proc_rmdir(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = read_path(nfsd_fts[0], m_in, &path, 0)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = read_path(rpc->ft, m_in, &path, 0)) < 0) return RPC_GARBAGE_ARGS;
         
     if (status == NFS_OK) {
-        fhandle = ft_get_fhandle(nfsd_fts[0], &path);
+        fhandle = ft_get_fhandle(rpc->ft, &path);
         status = nfs_err(vfs_rmdir(&path));
-        if (status == NFS_OK) ft_remove(nfsd_fts[0], fhandle);
+        if (status == NFS_OK) ft_remove(rpc->ft, fhandle);
     }
     xdr_write_long(m_out, status);
     rpc_log(rpc, "RMDIR %s (%s)", path.vfs, status_str(status));
@@ -709,7 +709,7 @@ static int proc_readdir(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     if (m_in->size < 2 * 4) return RPC_GARBAGE_ARGS;
     
     cookie = xdr_read_long(m_in);
@@ -760,8 +760,8 @@ static int proc_readdir(struct rpc_t* rpc) {
                 vfscat(file_path.vfs, "/", sizeof(file_path.vfs));
             }
             vfscat(file_path.vfs, name, sizeof(file_path.vfs));
-            vfs_to_host_path(nfsd_fts[0]->vfs, &file_path);
-            fileid = vfs_file_id(ft_get_fhandle(nfsd_fts[0], &file_path));
+            vfs_to_host_path(rpc->ft->vfs, &file_path);
+            fileid = vfs_file_id(ft_get_fhandle(rpc->ft, &file_path));
 #else
             fileid = vfs_file_id(fileinfo->d_ino);
 #endif
@@ -786,7 +786,7 @@ static int proc_statfs(struct rpc_t* rpc) {
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
 
-    if ((status = get_path(nfsd_fts[0], m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
+    if ((status = get_path(rpc->ft, m_in, &path)) < 0) return RPC_GARBAGE_ARGS;
     
     if (status == NFS_OK) {
         status = nfs_err(vfs_statfs(&path, &fsstat));
