@@ -390,11 +390,11 @@ int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fst
     if (valid16(sattr.mode)) {
         uint32_t mode = fstat->st_mode; /* copy format & permissions from actual file in the file system */
 #ifdef _WIN32
-        mode &= ~(S_IWUSR  | S_IRUSR);
-        mode |= sattr.mode & (S_IWUSR | S_IRUSR); /* copy user R/W permissions and directory restrcted delete from attributes */
+        mode &= ~(S_IWUSR | S_IRUSR);
+        mode |= sattr.mode & (S_IWUSR | S_IRUSR); /* copy user R/W permissions from attributes */
 #else
-        mode &= ~(S_IWUSR  | S_IRUSR | S_ISVTX);
-        mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restrcted delete from attributes */
+        mode &= ~(S_IWUSR | S_IRUSR | S_ISVTX);
+        mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restricted delete from attributes */
 #endif
         if (S_ISREG(fstat->st_mode) && fstat->st_size == 0 && (sattr.mode & S_IFMT)) {
             /* mode heuristics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */

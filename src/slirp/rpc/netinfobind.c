@@ -25,7 +25,6 @@
 #include <slirp.h>
 #include <stdlib.h>
 
-#include "vfs.h"
 #include "rpc.h"
 #include "netinfobind.h"
 

@@ -29,7 +29,6 @@
 #include <sys/statvfs.h>
 #endif
 
-#include "filetable.h"
 #include "rpc.h"
 #include "nfs.h"
 

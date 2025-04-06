@@ -26,7 +26,6 @@
 
 #include "rpc.h"
 #include "bootparam.h"
-#include "filetable.h"
 
 
 #define IP_ADDR_TYPE 1

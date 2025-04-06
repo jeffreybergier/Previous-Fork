@@ -60,6 +60,18 @@ const struct rpc_prog_t rpc_prog_table_template[] =
 };
 
 
+static void rpc_set_cred(struct rpc_t* rpc) {
+    struct auth_unix_t* auth = (struct auth_unix_t*)rpc->auth.auth;
+    
+    if (rpc->ft) {
+        if (rpc->auth.flavor == RPC_AUTH_UNIX) {
+            vfs_set_process_uid_gid(rpc->ft->vfs, auth->uid, auth->gid);
+        } else {
+            vfs_set_process_uid_gid(rpc->ft->vfs, 0, 0);
+        }
+    }
+}
+
 int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
     if (prog->prog == rpc->prog && prog->prot == rpc->prot) {
         rpc->name = prog->name;
@@ -73,7 +85,6 @@ int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
     return 0;
 }
 
-
 static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
     int result, mismatch;
     struct rpc_prog_t* prog = rpc_prog_list;
@@ -86,6 +97,7 @@ static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
         if (prog->port == cs->m_serverPort) {
             result = rpc_match_prog(rpc, prog);
             if (result > 0) {
+                rpc_set_cred(rpc);
                 return prog->run(rpc);
             }
             if (result < 0) {
@@ -100,15 +112,17 @@ static int rpc_call(struct csocket_t* cs, struct rpc_t* rpc) {
     return mismatch ? RPC_PROG_MISMATCH : RPC_PROG_UNAVAIL;
 }
 
-static void rpc_read_auth_unix(struct rpc_t* rpc) {
+static void rpc_read_auth_unix(struct rpc_t* rpc, struct auth_unix_t* auth) {
     int i;
     
-    struct xdr_t* m_in       = rpc->m_in;
-    int len                  = rpc->auth.length;
-    struct auth_unix_t* auth = (struct auth_unix_t*)rpc->auth.auth;
-    uint8_t* restore         = m_in->data + len;
+    struct xdr_t* m_in = rpc->m_in;
+    int len            = rpc->auth.length;
+    uint8_t* restore   = m_in->data + len;
     
+    rpc->auth.auth = auth;
+
     if (len > m_in->size) {
+        memset(rpc->auth.auth, 0, sizeof(struct auth_unix_t));
         printf("[RPC] Auth UNIX underrun\n");
         return;
     }
@@ -116,7 +130,7 @@ static void rpc_read_auth_unix(struct rpc_t* rpc) {
     len -= 5 * 4;
     auth->time = xdr_read_long(m_in);
     len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
-    while (len & 3) len--; /* align */
+    len &= ~3; /* align */
     auth->uid  = xdr_read_long(m_in);
     auth->gid  = xdr_read_long(m_in);
     auth->len  = xdr_read_long(m_in);
@@ -194,13 +208,9 @@ static void rpc_input(struct csocket_t* cs) {
         printf("RPC AUTHLEN: %d\n",   rpc.auth.length);
 #endif
         if (rpc.auth.flavor == RPC_AUTH_UNIX) {
-            rpc.auth.auth = &auth_unix;
-            rpc_read_auth_unix(&rpc);
-            vfs_set_process_uid_gid(nfsd_fts[0]->vfs, auth_unix.uid, auth_unix.gid);
+            rpc_read_auth_unix(&rpc, &auth_unix);
         } else {
-            rpc.auth.auth = NULL;
             xdr_read_skip(m_in, rpc.auth.length);
-            vfs_set_process_uid_gid(nfsd_fts[0]->vfs, 0, 0);
         }
         rpc.verif.flavor = xdr_read_long(m_in);
         rpc.verif.length = xdr_read_long(m_in);
@@ -378,7 +388,7 @@ void rpc_init(struct ft_t* ft) {
     for (i = 0; i < TBL_SIZE(rpc_prog_table_template); i++) {
         prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
         *prog = rpc_prog_table_template[i];
-        (*prog).ft = ft;
+        prog->ft = ft;
         rpc_add_program(prog);
     }
     

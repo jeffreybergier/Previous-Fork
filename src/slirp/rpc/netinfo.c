@@ -25,10 +25,8 @@
 #include <slirp.h>
 #include <stdlib.h>
 
-#include "vfs.h"
 #include "rpc.h"
 #include "netinfobind.h"
-#include "netinfo.h"
 #include "ctl.h"
 
 #include "configuration.h"
@@ -62,7 +60,7 @@ static const char* status_to_string(enum ni_status status) {
         case NI_DUPTAG:          return "NI_DUPTAG";
         case NI_NOTAG:           return "NI_NOTAG";
         case NI_AUTHERROR:       return "NI_AUTHERROR";
-        case NI_NOUSER:          return "NI_AUTHERROR";
+        case NI_NOUSER:          return "NI_NOUSER";
         case NI_MASTERBUSY:      return "NI_MASTERBUSY";
         case NI_INVALIDDOMAIN:   return "NI_INVALIDDOMAIN";
         case NI_BADOP:           return "NI_BADOP";
@@ -387,33 +385,50 @@ static char* ip_addr_str(char* result, uint32_t addr, size_t count) {
     return result;
 }
 
-static void addHost(struct ni_prog_t* host, const char* name, char* system_type) {
+static struct ni_node_t* ni_find_from_key_val(struct ni_node_t* node, const char* key, const char* val) {
+    struct ni_prop_t* props = NULL;
+    struct ni_val_t*  vals  = NULL;
+
+    while (node) {
+        props = node->props;
+        while (props) {
+            if (strcmp(props->key, key) == 0) {
+                vals = props->val;
+                while (vals) {
+                    if (strcmp(vals->val, val) == 0) {
+                        return node;
+                    }
+                    vals = vals->next;
+                }
+            }
+            props = props->next;
+        }
+        node = node->next;
+    }
+    return NULL;
+}
+
+static void addHost(struct ni_prog_t* network, const char* name, const char* mount, uint32_t ip_addr) {
     char ip_str[16];
 
-    struct ni_node_t* node = NULL;
-    struct ni_node_t* child = NULL;
+    struct ni_node_t* node;
+    struct ni_node_t* child;
     
-    /* Create root host:/ */
-    host->root = ni_node_init(&host->id_map, NULL);
-    ni_node_add_prop(host->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3));
-    
-    /* Add child host:/machines */
-    node = ni_node_add_child(host, host->root);
-    ni_node_add_prop(node, "name", "machines");
-    
-    /* Add child host:/machines/broadcasthost */
-    child = ni_node_add_child(host, node);
-    ni_node_add_prop(child, "name", "broadcasthost");
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, 0xFFFFFFFF, 4));
+    /* Add child network:/machines/name */
+    node = ni_find_from_key_val(network->root->children, "name", "machines");
+    child = ni_node_add_child(network, node);
+    ni_node_add_prop(child, "name", name);
+    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, ip_addr, 4));
+    ni_node_add_prop(child, "serves", "./network");
     ni_node_add_prop(child, "serves", "../network");
     
-    /* Add child host:/machines/localhost */
-    child = ni_node_add_child(host, node);
-    ni_node_add_prop(child, "name", "localhost");
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, 0x7F000001, 4));
-    ni_node_add_prop(child, "serves", "./local");
-    ni_node_add_prop(child, "netgroups", NULL);
-    ni_node_add_prop(child, "system_type", system_type);
+    /* Add child network:/mounts/mount */
+    node = ni_find_from_key_val(network->root->children, "name", "mounts");
+    child = ni_node_add_child(network, node);
+    ni_node_add_prop(child, "name", mount);
+    ni_node_add_prop(child, "dir", "/Net");
+    ni_node_add_prop(child, "opts", "rw");
+    ni_node_add_prop(child, "opts", "net");
 }
 
 void netinfo_build_nidb(void) {
@@ -422,19 +437,10 @@ void netinfo_build_nidb(void) {
     char system_type[24];
     const char* domain;
     
-    struct ni_prog_t* local;
     struct ni_prog_t* network;
     
     struct ni_node_t* node  = NULL;
     struct ni_node_t* child = NULL;
-    
-    local = ni_register;
-    while (local) {
-        if (strncmp(local->tag, "local", MAXNAMELEN) == 0) {
-            break;
-        }
-        local = local->next;
-    }
     
     network = ni_register;
     while (network) {
@@ -457,8 +463,6 @@ void netinfo_build_nidb(void) {
     memset(hostname, 0, sizeof(hostname));
     gethostname(hostname, sizeof(hostname));
     domain = (NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
-    
-    addHost(local, NAME_HOST, system_type);
     
     /* Create root network:/ */
     network->root = ni_node_init(&network->id_map, NULL);
@@ -487,23 +491,9 @@ void netinfo_build_nidb(void) {
     ni_node_add_prop(child, "name", NAME_DNS);
     ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4));
     
-    /* Add child network:/machines/nfs */
-    child = ni_node_add_child(network, node);
-    ni_node_add_prop(child, "name", NAME_NFSD);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_NFSD,  4));
-    ni_node_add_prop(child, "serves", "./network");
-    ni_node_add_prop(child, "serves", "../network");
-    
     /* Create network:/mounts */
     node = ni_node_add_child(network, network->root);
     ni_node_add_prop(node, "name", "mounts");
-    
-    /* Add child network:/mounts/nfs:/ */
-    child = ni_node_add_child(network, node);
-    ni_node_add_prop(child, "name", NAME_NFSD":/");
-    ni_node_add_prop(child, "dir", "/Net");
-    ni_node_add_prop(child, "opts", "rw");
-    ni_node_add_prop(child, "opts", "net");
     
     /* Create network:/locations */
     node = ni_node_add_child(network, network->root);
@@ -520,9 +510,11 @@ void netinfo_build_nidb(void) {
     if (ConfigureParams.Ethernet.bNetworkTime) {
         child = ni_node_add_child(network, node);
         ni_node_add_prop(child, "name", "ntp");
-        ni_node_add_prop(child, "server", NAME_NFSD);
-        ni_node_add_prop(child, "host", NAME_NFSD);
+        ni_node_add_prop(child, "server", hostname);
+        ni_node_add_prop(child, "host", hostname);
     }
+    
+    addHost(network, NAME_NFSD, NAME_NFSD":/", CTL_NET|CTL_NFSD);
 }
 
 void netinfo_delete_nidb(void) {

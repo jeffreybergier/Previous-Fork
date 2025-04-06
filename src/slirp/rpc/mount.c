@@ -27,7 +27,6 @@
 
 #include "rpc.h"
 #include "mount.h"
-#include "filetable.h"
 
 
 enum {
