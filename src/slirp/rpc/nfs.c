@@ -242,7 +242,7 @@ static int write_fattr(struct ft_t* ft, struct xdr_t* m_out, const struct path_t
     xdr_write_long(m_out, (uint32_t)(fstat.st_rdev));
     xdr_write_long(m_out, (uint32_t)((fstat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE));
     xdr_write_long(m_out, (uint32_t)(fstat.st_dev)); /* fsid */
-    xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(nfsd_fts[0], path)));
+    xdr_write_long(m_out, vfs_file_id(ft_get_fhandle(ft, path)));
     xdr_write_long(m_out, (uint32_t)(fstat.st_atime));
     xdr_write_long(m_out, (uint32_t)(0));
     xdr_write_long(m_out, (uint32_t)(fstat.st_mtime));
