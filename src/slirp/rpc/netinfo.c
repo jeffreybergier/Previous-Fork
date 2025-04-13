@@ -368,14 +368,14 @@ static void ni_node_delete(struct ni_node_t** node) {
 
 
 /* NetInfo database */
-static char* ip_addr_str(char* result, uint32_t addr, size_t count) {
+static char* ip_addr_str(char* result, uint32_t addr, size_t count, int size) {
     switch (count) {
         case 3:
-            snprintf(result, 12, "%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF);
+            snprintf(result, size, "%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF);
             break;
             
         case 4:
-            snprintf(result, 16, "%d.%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF);
+            snprintf(result, size, "%d.%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF);
             break;
             
         default:
@@ -385,33 +385,53 @@ static char* ip_addr_str(char* result, uint32_t addr, size_t count) {
     return result;
 }
 
-static void addHost(struct ni_prog_t* host, const char* name, char* system_type) {
-    char ip_str[16];
+static struct ni_node_t* ni_find_from_key_val(struct ni_node_t* node, const char* key, const char* val) {
+    struct ni_prop_t* props = NULL;
+    struct ni_val_t*  vals  = NULL;
 
-    struct ni_node_t* node = NULL;
-    struct ni_node_t* child = NULL;
+    while (node) {
+        props = node->props;
+        while (props) {
+            if (strcmp(props->key, key) == 0) {
+                vals = props->val;
+                while (vals) {
+                    if (strcmp(vals->val, val) == 0) {
+                        return node;
+                    }
+                    vals = vals->next;
+                }
+            }
+            props = props->next;
+        }
+        node = node->next;
+    }
+    return NULL;
+}
+
+static void netinfo_add_host(struct ni_prog_t* network, const char* name, uint32_t ip_addr) {
+    char ip_str[16];
+    char mount[MAXNAMELEN+1];
+
+    struct ni_node_t* node;
+    struct ni_node_t* child;
     
-    /* Create root host:/ */
-    host->root = ni_node_init(&host->id_map, NULL);
-    ni_node_add_prop(host->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3));
+    snprintf(mount, sizeof(mount), "%s:/", name);
     
-    /* Add child host:/machines */
-    node = ni_node_add_child(host, host->root);
-    ni_node_add_prop(node, "name", "machines");
-    
-    /* Add child host:/machines/broadcasthost */
-    child = ni_node_add_child(host, node);
-    ni_node_add_prop(child, "name", "broadcasthost");
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, 0xFFFFFFFF, 4));
+    /* Add child network:/machines/name */
+    node = ni_find_from_key_val(network->root->children, "name", "machines");
+    child = ni_node_add_child(network, node);
+    ni_node_add_prop(child, "name", name);
+    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, ip_addr, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "serves", "./network");
     ni_node_add_prop(child, "serves", "../network");
     
-    /* Add child host:/machines/localhost */
-    child = ni_node_add_child(host, node);
-    ni_node_add_prop(child, "name", "localhost");
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, 0x7F000001, 4));
-    ni_node_add_prop(child, "serves", "./local");
-    ni_node_add_prop(child, "netgroups", NULL);
-    ni_node_add_prop(child, "system_type", system_type);
+    /* Add child network:/mounts/mount */
+    node = ni_find_from_key_val(network->root->children, "name", "mounts");
+    child = ni_node_add_child(network, node);
+    ni_node_add_prop(child, "name", mount);
+    ni_node_add_prop(child, "dir", "/Net");
+    ni_node_add_prop(child, "opts", "rw");
+    ni_node_add_prop(child, "opts", "net");
 }
 
 void netinfo_build_nidb(void) {
@@ -420,21 +440,11 @@ void netinfo_build_nidb(void) {
     char system_type[24];
     const char* domain;
     
-    struct ni_prog_t* local;
-    struct ni_prog_t* network;
+    struct ni_prog_t* network = nidb;
     
     struct ni_node_t* node  = NULL;
     struct ni_node_t* child = NULL;
     
-    local = ni_register;
-    while (local) {
-        if (strncmp(local->tag, "local", MAXNAMELEN) == 0) {
-            break;
-        }
-        local = local->next;
-    }
-    
-    network = ni_register;
     while (network) {
         if (strncmp(network->tag, "network", MAXNAMELEN) == 0) {
             break;
@@ -456,12 +466,10 @@ void netinfo_build_nidb(void) {
     gethostname(hostname, sizeof(hostname));
     domain = (NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
     
-    addHost(local, NAME_HOST, system_type);
-    
     /* Create root network:/ */
     network->root = ni_node_init(&network->id_map, NULL);
     ni_node_add_prop(network->root, "master", NAME_NFSD"/network");
-    ni_node_add_prop(network->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3));
+    ni_node_add_prop(network->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3, sizeof(ip_str)));
     
     /* Add child network:/machines */
     node = ni_node_add_child(network, network->root);
@@ -470,12 +478,12 @@ void netinfo_build_nidb(void) {
     /* Add child network:/machines/host */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", hostname);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_ALIAS, 4));
+    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_ALIAS, 4, sizeof(ip_str)));
     
     /* Add child network:/machines/previous */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", NAME_HOST);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_HOST, 4));
+    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_HOST, 4, sizeof(ip_str)));
     ni_node_add_prop(child, "serves", NAME_HOST"/local");
     ni_node_add_prop(child, "netgroups", NULL);
     ni_node_add_prop(child, "system_type", system_type);
@@ -483,25 +491,11 @@ void netinfo_build_nidb(void) {
     /* Add child network:/machines/dns */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", NAME_DNS);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4));
-    
-    /* Add child network:/machines/nfs */
-    child = ni_node_add_child(network, node);
-    ni_node_add_prop(child, "name", NAME_NFSD);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_NFSD,  4));
-    ni_node_add_prop(child, "serves", "./network");
-    ni_node_add_prop(child, "serves", "../network");
+    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
     
     /* Create network:/mounts */
     node = ni_node_add_child(network, network->root);
     ni_node_add_prop(node, "name", "mounts");
-    
-    /* Add child network:/mounts/nfs:/ */
-    child = ni_node_add_child(network, node);
-    ni_node_add_prop(child, "name", NAME_NFSD":/");
-    ni_node_add_prop(child, "dir", "/Net");
-    ni_node_add_prop(child, "opts", "rw");
-    ni_node_add_prop(child, "opts", "net");
     
     /* Create network:/locations */
     node = ni_node_add_child(network, network->root);
@@ -510,7 +504,7 @@ void netinfo_build_nidb(void) {
     /* Add child network:/locations/resolver */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", "resolver");
-    ni_node_add_prop(child, "nameserver", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4));
+    ni_node_add_prop(child, "nameserver", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
     ni_node_add_prop(child, "domain", domain);
     ni_node_add_prop(child, "search", domain);
     
@@ -518,13 +512,15 @@ void netinfo_build_nidb(void) {
     if (ConfigureParams.Ethernet.bNetworkTime) {
         child = ni_node_add_child(network, node);
         ni_node_add_prop(child, "name", "ntp");
-        ni_node_add_prop(child, "server", NAME_NFSD);
-        ni_node_add_prop(child, "host", NAME_NFSD);
+        ni_node_add_prop(child, "server", hostname);
+        ni_node_add_prop(child, "host", hostname);
     }
+    
+    netinfo_add_host(network, NAME_NFSD, CTL_NET|CTL_NFSD);
 }
 
 void netinfo_delete_nidb(void) {
-    struct ni_prog_t* prog = ni_register;
+    struct ni_prog_t* prog = nidb;
 
     while (prog) {
         id_map_delete(&prog->id_map);
@@ -1235,7 +1231,7 @@ static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
 
 
 static struct ni_prog_t* ni_prog_find(struct rpc_t* rpc) {
-    struct ni_prog_t* ni = ni_register;
+    struct ni_prog_t* ni = nidb;
     
     while (ni) {
         if (rpc->prot == IPPROTO_UDP && rpc->port == ni->udp_port) {
