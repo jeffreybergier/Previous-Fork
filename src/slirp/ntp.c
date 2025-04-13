@@ -98,7 +98,7 @@ void ntp_input(struct mbuf *m)
 {
     struct ntp_t *np = mtod(m, struct ntp_t *);
 
-    if (np->ip.ip_dst.s_addr == htonl(CTL_NET | CTL_NFSD) && ((np->status>>3)&7) == NTP_VERSION) {
+    if (np->ip.ip_dst.s_addr == htonl(CTL_NET | CTL_ALIAS) && ((np->status>>3)&7) == NTP_VERSION) {
         ntp_reply(np);
     }
 }

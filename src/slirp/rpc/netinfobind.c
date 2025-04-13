@@ -29,7 +29,7 @@
 #include "netinfobind.h"
 
 
-struct ni_prog_t* ni_register;
+struct ni_prog_t* nidb;
 
 const struct rpc_prog_t ni_rpc_prog_template = 
 {
@@ -38,7 +38,7 @@ const struct rpc_prog_t ni_rpc_prog_template =
 
 const struct ni_prog_t ni_prog_table_template[] = 
 {
-    { "local",   NULL, NULL, 0,            0,            NULL, NULL, NULL },
+/*  { "local",   NULL, NULL, 0,            0,            NULL, NULL, NULL }, */
     { "network", NULL, NULL, PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
 };
 
@@ -51,7 +51,7 @@ static void ni_register_program(struct ni_prog_t* prog) {
 #endif
 
 static void ni_add_program(struct ni_prog_t* prog) {
-    struct ni_prog_t** entry = &ni_register;
+    struct ni_prog_t** entry = &nidb;
         
     prog->udp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
     prog->tcp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
@@ -98,10 +98,10 @@ void nibind_uninit(void) {
     
     netinfo_delete_nidb();
     
-    while (ni_register) {
-        next = ni_register->next;
-        free(ni_register);
-        ni_register = next;
+    while (nidb) {
+        next = nidb->next;
+        free(nidb);
+        nidb = next;
     }
 }
 
@@ -126,7 +126,7 @@ static int proc_getregister(struct rpc_t* rpc) {
     
     if (xdr_read_string(m_in, tag, sizeof(tag)) < 0) return RPC_GARBAGE_ARGS;
     
-    prog = ni_register;
+    prog = nidb;
     while (prog) {
         if (strncmp(prog->tag, tag, MAXNAMELEN) == 0) {
             break;
