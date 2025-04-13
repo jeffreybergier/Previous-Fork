@@ -35,6 +35,16 @@ typedef void recv_data_t;
 #endif
 
 
+void sock_close(sock_t socket) {
+#ifdef _WIN32
+    shutdown(socket, SD_BOTH);
+    closesocket(socket);
+#else
+    shutdown(socket, SHUT_RDWR);
+    close(socket);
+#endif
+}
+
 static int ThreadProc(void *lpParameter)
 {
     struct csocket_t *cs;
@@ -82,7 +92,7 @@ void csocket_open(struct csocket_t* cs, sock_t socket, socket_listener_t* pListe
 
 void csocket_close(struct csocket_t* cs) {
     if (cs->m_Socket != INVALID_SOCKET) {
-        closesocket(cs->m_Socket);
+        sock_close(cs->m_Socket);
         cs->m_Socket = INVALID_SOCKET;
     }
     if (cs->m_hThread) {

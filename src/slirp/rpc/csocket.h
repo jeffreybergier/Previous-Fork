@@ -15,8 +15,9 @@ typedef SOCKET sock_t;
 #else
 typedef int sock_t;
 #define INVALID_SOCKET -1
-#define closesocket(s) close(s)
 #endif
+
+void sock_close(sock_t socket);
 
 struct csocket_t {
     int                m_nType;
