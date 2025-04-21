@@ -29,17 +29,17 @@
 #include "netinfobind.h"
 
 
-struct ni_prog_t* nidb;
+struct nidb_t* nidb;
 
 const struct rpc_prog_t ni_rpc_prog_template = 
 {
-    NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL, NULL
+    NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL
 };
 
 const struct ni_prog_t ni_prog_table_template[] = 
 {
 /*  { "local",   NULL, NULL, 0,            0,            NULL, NULL, NULL }, */
-    { "network", NULL, NULL, PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
+    { PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
 };
 
 #if 0
@@ -50,8 +50,8 @@ static void ni_register_program(struct ni_prog_t* prog) {
 }
 #endif
 
-static void ni_add_program(struct ni_prog_t* prog) {
-    struct ni_prog_t** entry = &nidb;
+static void ni_add_program(struct rpc_t* rpc, struct ni_prog_t* prog) {
+    struct ni_prog_t** entry = &rpc->ni_prog;
         
     prog->udp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
     prog->tcp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
@@ -64,13 +64,13 @@ static void ni_add_program(struct ni_prog_t* prog) {
     prog->tcp_prog->prot = IPPROTO_TCP;
     prog->tcp_prog->port = prog->tcp_port;
 
-    rpc_add_program(prog->udp_prog);
-    rpc_add_program(prog->tcp_prog);
+    rpc_add_program(rpc, prog->udp_prog);
+    rpc_add_program(rpc, prog->tcp_prog);
     
     prog->udp_port = prog->udp_prog->port;
     prog->tcp_port = prog->tcp_prog->port;
     
-    printf("[NETINFOBIND] Registering '%s' at udp:%d, tcp:%d\n", prog->tag, prog->udp_port, prog->tcp_port);
+    printf("[NETINFOBIND] Registering '%s' at udp:%d, tcp:%d\n", nidb->tag, prog->udp_port, prog->tcp_port);
 
     while (*entry) {
         entry = &(*entry)->next;
@@ -80,28 +80,24 @@ static void ni_add_program(struct ni_prog_t* prog) {
     (*entry)->next = NULL;
 }
 
-void nibind_init(void) {
+void nibind_init(struct rpc_t* rpc) {
     int i;
-    
     struct ni_prog_t* prog;
+    
     for (i = 0; i < TBL_SIZE(ni_prog_table_template); i++) {
         prog = (struct ni_prog_t*)malloc(sizeof(struct ni_prog_t));
         *prog = ni_prog_table_template[i];
-        ni_add_program(prog);
+        ni_add_program(rpc, prog);
     }
-    
-    netinfo_build_nidb();
 }
 
-void nibind_uninit(void) {
+void nibind_uninit(struct rpc_t* rpc) {
     struct ni_prog_t* next;
     
-    netinfo_delete_nidb();
-    
-    while (nidb) {
-        next = nidb->next;
-        free(nidb);
-        nidb = next;
+    while (rpc->ni_prog) {
+        next = rpc->ni_prog->next;
+        free(rpc->ni_prog);
+        rpc->ni_prog = next;
     }
 }
 
@@ -126,9 +122,9 @@ static int proc_getregister(struct rpc_t* rpc) {
     
     if (xdr_read_string(m_in, tag, sizeof(tag)) < 0) return RPC_GARBAGE_ARGS;
     
-    prog = nidb;
+    prog = rpc->ni_prog;
     while (prog) {
-        if (strncmp(prog->tag, tag, MAXNAMELEN) == 0) {
+        if (strncmp(nidb->tag, tag, MAXNAMELEN) == 0) {
             break;
         }
         prog = prog->next;

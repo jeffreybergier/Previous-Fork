@@ -275,30 +275,35 @@ static uint32_t id_map_add(struct ni_id_map_t** idmap, struct ni_node_t* node) {
     return new->id;
 }
 
-static struct ni_id_map_t* id_map_find(struct ni_id_map_t* idmap, uint32_t id) {
-    while (idmap) {
-        if (idmap->id == id) {
-            return idmap;
+static struct ni_id_map_t* id_map_find(struct ni_id_map_t** idmap, uint32_t id) {
+    while (*idmap) {
+        if ((*idmap)->id == id) {
+            return *idmap;
         }
-        idmap = idmap->next;
+        idmap = &(*idmap)->next;
     }
     return NULL;
 }
 
 static int id_map_remove(struct ni_id_map_t** idmap, uint32_t id) {
     struct ni_id_map_t* next;
+    int found = 0;
     
     while (*idmap) {
-        if ((*idmap)->id != id) {
+        if ((*idmap)->id == id) {
+            next = (*idmap)->next;
+            free(*idmap);
+            *idmap = next;
+            found = 1;
+        } else {
+            if (found) {
+                (*idmap)->id--;
+                ni_id_add_object(&(*idmap)->node->id, (*idmap)->id);
+            }
             idmap = &(*idmap)->next;
-            continue;
         }
-        next = (*idmap)->next;
-        free((*idmap));
-        *idmap = next;
-        return 1;
     }
-    return 0;
+    return found;
 }
 
 static void id_map_delete(struct ni_id_map_t** idmap) {
@@ -322,12 +327,25 @@ static int ni_node_add(struct ni_node_t** children, struct ni_node_t* node) {
     return 0;
 }
 
-static struct ni_node_t* ni_node_init(struct ni_id_map_t** idmap, struct ni_node_t* parent) {
+static void ni_node_delete(struct ni_node_t** node) {
+    struct ni_node_t* next;
+    
+    while (*node) {
+        id_map_remove((*node)->id_map, (*node)->id.object);
+        ni_prop_delete(&(*node)->props);
+        ni_node_delete(&(*node)->children);
+        next = (*node)->next;
+        free((*node));
+        *node = next;
+    }
+}
+
+static struct ni_node_t* ni_node_create(struct ni_id_map_t** idmap, struct ni_node_t* parent) {
     uint32_t object;
     struct ni_node_t* new = (struct ni_node_t*)malloc(sizeof(struct ni_node_t));
     object = id_map_add(idmap, new);
     ni_id_add_object(&new->id, object);
-    new->id_map   = *idmap;
+    new->id_map   = idmap;
     new->parent   = parent;
     new->props    = NULL;
     new->children = NULL;
@@ -335,8 +353,23 @@ static struct ni_node_t* ni_node_init(struct ni_id_map_t** idmap, struct ni_node
     return new;
 }
 
-static struct ni_node_t* ni_node_add_child(struct ni_prog_t* ni, struct ni_node_t* node) {
-    struct ni_node_t* result = ni_node_init(&ni->id_map, node);
+static void ni_node_remove_child(struct ni_node_t** child, const char* key, const char* val) {
+    struct ni_node_t* next;
+    
+    while (*child) {
+        if (ni_val_find(ni_prop_find((*child)->props, key)->val, val)) {
+            next = (*child)->next;
+            (*child)->next = NULL;
+            ni_node_delete(child);
+            *child = next;
+            break;
+        }
+        child = &(*child)->next;
+    }
+}
+
+static struct ni_node_t* ni_node_add_child(struct nidb_t* ni, struct ni_node_t* node) {
+    struct ni_node_t* result = ni_node_create(&ni->id_map, node);
     ni_node_add(&(node->children), result);
     return result;
 }
@@ -352,18 +385,6 @@ static int ni_node_count(struct ni_node_t* node) {
         node = node->next;
     }
     return result;
-}
-
-static void ni_node_delete(struct ni_node_t** node) {
-    struct ni_node_t* next;
-    
-    while (*node) {
-        ni_prop_delete(&(*node)->props);
-        ni_node_delete(&(*node)->children);
-        next = (*node)->next;
-        free((*node));
-        *node = next;
-    }
 }
 
 
@@ -408,14 +429,19 @@ static struct ni_node_t* ni_find_from_key_val(struct ni_node_t* node, const char
     return NULL;
 }
 
-static void netinfo_add_host(struct ni_prog_t* network, const char* name, uint32_t ip_addr) {
+void netinfo_add_host(const char* name, uint32_t ip_addr) {
     char ip_str[16];
     char mount[MAXNAMELEN+1];
 
     struct ni_node_t* node;
     struct ni_node_t* child;
     
+    struct nidb_t* network = nidb;
+    
     snprintf(mount, sizeof(mount), "%s:/", name);
+    
+    printf("[NETINFO] Adding %s (%s) to NetInfo database.\n", name, 
+           ip_addr_str(ip_str, ip_addr, 4, sizeof(ip_str)));
     
     /* Add child network:/machines/name */
     node = ni_find_from_key_val(network->root->children, "name", "machines");
@@ -434,23 +460,43 @@ static void netinfo_add_host(struct ni_prog_t* network, const char* name, uint32
     ni_node_add_prop(child, "opts", "net");
 }
 
+void netinfo_remove_host(const char* name) {
+    char mount[MAXNAMELEN+1];
+    
+    struct ni_node_t* node;
+    struct ni_node_t* child;
+    
+    struct nidb_t* network = nidb;
+    
+    snprintf(mount, sizeof(mount), "%s:/", name);
+    
+    printf("[NETINFO] Removing %s from NetInfo database.\n", name);
+    
+    node = ni_find_from_key_val(network->root->children, "name", "machines");
+    if (node) ni_node_remove_child(&node->children, "name", name);
+    
+    node = ni_find_from_key_val(network->root->children, "name", "mounts");
+    if (node) ni_node_remove_child(&node->children, "name", mount);
+}
+
 void netinfo_build_nidb(void) {
     char ip_str[16];
     char hostname[NAME_HOST_MAX];
     char system_type[24];
     const char* domain;
     
-    struct ni_prog_t* network = nidb;
+    struct nidb_t* network;
     
     struct ni_node_t* node  = NULL;
     struct ni_node_t* child = NULL;
     
-    while (network) {
-        if (strncmp(network->tag, "network", MAXNAMELEN) == 0) {
-            break;
-        }
-        network = network->next;
-    }
+    if (nidb) return;
+
+    network = nidb = (struct nidb_t*)malloc(sizeof(struct nidb_t));
+    
+    network->tag = "network";
+    
+    printf("[NETINFO] Creating NetInfo database '%s'.\n", nidb->tag);
     
     /* Configure some strings */
     vfscpy(system_type, "NeXT", sizeof(system_type));
@@ -467,7 +513,7 @@ void netinfo_build_nidb(void) {
     domain = (NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
     
     /* Create root network:/ */
-    network->root = ni_node_init(&network->id_map, NULL);
+    network->root = ni_node_create(&network->id_map, NULL);
     ni_node_add_prop(network->root, "master", NAME_NFSD"/network");
     ni_node_add_prop(network->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3, sizeof(ip_str)));
     
@@ -515,17 +561,14 @@ void netinfo_build_nidb(void) {
         ni_node_add_prop(child, "server", hostname);
         ni_node_add_prop(child, "host", hostname);
     }
-    
-    netinfo_add_host(network, NAME_NFSD, CTL_NET|CTL_NFSD);
 }
 
 void netinfo_delete_nidb(void) {
-    struct ni_prog_t* prog = nidb;
-
-    while (prog) {
-        id_map_delete(&prog->id_map);
-        ni_node_delete(&prog->root);
-        prog = prog->next;
+    if (nidb) {
+        printf("[NETINFO] Deleting NetInfo database '%s'.\n", nidb->tag);
+        ni_node_delete(&nidb->root);
+        free(nidb);
+        nidb = NULL;
     }
 }
 
@@ -628,7 +671,7 @@ static struct ni_node_t* ni_node_find(struct ni_node_t* node, struct ni_id_t* ni
 
 
 /* Log */
-static void ni_log(struct rpc_t* rpc, struct ni_prog_t* ni, const char *format, ...) {
+static void ni_log(struct rpc_t* rpc, struct nidb_t* ni, const char *format, ...) {
     va_list vargs;
     
     if (rpc->log)
@@ -676,12 +719,12 @@ static void write_ni_proplist(struct xdr_t* m_out, struct ni_prop_t* props) {
 
 
 /* Processes */
-static int proc_ping(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_ping(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "PING");
     return RPC_SUCCESS;
 }
 
-static int proc_statistics(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_statistics(struct rpc_t* rpc, struct nidb_t* ni) {
     char checksum[32];
     struct ni_prop_t* props = NULL;
 
@@ -699,7 +742,7 @@ static int proc_statistics(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_root(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_root(struct rpc_t* rpc, struct nidb_t* ni) {
     struct xdr_t* m_out = rpc->m_out;
     
     ni_log(rpc, ni, "ROOT");
@@ -711,7 +754,7 @@ static int proc_root(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_self(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_self(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     enum ni_status status = NI_OK;
     
@@ -730,7 +773,7 @@ static int proc_self(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_parent(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     enum ni_status status = NI_OK;
@@ -770,19 +813,19 @@ static int proc_parent(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_create(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_create(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "CREATE unimplemented");
     
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_destroy(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_destroy(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "DESTROY unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_read(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_read(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     enum ni_status status = NI_OK;
@@ -817,13 +860,13 @@ static int proc_read(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_write(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_write(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "WRITE unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_children(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_node_t* child;
@@ -866,7 +909,7 @@ static int proc_children(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_lookup(struct rpc_t* rpc, struct nidb_t* ni) {
     char key[MAXNAMELEN+1];
     char val[MAXNAMELEN+1];
     struct ni_id_t ni_id;
@@ -926,7 +969,7 @@ static int proc_lookup(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_list(struct rpc_t* rpc, struct nidb_t* ni) {
     char name[MAXNAMELEN+1];
     struct ni_id_t ni_id;
     struct ni_node_t* node;
@@ -982,19 +1025,19 @@ static int proc_list(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_createprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_createprop(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "CREATEPROP unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_destroyprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_destroyprop(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "DESTROYPROP unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_readprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_readprop(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_val_t* values;
@@ -1044,19 +1087,19 @@ static int proc_readprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_writeprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_writeprop(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "WRITEPROP unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_renameprop(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_renameprop(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "RENAMEPROP unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_listprops(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_listprops(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
     struct ni_node_t* node;
     struct ni_val_t* names = NULL;
@@ -1096,29 +1139,29 @@ static int proc_listprops(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_createname(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_createname(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "CREATENAME unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_destroyname(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_destroyname(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "DESTROYNAME unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_readname(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_readname(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "READNAME unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_writename(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_writename(struct rpc_t* rpc, struct nidb_t* ni) {
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_rparent(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_rparent(struct rpc_t* rpc, struct nidb_t* ni) {
     struct xdr_t* m_out = rpc->m_out;
     
     xdr_write_long(m_out, NI_NETROOT);
@@ -1128,37 +1171,37 @@ static int proc_rparent(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-static int proc_listall(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_listall(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "LISTALL unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_bind(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_bind(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "BIND unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_readall(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_readall(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "READALL unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_crashed(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_crashed(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "CRASHED unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_resync(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_resync(struct rpc_t* rpc, struct nidb_t* ni) {
     ni_log(rpc, ni, "RESYNC unimplemented");
 
     return RPC_PROC_UNAVAIL;
 }
 
-static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
+static int proc_lookupread(struct rpc_t* rpc, struct nidb_t* ni) {
     char key[MAXNAMELEN+1];
     char val[MAXNAMELEN+1];
     int count;
@@ -1229,7 +1272,7 @@ static int proc_lookupread(struct rpc_t* rpc, struct ni_prog_t* ni) {
     return RPC_SUCCESS;
 }
 
-
+#if 0
 static struct ni_prog_t* ni_prog_find(struct rpc_t* rpc) {
     struct ni_prog_t* ni = nidb;
     
@@ -1244,12 +1287,15 @@ static struct ni_prog_t* ni_prog_find(struct rpc_t* rpc) {
     }
     return ni;
 }
-
+#endif
 int netinfo_prog(struct rpc_t* rpc) {
+#if 0
     struct ni_prog_t* ni;
     
     ni = ni_prog_find(rpc);
-    
+#else
+    struct nidb_t* ni = nidb;
+#endif
     switch (rpc->proc) {
         case NETINFOPROC_PING:
             return proc_ping(rpc, ni);

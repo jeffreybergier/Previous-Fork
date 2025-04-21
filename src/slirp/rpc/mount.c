@@ -70,7 +70,7 @@ static int mnt_remove(char* name, char* path) {
     struct mount_t* next = NULL;
     
     while (*entry) {
-        if (strncmp((*entry)->name, name, INET_ADDRSTRLEN) || 
+        if (strncmp((*entry)->name, name, MAXNAMELEN) || 
             strncmp((*entry)->path, path, MAXPATHLEN)) {
             entry = &(*entry)->next;
             continue;
@@ -101,13 +101,13 @@ static void mnt_delete(void) {
 
 static int proc_mnt(struct rpc_t* rpc) {
     struct path_t path;
-    char name[INET_ADDRSTRLEN];
+    char name[MAXNAMELEN+1];
     uint64_t handle;
-    
-    inet_ntop(AF_INET, &rpc->remote_addr, name, INET_ADDRSTRLEN);
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
+    
+    vfscpy(name, NAME_HOST, sizeof(name));
     
     if (xdr_read_string(m_in, path.vfs, sizeof(path.vfs)) < 0) return RPC_GARBAGE_ARGS;
     vfs_to_host_path(rpc->ft->vfs, &path);
@@ -140,15 +140,15 @@ static int proc_mnt(struct rpc_t* rpc) {
 
 static int proc_umnt(struct rpc_t* rpc) {
     char path[MAXPATHLEN];
-    char name[INET_ADDRSTRLEN];
-    
-    inet_ntop(AF_INET, &rpc->remote_addr, name, INET_ADDRSTRLEN);
+    char name[MAXNAMELEN+1];
     
     int found = 0;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
-
+    
+    vfscpy(name, NAME_HOST, sizeof(name));
+    
     if (xdr_read_string(m_in, path, sizeof(path)) < 0) return RPC_GARBAGE_ARGS;
     
     rpc_log(rpc, "UNMT from %s for '%s'", name, path);

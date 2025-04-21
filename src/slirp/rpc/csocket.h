@@ -29,9 +29,10 @@ struct csocket_t {
     struct xdr_t*      m_Input;
     struct xdr_t*      m_Output;
     int                m_serverPort;
+    void*              m_pServer;
 };
 
-struct csocket_t* csocket_init(int nType, int serverPort);
+struct csocket_t* csocket_init(int nType, int serverPort, void* server);
 struct csocket_t* csocket_uninit(struct csocket_t* cs);
 
 void csocket_run(struct csocket_t* cs);

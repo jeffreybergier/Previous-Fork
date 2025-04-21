@@ -334,6 +334,7 @@ int udp_output(struct socket *so, struct mbuf *m,
     
     if (so->so_faddr.s_addr == loopback_addr.s_addr) {
         rpc_udp_map_from_local_port(ntohs(so->so_fport), &saddr.sin_addr, &saddr.sin_port);
+        vdns_udp_map_from_local_port(ntohs(so->so_fport), &saddr.sin_addr, &saddr.sin_port);
     }
     
     daddr.sin_addr = so->so_laddr;

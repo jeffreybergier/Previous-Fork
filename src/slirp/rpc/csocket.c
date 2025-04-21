@@ -54,7 +54,7 @@ static int ThreadProc(void *lpParameter)
     return 0;
 }
 
-struct csocket_t* csocket_init(int nType, int serverPort) {
+struct csocket_t* csocket_init(int nType, int serverPort, void* server) {
     struct csocket_t* cs = (struct csocket_t*)malloc(sizeof(struct csocket_t));
     cs->m_nType  = nType;
     cs->m_Socket = INVALID_SOCKET;
@@ -62,6 +62,7 @@ struct csocket_t* csocket_init(int nType, int serverPort) {
     cs->m_nActive = 0;
     cs->m_hThread = NULL;
     cs->m_serverPort = serverPort;
+    cs->m_pServer = server;
     memset(&cs->m_RemoteAddr, 0, sizeof(cs->m_RemoteAddr));
     cs->m_Input  = xdr_init();
     cs->m_Output = xdr_init();

@@ -79,10 +79,21 @@ struct rpc_t {
     uint32_t low;
     uint32_t high;
     
-    struct in_addr remote_addr;
+    uint32_t ip_addr;
+    const char* hostname;
+    
+    struct rpc_prog_t* prog_list;
+    struct ni_prog_t* ni_prog;
     
     int log;
     const char* name;
+    
+    uint16_t udp_to_local[1<<16];
+    uint16_t udp_from_local[1<<16];
+    uint16_t tcp_to_local[1<<16];
+    uint16_t tcp_from_local[1<<16];
+    
+    int running;
 };
 
 struct rpc_prog_t {
@@ -95,16 +106,13 @@ struct rpc_prog_t {
     int          log;
     const char*  name;
     void*        sock;
-    struct ft_t* ft;
     
     struct rpc_prog_t* next;
 };
 
-extern struct rpc_prog_t* rpc_prog_list;
-
 #define TBL_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
-void rpc_add_program(struct rpc_prog_t* prog);
+void rpc_add_program(struct rpc_t* rpc, struct rpc_prog_t* prog);
 
 int proc_null(struct rpc_t* rpc);
 
@@ -118,9 +126,10 @@ void rpc_log(struct rpc_t* rpc, const char *format, ...);
 
 int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len);
 
+int rpc_match_arp(uint8_t byte);
 int rpc_match_addr(uint32_t addr);
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO);
-void rpc_tcp_map_to_local_port(uint16_t port, uint16_t* sin_portNBO);
+void rpc_tcp_map_to_local_port(uint32_t addr, uint16_t port, uint16_t* sin_portNBO);
 void rpc_udp_map_from_local_port(uint16_t port, struct in_addr* saddrNBO, uint16_t* sin_portNBO);
 
 #endif /* _RPC_H_ */
