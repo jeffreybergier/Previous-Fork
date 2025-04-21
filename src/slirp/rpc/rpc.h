@@ -84,6 +84,7 @@ struct rpc_t {
     
     struct rpc_prog_t* prog_list;
     struct ni_prog_t* ni_prog;
+    struct mount_t* rmtab;
     
     int log;
     const char* name;
