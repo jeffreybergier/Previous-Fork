@@ -188,14 +188,14 @@ static void rpc_input(struct csocket_t* cs) {
         rpc->auth.flavor = xdr_read_long(m_in);
         rpc->auth.length = xdr_read_long(m_in);
 #if DBG
-        printf("RPC XID:     %08x\n", rpc.xid);
-        printf("RPC MSG:     %d\n",   rpc.msg);
-        printf("RPC VERSION: %d\n",   rpc.rpcvers);
-        printf("RPC PROG:    %d\n",   rpc.prog);
-        printf("RPC PROGVER: %d\n",   rpc.vers);
-        printf("RPC PROC:    %d\n",   rpc.proc);
-        printf("RPC AUTH:    %d\n",   rpc.auth.flavor);
-        printf("RPC AUTHLEN: %d\n",   rpc.auth.length);
+        printf("RPC XID:     %08x\n", rpc->xid);
+        printf("RPC MSG:     %d\n",   rpc->msg);
+        printf("RPC VERSION: %d\n",   rpc->rpcvers);
+        printf("RPC PROG:    %d\n",   rpc->prog);
+        printf("RPC PROGVER: %d\n",   rpc->vers);
+        printf("RPC PROC:    %d\n",   rpc->proc);
+        printf("RPC AUTH:    %d\n",   rpc->auth.flavor);
+        printf("RPC AUTHLEN: %d\n",   rpc->auth.length);
 #endif
         if (rpc->auth.flavor == RPC_AUTH_UNIX) {
             rpc_read_auth_unix(rpc, &auth_unix);
@@ -206,8 +206,8 @@ static void rpc_input(struct csocket_t* cs) {
         rpc->verif.length = xdr_read_long(m_in);
         xdr_read_skip(m_in, rpc->verif.length);
 #if DBG
-        printf("RPC VERIF:   %d\n", rpc.verif.flavor);
-        printf("RPC VERLEN:  %d\n", rpc.verif.length);
+        printf("RPC VERIF:   %d\n", rpc->verif.flavor);
+        printf("RPC VERLEN:  %d\n", rpc->verif.length);
 #endif
         /* RPC Reply */    
         xdr_write_long(m_out, RPC_MSG_ACCEPTED); /* Message */
@@ -391,7 +391,7 @@ static void rpc_remove_all_programs(struct rpc_t* rpc) {
 
 #define EN_MAX_SHARES 2
 
-struct rpc_t* rpc_server[EN_MAX_SHARES];
+static struct rpc_t* rpc_server[EN_MAX_SHARES];
 
 static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* name, uint32_t addr) {
     if (rpc->running) {
@@ -435,7 +435,7 @@ static void rpc_stop_server(struct rpc_t* rpc) {
 
             rpc_remove_all_programs(rpc);
             nibind_uninit(rpc);
-            mount_uninit();
+            mount_uninit(rpc);
             
             netinfo_remove_host(rpc->hostname);
             vdns_remove_rec(rpc->ip_addr);
@@ -474,10 +474,10 @@ void rpc_reset(void) {
                 rpc_server[i] = calloc(1, sizeof(struct rpc_t));
             }
             needreset = rpc_check_nfs(rpc_server[i], ConfigureParams.Ethernet.szNFSroot);
-            if (needreset > 0) {
+            if (needreset != 0) {
                 rpc_stop_server(rpc_server[i]);
             }
-            if (rpc_server[i]->running == 0) {
+            if (rpc_server[i]->running == 0 && needreset >= 0) {
                 rpc_start_server(rpc_server[i], ConfigureParams.Ethernet.szNFSroot, i ? "test" : NAME_NFSD, ntohl(special_addr.s_addr) | CTL_NFSD-i);
             }
             if (rpc_server[i]->ft) {

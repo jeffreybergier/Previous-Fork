@@ -38,8 +38,8 @@ const struct rpc_prog_t ni_rpc_prog_template =
 
 const struct ni_prog_t ni_prog_table_template[] = 
 {
-/*  { "local",   NULL, NULL, 0,            0,            NULL, NULL, NULL }, */
-    { PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
+/*  { "local",   0,            0,            NULL, NULL, NULL }, */
+    { "network", PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
 };
 
 #if 0
@@ -86,7 +86,7 @@ void nibind_init(struct rpc_t* rpc) {
     
     for (i = 0; i < TBL_SIZE(ni_prog_table_template); i++) {
         prog = (struct ni_prog_t*)malloc(sizeof(struct ni_prog_t));
-        *prog = ni_prog_table_template[i];
+        memcpy(prog, &ni_prog_table_template[i], sizeof(struct ni_prog_t));
         ni_add_program(rpc, prog);
     }
 }

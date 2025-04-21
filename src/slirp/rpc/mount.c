@@ -45,11 +45,8 @@ struct mount_t {
     struct mount_t* next;
 };
 
-static struct mount_t* rmtab = NULL;
 
-static int mnt_add(char* name, char* path) {
-    struct mount_t** entry = &rmtab;
-    
+static int mnt_add(struct mount_t** entry, char* name, char* path) {    
     while (*entry) {
         if (strncmp((*entry)->name, name, INET_ADDRSTRLEN) || 
             strncmp((*entry)->path, path, MAXPATHLEN)) {
@@ -65,8 +62,7 @@ static int mnt_add(char* name, char* path) {
     return 0;
 }
 
-static int mnt_remove(char* name, char* path) {
-    struct mount_t** entry = &rmtab;
+static int mnt_remove(struct mount_t** entry, char* name, char* path) {
     struct mount_t* next = NULL;
     
     while (*entry) {
@@ -85,8 +81,7 @@ static int mnt_remove(char* name, char* path) {
     return 0;
 }
 
-static void mnt_delete(void) {
-    struct mount_t** entry = &rmtab;
+static void mnt_delete(struct mount_t** entry) {
     struct mount_t* next = NULL;
 
     while (*entry) {
@@ -128,7 +123,7 @@ static int proc_mnt(struct rpc_t* rpc) {
             xdr_write_long(m_out, 0);  /* flavor */
         }
         
-        if (mnt_add(name, path.vfs)) {
+        if (mnt_add(&rpc->rmtab, name, path.vfs)) {
             rpc_log(rpc, "MNT '%s' already mounted from %s", path, name);
         }
     } else {
@@ -153,7 +148,7 @@ static int proc_umnt(struct rpc_t* rpc) {
     
     rpc_log(rpc, "UNMT from %s for '%s'", name, path);
     
-    found = mnt_remove(name, path);
+    found = mnt_remove(&rpc->rmtab, name, path);
     
     if (!found) {
         rpc_log(rpc, "UMNT '%s' not mounted from %s", path, name);
@@ -224,6 +219,6 @@ int mount_prog(struct rpc_t* rpc) {
     return RPC_PROC_UNAVAIL;
 }
 
-void mount_uninit(void) {
-    mnt_delete();
+void mount_uninit(struct rpc_t* rpc) {
+    mnt_delete(&rpc->rmtab);
 }

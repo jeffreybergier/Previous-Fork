@@ -24,9 +24,7 @@
  */
 #include <slirp.h>
 #include <stdlib.h>
-#include <assert.h>
 
-#include "host.h"
 #include "tcpsocket.h"
 
 

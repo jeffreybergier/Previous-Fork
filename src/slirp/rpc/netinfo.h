@@ -108,6 +108,8 @@ struct nidb_t {
 };
 
 struct ni_prog_t {
+    const char* tag;
+    
     uint32_t udp_port;
     uint32_t tcp_port;
     
