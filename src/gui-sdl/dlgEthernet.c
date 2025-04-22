@@ -151,7 +151,7 @@ void DlgEthernet_Main(void)
 		enetdlg[DLGENET_TIME].state |= SG_SELECTED;
 	}
 
-	File_ShrinkName(nfs_root_string, ConfigureParams.Ethernet.szNFSroot,
+	File_ShrinkName(nfs_root_string, ConfigureParams.Ethernet.nfs[0].szPathName,
 					enetdlg[DLGENET_NFSROOT].w);
 
 	/* Draw and process the dialog */
@@ -203,7 +203,7 @@ void DlgEthernet_Main(void)
 				break;
 			case DLGENET_NFSBROWSE:
 				SDLGui_DirConfSelect(nfs_root_string,
-				                     ConfigureParams.Ethernet.szNFSroot,
+				                     ConfigureParams.Ethernet.nfs[0].szPathName,
 				                     enetdlg[DLGENET_NFSROOT].w);
 				break;
 				

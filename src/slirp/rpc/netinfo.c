@@ -464,7 +464,6 @@ void netinfo_remove_host(const char* name) {
     char mount[MAXNAMELEN+1];
     
     struct ni_node_t* node;
-    struct ni_node_t* child;
     
     struct nidb_t* network = nidb;
     

@@ -389,12 +389,11 @@ static void rpc_remove_all_programs(struct rpc_t* rpc) {
     }
 }
 
-#define EN_MAX_SHARES 2
 
 static struct rpc_t* rpc_server[EN_MAX_SHARES];
 
 static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* name, uint32_t addr) {
-    if (rpc->running) {
+    if (rpc->ft) {
         printf("[RPC] %s already running.\n", rpc->hostname);
         return;
     }
@@ -422,7 +421,6 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
         nibind_init(rpc);
         netinfo_add_host(rpc->hostname, rpc->ip_addr);
         vdns_add_rec(rpc->hostname, rpc->ip_addr);
-        rpc->running = 1;
     } else {
         printf("[RPC] %s startup failed.\n", rpc->hostname);
     }
@@ -430,7 +428,7 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
 
 static void rpc_stop_server(struct rpc_t* rpc) {
     if (rpc) {
-        if (rpc->running) {
+        if (rpc->ft) {
             printf("[RPC] Stopping %s.\n", rpc->hostname);
 
             rpc_remove_all_programs(rpc);
@@ -440,14 +438,13 @@ static void rpc_stop_server(struct rpc_t* rpc) {
             netinfo_remove_host(rpc->hostname);
             vdns_remove_rec(rpc->ip_addr);
             rpc->ft = ft_uninit(rpc->ft);
-            rpc->running = 0;
         }
     }
 }
 
-static int rpc_check_nfs(struct rpc_t* rpc, const char* path) {
+static int rpc_check_nfs(struct rpc_t* rpc, const char* path, const char* name) {
     if (access(path, F_OK | R_OK | W_OK) < 0) {
-        printf("[RPC] can not access directory '%s'. NFS startup canceled for %s.\n", path, rpc->hostname);
+        printf("[RPC] Cannot access directory '%s'. NFS startup canceled for %s.\n", path, name);
         return -1;
     } else if (ft_is_inited(rpc->ft)) {
         if (ft_path_changed(rpc->ft, path)) {
@@ -459,6 +456,13 @@ static int rpc_check_nfs(struct rpc_t* rpc, const char* path) {
     return 0;
 }
 
+static const char* nfs_name[EN_MAX_SHARES] = {
+    NULL,
+    "test1",
+    "test2",
+    "test3"
+};
+
 void rpc_reset(void) {
     int i;
     int needreset;
@@ -469,22 +473,26 @@ void rpc_reset(void) {
     vdns_init();
     
     for (i = 0; i < EN_MAX_SHARES; i++) {
-        if (1) { /* enabled by config */
+        bool enabled     = i ? ConfigureParams.Ethernet.nfs[i].bEnabled : true;
+        const char* name = i ? nfs_name[i] : NAME_NFSD;
+        const char* path = ConfigureParams.Ethernet.nfs[i].szPathName;
+        
+        if (enabled) {
             if (rpc_server[i] == NULL) {
                 rpc_server[i] = calloc(1, sizeof(struct rpc_t));
             }
-            needreset = rpc_check_nfs(rpc_server[i], ConfigureParams.Ethernet.szNFSroot);
+            needreset = rpc_check_nfs(rpc_server[i], path, name);
             if (needreset != 0) {
                 rpc_stop_server(rpc_server[i]);
             }
-            if (rpc_server[i]->running == 0 && needreset >= 0) {
-                rpc_start_server(rpc_server[i], ConfigureParams.Ethernet.szNFSroot, i ? "test" : NAME_NFSD, ntohl(special_addr.s_addr) | CTL_NFSD-i);
+            if (needreset > 0) {
+                rpc_start_server(rpc_server[i], path, name, ntohl(special_addr.s_addr) | (CTL_NFSD - i));
             }
             if (rpc_server[i]->ft) {
                 continue;
             }
         }
-        rpc_stop_server(i);
+        rpc_stop_server(rpc_server[i]);
         free(rpc_server[i]);
         rpc_server[i] = NULL;
     }
@@ -508,7 +516,7 @@ void rpc_uninit(void) {
 static struct rpc_t* rpc_find_server(uint32_t addr) {
     int i;
     for (i = 0; i < EN_MAX_SHARES; i++) {
-        if (rpc_server[i] && rpc_server[i]->running) {
+        if (rpc_server[i] && rpc_server[i]->ft) {
             if (rpc_server[i]->ip_addr == addr || (addr & 0xFF) == 0xFF) {
                 return rpc_server[i];
             }
@@ -520,7 +528,7 @@ static struct rpc_t* rpc_find_server(uint32_t addr) {
 static struct rpc_t* rpc_find_server_by_port(uint16_t local_port) {
     int i;
     for (i = 0; i < EN_MAX_SHARES; i++) {
-        if (rpc_server[i] && rpc_server[i]->running) {
+        if (rpc_server[i] && rpc_server[i]->ft) {
             if (rpc_udp_from_local(rpc_server[i], local_port)) {
                 return rpc_server[i];
             }
@@ -530,7 +538,7 @@ static struct rpc_t* rpc_find_server_by_port(uint16_t local_port) {
 }
 
 int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len) {
-    if (rpc_server[0] && rpc_server[0]->running) {
+    if (rpc_server[0] && rpc_server[0]->ft) {
         struct path_t path;
         vfscpy(path.vfs, vfs_path, sizeof(path.vfs));
         vfs_to_host_path(rpc_server[0]->ft->vfs, &path);

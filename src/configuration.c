@@ -263,8 +263,19 @@ static const struct Config_Tag configs_Ethernet[] =
 
 	{ "nHostInterface", Int_Tag, &ConfigureParams.Ethernet.nHostInterface },
 	{ "szInterfaceName", String_Tag, ConfigureParams.Ethernet.szInterfaceName },
-	{ "szNFSroot", String_Tag, ConfigureParams.Ethernet.szNFSroot },
 	{ "bNetworkTime", Bool_Tag, &ConfigureParams.Ethernet.bNetworkTime },
+
+	{ "szNFSPathName0", String_Tag, ConfigureParams.Ethernet.nfs[0].szPathName },
+	{ "bNFSEnabled0", Bool_Tag, &ConfigureParams.Ethernet.nfs[0].bEnabled },
+
+	{ "szNFSPathName1", String_Tag, ConfigureParams.Ethernet.nfs[1].szPathName },
+	{ "bNFSEnabled1", Bool_Tag, &ConfigureParams.Ethernet.nfs[1].bEnabled },
+
+	{ "szNFSPathName2", String_Tag, ConfigureParams.Ethernet.nfs[2].szPathName },
+	{ "bNFSEnabled2", Bool_Tag, &ConfigureParams.Ethernet.nfs[2].bEnabled },
+
+	{ "szNFSPathName3", String_Tag, ConfigureParams.Ethernet.nfs[3].szPathName },
+	{ "bNFSEnabled3", Bool_Tag, &ConfigureParams.Ethernet.nfs[3].bEnabled },
 
 	{ NULL , Error_Tag, NULL }
 };
@@ -432,9 +443,14 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Ethernet.bNetworkTime = false;
 	ConfigureParams.Ethernet.nHostInterface = ENET_SLIRP;
 	strcpy(ConfigureParams.Ethernet.szInterfaceName, "");
-	File_MakePathBuf(ConfigureParams.Ethernet.szNFSroot,
-	                 sizeof(ConfigureParams.Ethernet.szNFSroot),
+	ConfigureParams.Ethernet.nfs[0].bEnabled = true;
+	File_MakePathBuf(ConfigureParams.Ethernet.nfs[0].szPathName,
+	                 sizeof(ConfigureParams.Ethernet.nfs[0].szPathName),
 	                 Paths_GetUserHome(), "", NULL);
+	for (i = 1; i < EN_MAX_SHARES; i++) {
+		ConfigureParams.Ethernet.nfs[i].bEnabled = false;
+		strcpy(ConfigureParams.Ethernet.nfs[i].szPathName, "");
+	}
 
 	/* Set defaults for Keyboard */
 	ConfigureParams.Keyboard.bSwapCmdAlt = false;
