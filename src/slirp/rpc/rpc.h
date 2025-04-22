@@ -93,8 +93,6 @@ struct rpc_t {
     uint16_t udp_from_local[1<<16];
     uint16_t tcp_to_local[1<<16];
     uint16_t tcp_from_local[1<<16];
-    
-    int running;
 };
 
 struct rpc_prog_t {
