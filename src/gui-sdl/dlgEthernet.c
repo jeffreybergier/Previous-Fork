@@ -28,10 +28,11 @@ char nfs_root_string[64] = "";
 
 #define DLGENET_MAC         15
 
-#define DLGENET_NFSBROWSE   18
-#define DLGENET_NFSROOT     19
+#define DLGENET_NFSMORE     18
+#define DLGENET_NFSBROWSE   19
+#define DLGENET_NFSROOT     20
 
-#define DLGENET_EXIT        21
+#define DLGENET_EXIT        22
 
 #define PCAP_INTERFACE_LEN  19
 
@@ -63,6 +64,7 @@ static SGOBJ enetdlg[] =
 	
 	{ SGBOX, 0, 0, 1,17, 49,5, NULL },
 	{ SGTEXT, 0, 0, 3,18, 12,1, "NFS shared directory:" },
+	{ SGBUTTON, 0, 0, 25,18, 10,1, "More" },
 	{ SGBUTTON, 0, 0, 37,18, 10,1, "Browse" },
 	{ SGTEXT, 0, 0, 3,20, 44,1, nfs_root_string },
 
@@ -77,9 +79,10 @@ static SGOBJ enetdlg[] =
 #define DLGENET_TWISTED     5
 #define DLGENET_TIME        7
 #define DLGENET_MAC         9
-#define DLGENET_NFSBROWSE   13
-#define DLGENET_NFSROOT     14
-#define DLGENET_EXIT        15
+#define DLGENET_NFSMORE     13
+#define DLGENET_NFSBROWSE   14
+#define DLGENET_NFSROOT     15
+#define DLGENET_EXIT        16
 
 /* The Ethernet options dialog: */
 static SGOBJ enetdlg[] =
@@ -100,6 +103,7 @@ static SGOBJ enetdlg[] =
 	
 	{ SGBOX, 0, 0, 1,13, 51,5, NULL },
 	{ SGTEXT, 0, 0, 3,14, 12,1, "NFS shared directory:" },
+	{ SGBUTTON, 0, 0, 28,14, 10,1, "More" },
 	{ SGBUTTON, 0, 0, 40,14, 10,1, "Browse" },
 	{ SGTEXT, 0, 0, 3,16, 47,1, nfs_root_string },
 	
@@ -205,6 +209,9 @@ void DlgEthernet_Main(void)
 				SDLGui_DirConfSelect(nfs_root_string,
 				                     ConfigureParams.Ethernet.nfs[0].szPathName,
 				                     enetdlg[DLGENET_NFSROOT].w);
+				break;
+			case DLGENET_NFSMORE:
+				DlgNFS();
 				break;
 				
 			default:
