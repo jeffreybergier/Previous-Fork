@@ -155,9 +155,6 @@ void DlgEthernet_Main(void)
 		enetdlg[DLGENET_TIME].state |= SG_SELECTED;
 	}
 
-	File_ShrinkName(nfs_root_string, ConfigureParams.Ethernet.nfs[0].szPathName,
-					enetdlg[DLGENET_NFSROOT].w);
-
 	/* Draw and process the dialog */
 	
 	do
@@ -166,6 +163,9 @@ void DlgEthernet_Main(void)
 		
 		snprintf(mac_addr_string, sizeof(mac_addr_string), "%02x:%02x:%02x:%02x:%02x:%02x",
 		         mac_addr[0],mac_addr[1],mac_addr[2],mac_addr[3],mac_addr[4],mac_addr[5]);
+
+		File_ShrinkName(nfs_root_string, ConfigureParams.Ethernet.nfs[0].szPathName,
+						enetdlg[DLGENET_NFSROOT].w);
 
 		but = SDLGui_DoDialog(enetdlg);
 		
