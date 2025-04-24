@@ -11,6 +11,7 @@ const char DlgNFS_fileid[] = "Previous dlgNFS.c";
 #include "dialog.h"
 #include "sdlgui.h"
 #include "file.h"
+#include "str.h"
 
 
 #define NFSDLG_OFFSET      2
@@ -41,19 +42,19 @@ static SGOBJ nfsdlg[] =
 	
 	{ SGBOX, 0, 0, 2,9, 50,5, NULL },
 	{ SGTEXT, 0, 0, 3,10, 12,1, "NFS Share 1:" },
-	{ SGEDITFIELD, 0, 0, 16,10, 16,1, NULL },
+	{ SGEDITFIELD, 0, 0, 16,10, 23,1, NULL },
 	{ SGBUTTON, 0, 0, 43,10, 8,1, "Select" },
 	{ SGTEXT, 0, 0, 3,12, 48,1, NULL },
 	
 	{ SGBOX, 0, 0, 2,15, 50,5, NULL },
 	{ SGTEXT, 0, 0, 3,16, 12,1, "NFS Share 2:" },
-	{ SGEDITFIELD, 0, 0, 16,16, 16,1, NULL },
+	{ SGEDITFIELD, 0, 0, 16,16, 23,1, NULL },
 	{ SGBUTTON, 0, 0, 43,16, 8,1, "Select" },
 	{ SGTEXT, 0, 0, 3,18, 48,1, NULL },
 
 	{ SGBOX, 0, 0, 2,21, 50,5, NULL },
 	{ SGTEXT, 0, 0, 3,22, 12,1, "NFS Share 3:" },
-	{ SGEDITFIELD, 0, 0, 16,22, 16,1, NULL },
+	{ SGEDITFIELD, 0, 0, 16,22, 23,1, NULL },
 	{ SGBUTTON, 0, 0, 43,22, 8,1, "Select" },
 	{ SGTEXT, 0, 0, 3,24, 48,1, NULL },
 
@@ -70,21 +71,17 @@ void DlgNFS(void)
 	int but;
 	int i;
 	char dlgnfs_path[EN_MAX_SHARES][64];
-	char dlgnfs_name[EN_MAX_SHARES][64];
+	char dlgnfs_name[EN_MAX_SHARES][24];
 
 	SDLGui_CenterDlg(nfsdlg);
 
 	/* NFS shared directories: */
 	for (i = 0; i < EN_MAX_SHARES; i++) {
-		if (ConfigureParams.Ethernet.nfs[i].bEnabled) {
-			File_ShrinkName(dlgnfs_path[i], ConfigureParams.Ethernet.nfs[i].szPathName,
-							nfsdlg[FROM_BUTTON(i,NFSDLG_PATH)].w);
-		} else {
-			dlgnfs_path[i][0] = '\0';
-		}
+		File_ShrinkName(dlgnfs_path[i], ConfigureParams.Ethernet.nfs[i].szPathName,
+						nfsdlg[FROM_BUTTON(i,NFSDLG_PATH)].w);
 		nfsdlg[FROM_BUTTON(i,NFSDLG_PATH)].txt = dlgnfs_path[i];
 		if (i) {
-			snprintf(dlgnfs_name[i], sizeof(dlgnfs_name[0]), "nfs%d", i);
+			Str_Copy(dlgnfs_name[i], ConfigureParams.Ethernet.nfs[i].szHostName, sizeof(dlgnfs_name[i]));
 			nfsdlg[FROM_BUTTON(i,NFSDLG_NAME)].txt = dlgnfs_name[i];
 		}
 	}
@@ -110,10 +107,9 @@ void DlgNFS(void)
 	while (but != NFSDLG_EXIT && but != SDLGUI_QUIT
 			&& but != SDLGUI_ERROR && !bQuitProgram);
 	
-	/* Check for invalid combinations */
-	for (i = 0; i < EN_MAX_SHARES; i++) {
-		if (ConfigureParams.SCSI.target[i].nDeviceType==SD_CD) {
-			ConfigureParams.SCSI.target[i].bWriteProtected = true;
-		}
+	/* Read values from dialog */
+	for (i = 1; i < EN_MAX_SHARES; i++) {
+		Str_Copy(ConfigureParams.Ethernet.nfs[i].szHostName, dlgnfs_name[i], 
+				 sizeof(ConfigureParams.Ethernet.nfs[i].szHostName));
 	}
 }

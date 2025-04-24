@@ -80,7 +80,7 @@ struct rpc_t {
     uint32_t high;
     
     uint32_t ip_addr;
-    const char* hostname;
+    char hostname[64];
     
     struct rpc_prog_t* prog_list;
     struct ni_prog_t* ni_prog;

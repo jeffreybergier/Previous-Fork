@@ -389,6 +389,37 @@ static void rpc_remove_all_programs(struct rpc_t* rpc) {
     }
 }
 
+static int char_is_ascii_lower(char c) {
+    return c >= 'a' && c <= 'z';
+}
+
+static int char_is_ascii_upper(char c) {
+    return c >= 'A' && c <= 'Z';
+}
+
+static int char_is_ascii_other(char c) {
+    return (c >= '0' && c <= '9') || c == '-';
+}
+
+static int rpc_copy_hostname(char* dst, const char* src, int maxlen) {
+    int len = 0;
+    
+    while (*src && len + 1 < maxlen) {
+        if (char_is_ascii_other(*src) && len > 0) {
+            dst[len++] = *src;
+        } else if (char_is_ascii_lower(*src)) {
+            dst[len++] = *src;
+        } else if (char_is_ascii_upper(*src)) {
+            dst[len++] = *src + 32;
+        }
+        src++;
+    }
+    if (len > 0 && dst[len - 1] == '-') {
+        len--;
+    }
+    dst[len] = '\0';
+    return len;
+}
 
 static struct rpc_t* rpc_server[EN_MAX_SHARES];
 
@@ -397,17 +428,21 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
         printf("[RPC] %s already running.\n", rpc->hostname);
         return;
     }
-    rpc->ip_addr  = addr;
-    rpc->hostname = name;
+    if (rpc_copy_hostname(rpc->hostname, name, sizeof(rpc->hostname)) == 0) {
+        printf("[RPC] %s startup failed (no valid host name).\n", name);
+        return;
+    }
     
-    printf("[RPC] Starting %s at %d.%d.%d.%d.\n", name, 
-           (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF);
-        
+    rpc->ip_addr  = addr;
+    
+    printf("[RPC] Starting %s at %d.%d.%d.%d.\n", rpc->hostname, (rpc->ip_addr>>24)&0xFF, 
+           (rpc->ip_addr>>16)&0xFF, (rpc->ip_addr>>8)&0xFF, rpc->ip_addr&0xFF);
+    
     rpc->ft = ft_init(path, "/");
     if (rpc->ft) {
-        char hostname[NAME_HOST_MAX];
-        struct rpc_prog_t* prog;
         int i;
+        struct rpc_prog_t* prog;
+        char hostname[NAME_HOST_MAX];
         memset(hostname, 0, sizeof(hostname));
         gethostname(hostname, sizeof(hostname));
         printf("[RPC] Starting local NFS daemon on '%s', exporting '%s'\n", hostname, path);
@@ -456,16 +491,8 @@ static int rpc_check_nfs(struct rpc_t* rpc, const char* path, const char* name) 
     return 0;
 }
 
-static const char* nfs_name[EN_MAX_SHARES] = {
-    NULL,
-    "test1",
-    "test2",
-    "test3"
-};
-
 void rpc_reset(void) {
     int i;
-    int needreset;
     
     print_about();
     
@@ -473,11 +500,11 @@ void rpc_reset(void) {
     vdns_init();
     
     for (i = 0; i < EN_MAX_SHARES; i++) {
-        bool enabled     = i ? ConfigureParams.Ethernet.nfs[i].bEnabled : true;
-        const char* name = i ? nfs_name[i] : NAME_NFSD;
+        int needreset;
+        const char* name = i ? ConfigureParams.Ethernet.nfs[i].szHostName : NAME_NFSD;
         const char* path = ConfigureParams.Ethernet.nfs[i].szPathName;
         
-        if (enabled) {
+        if (strlen(name) > 0 && strlen(path) > 0) {
             if (rpc_server[i] == NULL) {
                 rpc_server[i] = calloc(1, sizeof(struct rpc_t));
             }

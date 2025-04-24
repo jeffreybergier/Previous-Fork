@@ -233,7 +233,7 @@ typedef struct {
 #define EN_MAX_SHARES 4
 typedef struct {
   char szPathName[FILENAME_MAX];
-  bool bEnabled;
+  char szHostName[64];
 } EN_NFS;
 
 typedef enum

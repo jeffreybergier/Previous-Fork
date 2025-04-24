@@ -253,20 +253,19 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 		int i;
 
 		/* Do we need to change Ethernet configuration? */
-		if (current->Ethernet.bEthernetConnected != changed->Ethernet.bEthernetConnected ||
-			strcmp(current->Ethernet.szInterfaceName, changed->Ethernet.szInterfaceName)) {
-			bReInitEnetEmu = true;
-		}
 		for (i = 0; i < EN_MAX_SHARES; i++) {
-			if (current->Ethernet.nfs[i].bEnabled != changed->Ethernet.nfs[i].bEnabled ||
+			if (current->Ethernet.bEthernetConnected != changed->Ethernet.bEthernetConnected ||
+				strcmp(current->Ethernet.szInterfaceName, changed->Ethernet.szInterfaceName) ||
+				strcmp(current->Ethernet.nfs[i].szHostName, changed->Ethernet.nfs[i].szHostName) ||
 				strcmp(current->Ethernet.nfs[i].szPathName, changed->Ethernet.nfs[i].szPathName)) {
 				bReInitEnetEmu = true;
+				break;
 			}
 		}
 
 		/* Do we need to change Sound configuration? */
-		if ((current->Sound.bEnableSound != changed->Sound.bEnableSound ||
-			 current->Sound.bEnableMicrophone != changed->Sound.bEnableMicrophone)) {
+		if (current->Sound.bEnableSound != changed->Sound.bEnableSound ||
+			current->Sound.bEnableMicrophone != changed->Sound.bEnableMicrophone) {
 			bReInitSoundEmu = true;
 		}
 
