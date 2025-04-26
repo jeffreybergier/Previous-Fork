@@ -415,7 +415,7 @@ void vdns_uninit(void) {
 
 void vdns_add_rec(const char* name, uint32_t addr) {
     char hostname[NAME_HOST_MAX];
-    printf("[DNS] Adding record for %d.%d.%d.%d (%s).\n", (addr>>24)&0xff, 
+    printf("[DNS] Adding record for %d.%d.%d.%d: '%s'.\n", (addr>>24)&0xff, 
            (addr>>16)&0xff, (addr>>8)&0xff, addr&0xff, name);
     vfscpy(hostname, name, sizeof(hostname));
     vfscat(hostname, NAME_DOMAIN, sizeof(hostname));
