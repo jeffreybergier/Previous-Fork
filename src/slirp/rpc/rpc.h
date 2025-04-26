@@ -43,6 +43,8 @@
 #define FHSIZE      32
 #define FHSIZE_NFS3 64
 
+/* The maximum size of a hostname (not FQDN) including null */
+#define MAX_HOST_NAME 64
 
 struct auth_unix_t {
     uint32_t time;
@@ -80,7 +82,7 @@ struct rpc_t {
     uint32_t high;
     
     uint32_t ip_addr;
-    char hostname[64];
+    char hostname[MAX_HOST_NAME];
     
     struct rpc_prog_t* prog_list;
     struct ni_prog_t* ni_prog;

@@ -440,8 +440,7 @@ void netinfo_add_host(const char* name, uint32_t ip_addr) {
     
     snprintf(mount, sizeof(mount), "%s:/", name);
     
-    printf("[NETINFO] Adding %s (%s) to NetInfo database.\n", name, 
-           ip_addr_str(ip_str, ip_addr, 4, sizeof(ip_str)));
+    printf("[NETINFO] Adding '%s' to NetInfo database '%s'.\n", name, network->tag);
     
     /* Add child network:/machines/name */
     node = ni_find_from_key_val(network->root->children, "name", "machines");
@@ -469,7 +468,7 @@ void netinfo_remove_host(const char* name) {
     
     snprintf(mount, sizeof(mount), "%s:/", name);
     
-    printf("[NETINFO] Removing %s from NetInfo database.\n", name);
+    printf("[NETINFO] Removing '%s' from NetInfo database '%s'.\n", name, network->tag);
     
     node = ni_find_from_key_val(network->root->children, "name", "machines");
     if (node) ni_node_remove_child(&node->children, "name", name);
@@ -490,10 +489,12 @@ void netinfo_build_nidb(void) {
     struct ni_node_t* child = NULL;
     
     if (nidb) return;
-
+    
     network = nidb = (struct nidb_t*)malloc(sizeof(struct nidb_t));
     
-    network->tag = "network";
+    network->tag    = "network";
+    network->id_map = NULL;
+    network->root   = NULL;
     
     printf("[NETINFO] Creating NetInfo database '%s'.\n", nidb->tag);
     
@@ -676,7 +677,7 @@ static void ni_log(struct rpc_t* rpc, struct nidb_t* ni, const char *format, ...
     if (rpc->log)
     {
         va_start(vargs, format);
-        printf("[RPC:%s:%s:%d] ", rpc->name, ni->tag, rpc->proc);
+        printf("[%s:RPC:%s:%s:%d] ", rpc->hostname, rpc->name, ni->tag, rpc->proc);
         vprintf(format, vargs);
         printf("\n");
         va_end(vargs);
