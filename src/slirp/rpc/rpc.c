@@ -298,6 +298,11 @@ static void print_about(void) {
     static int show = 1;
     
     if (show) {
+        char hostname[NAME_HOST_MAX];
+        memset(hostname, 0, sizeof(hostname));
+        gethostname(hostname, sizeof(hostname));
+        printf("[NFSD] Starting local NFS daemon on '%s':\n", hostname);
+        
         printf("[NFSD] Network File System server\n");
         printf("[NFSD] Copyright (C) 2005 Ming-Yang Kao\n");
         printf("[NFSD] Edited in 2011 by ZeWaren\n");
@@ -425,27 +430,24 @@ static struct rpc_t* rpc_server[EN_MAX_SHARES];
 
 static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* name, uint32_t addr) {
     if (rpc->ft) {
-        printf("[RPC] %s already running.\n", rpc->hostname);
+        printf("[RPC] '%s' already running.\n", rpc->hostname);
         return;
     }
     if (rpc_copy_hostname(rpc->hostname, name, sizeof(rpc->hostname)) == 0) {
-        printf("[RPC] %s startup failed (no valid host name).\n", name);
+        printf("[RPC] Startup failed for '%s' (no valid host name).\n", name);
         return;
     }
     
     rpc->ip_addr  = addr;
     
-    printf("[RPC] Starting %s at %d.%d.%d.%d.\n", rpc->hostname, (rpc->ip_addr>>24)&0xFF, 
-           (rpc->ip_addr>>16)&0xFF, (rpc->ip_addr>>8)&0xFF, rpc->ip_addr&0xFF);
-    
     rpc->ft = ft_init(path, "/");
     if (rpc->ft) {
         int i;
         struct rpc_prog_t* prog;
-        char hostname[NAME_HOST_MAX];
-        memset(hostname, 0, sizeof(hostname));
-        gethostname(hostname, sizeof(hostname));
-        printf("[RPC] Starting local NFS daemon on '%s', exporting '%s'\n", hostname, path);
+        
+        printf("[RPC] Starting '%s' at %d.%d.%d.%d, exporting '%s'.\n", rpc->hostname, 
+               (rpc->ip_addr>>24)&0xFF, (rpc->ip_addr>>16)&0xFF, (rpc->ip_addr>>8)&0xFF, 
+               (rpc->ip_addr&0xFF), path);
         
         for (i = 0; i < TBL_SIZE(rpc_prog_table_template); i++) {
             prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
@@ -457,14 +459,14 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
         netinfo_add_host(rpc->hostname, rpc->ip_addr);
         vdns_add_rec(rpc->hostname, rpc->ip_addr);
     } else {
-        printf("[RPC] %s startup failed.\n", rpc->hostname);
+        printf("[RPC] Startup failed for '%s', exporting %s.\n", rpc->hostname, path);
     }
 }
 
 static void rpc_stop_server(struct rpc_t* rpc) {
     if (rpc) {
         if (rpc->ft) {
-            printf("[RPC] Stopping %s.\n", rpc->hostname);
+            printf("[RPC] Stopping '%s'.\n", rpc->hostname);
 
             rpc_remove_all_programs(rpc);
             nibind_uninit(rpc);
@@ -624,7 +626,7 @@ void rpc_log(struct rpc_t* rpc, const char *format, ...) {
     if (rpc->log)
     {
         va_start(vargs, format);
-        printf("[RPC:%s:%s:%d] ", rpc->hostname, rpc->name, rpc->proc);
+        printf("[%s:RPC:%s:%d] ", rpc->hostname, rpc->name, rpc->proc);
         vprintf(format, vargs);
         printf("\n");
         va_end(vargs);
