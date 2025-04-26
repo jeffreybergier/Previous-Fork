@@ -25,13 +25,13 @@ const char DlgNFS_fileid[] = "Previous dlgNFS.c";
 #define TO_SHARE(x)        (((x)-(NFSDLG_OFFSET))/(NFSDLG_INTERVAL))
 #define FROM_BUTTON(x,y)   (((x)*(NFSDLG_INTERVAL))+(NFSDLG_OFFSET)+(y))
 
-#define NFSDLG_EXIT        22
+#define NFSDLG_EXIT        23
 
 
 /* The NFS dialog: */
 static SGOBJ nfsdlg[] =
 {
-	{ SGBOX, 0, 0, 0,0, 54,31, NULL },
+	{ SGBOX, 0, 0, 0,0, 54,33, NULL },
 	{ SGTEXT, 0, 0, 16,1, 22,1, "NFS shared directories" },
 
 	{ SGBOX, 0, 0, 2,3, 50,5, NULL },
@@ -58,7 +58,9 @@ static SGOBJ nfsdlg[] =
 	{ SGBUTTON, 0, 0, 43,22, 8,1, "Select" },
 	{ SGTEXT, 0, 0, 3,24, 48,1, NULL },
 
-	{ SGBUTTON, SG_DEFAULT, 0, 16,28, 21,1, "Back to main menu" },
+	{ SGTEXT, 0, 0, 5,27, 44,1, "Note: The first NFS share cannot be renamed." },
+
+	{ SGBUTTON, SG_DEFAULT, 0, 16,30, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
 
@@ -70,6 +72,7 @@ void DlgNFS(void)
 {
 	int but;
 	int i;
+	int share;
 	char dlgnfs_path[EN_MAX_SHARES][64];
 	char dlgnfs_name[EN_MAX_SHARES][24];
 
@@ -88,15 +91,32 @@ void DlgNFS(void)
 	
 	/* Draw and process the dialog */
 	do {
+		for (i = 1; i < EN_MAX_SHARES; i++) {
+			if (ConfigureParams.Ethernet.nfs[i].szPathName[0] == '\0') {
+				nfsdlg[FROM_BUTTON(i, NFSDLG_SELECT)].txt = "Select";
+			} else {
+				nfsdlg[FROM_BUTTON(i, NFSDLG_SELECT)].txt = "Remove";
+			}
+		}
 		but = SDLGui_DoDialog(nfsdlg);
 		
 		if (but >= NFSDLG_OFFSET && but < NFSDLG_INTERVAL * EN_MAX_SHARES + NFSDLG_OFFSET) {
+			share = TO_SHARE(but);
 			
 			switch (TO_BUTTON(but)) {
 				case NFSDLG_SELECT:
-					SDLGui_DirConfSelect(dlgnfs_path[TO_SHARE(but)],
-										 ConfigureParams.Ethernet.nfs[TO_SHARE(but)].szPathName,
-										 nfsdlg[FROM_BUTTON(TO_SHARE(but),NFSDLG_PATH)].w);
+					if (ConfigureParams.Ethernet.nfs[share].szPathName[0] == '\0' || share == 0) {
+						SDLGui_DirConfSelect(dlgnfs_path[share],
+											 ConfigureParams.Ethernet.nfs[share].szPathName,
+											 nfsdlg[FROM_BUTTON(share,NFSDLG_PATH)].w);
+						if (ConfigureParams.Ethernet.nfs[share].szPathName[0] != '\0' &&
+							dlgnfs_name[share][0] == '\0' && share != 0) {
+							snprintf(dlgnfs_name[share], sizeof(dlgnfs_name[share]), "nfs%d", share);
+						}
+					} else {
+						ConfigureParams.Ethernet.nfs[share].szPathName[0] = '\0';
+						dlgnfs_path[share][0] = '\0';
+					}
 					break;
 					
 				default:
