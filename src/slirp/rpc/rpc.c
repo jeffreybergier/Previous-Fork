@@ -127,8 +127,7 @@ static void rpc_read_auth_unix(struct rpc_t* rpc, struct auth_unix_t* auth) {
     auth->gid  = xdr_read_long(m_in);
     auth->len  = xdr_read_long(m_in);
     len -= auth->len * 4;
-    if (auth->len > NUM_GROUPS) auth->len = NUM_GROUPS;
-    for (i = 0; i < auth->len; i++) {
+    for (i = 0; i < auth->len && i < NUM_GROUPS; i++) {
         auth->gids[i] = xdr_read_long(m_in);
     }
 #if DBG
@@ -240,20 +239,17 @@ static void rpc_input(struct csocket_t* cs) {
             xdr_write_long(m_out, 2); /* Min version */
             xdr_write_long(m_out, 2); /* Max version */
         }
-    } else { /* Message type is not call */
-        printf("[RPC] %s received\n", rpc->msg == RPC_REPLY ? "Reply" : "Unknown message");
-        return;
-    }
-
 #if DBG
-    printf("RPC OUT = %d, DATA:\n", m_out->size);
-    for (int i = 0; i < m_out->size; i++) {
-        printf("%02x ", (m_out->data - m_out->size)[i]);
-    }
-    printf("\n");
+        printf("RPC OUT = %d, DATA:\n", m_out->size);
+        for (int i = 0; i < m_out->size; i++) {
+            printf("%02x ", (m_out->data - m_out->size)[i]);
+        }
+        printf("\n");
 #endif
-    
-    csocket_send(cs);
+        csocket_send(cs);
+    } else { /* Do not reply if message type is not CALL */
+        printf("[%s:RPC] %s received\n", rpc->hostname, rpc->msg == RPC_REPLY ? "Reply" : "Unknown message");
+    }
     
     host_mutex_unlock(rpc->lock);
 }

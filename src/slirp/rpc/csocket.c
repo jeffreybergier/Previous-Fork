@@ -45,12 +45,8 @@ void sock_close(sock_t socket) {
 #endif
 }
 
-static int ThreadProc(void *lpParameter)
-{
-    struct csocket_t *cs;
-    
-    cs = (struct csocket_t*)lpParameter;
-    csocket_run(cs);
+static int ThreadProc(void *lpParameter) {
+    csocket_run((struct csocket_t*)lpParameter);
     return 0;
 }
 
@@ -84,8 +80,7 @@ void csocket_open(struct csocket_t* cs, sock_t socket, socket_listener_t* pListe
     cs->m_pListener = pListener;
     if (pRemoteAddr != NULL)
         cs->m_RemoteAddr = *pRemoteAddr;
-    if (cs->m_Socket != INVALID_SOCKET)
-    {
+    if (cs->m_Socket != INVALID_SOCKET) {
         cs->m_nActive = 1;
         cs->m_hThread = host_thread_create(ThreadProc, "CSocket", (void*)cs);
     }
@@ -103,10 +98,11 @@ void csocket_close(struct csocket_t* cs) {
 }
 
 void csocket_send(struct csocket_t* cs) {
+    ssize_t nBytes = 0;
+    
     if (cs->m_Socket == INVALID_SOCKET)
         return;
     
-    ssize_t nBytes = 0;
     if (cs->m_nType == SOCK_STREAM) {
         xdr_write_long_at(cs->m_Output->head, 0x80000000 | cs->m_Output->size); /* output header */
         cs->m_Output->size += 4;
