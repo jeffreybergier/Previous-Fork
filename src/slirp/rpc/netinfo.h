@@ -107,7 +107,7 @@ struct nidb_t {
     struct ni_node_t*   root;
 };
 
-struct ni_prog_t {
+struct nireg_t {
     const char* tag;
     
     uint32_t udp_port;
@@ -116,7 +116,7 @@ struct ni_prog_t {
     struct rpc_prog_t* udp_prog;
     struct rpc_prog_t* tcp_prog;
     
-    struct ni_prog_t* next;
+    struct nireg_t* next;
 };
 
 void netinfo_build_nidb(void);

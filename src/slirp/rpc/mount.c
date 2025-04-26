@@ -146,7 +146,7 @@ static int proc_umnt(struct rpc_t* rpc) {
     
     if (xdr_read_string(m_in, path, sizeof(path)) < 0) return RPC_GARBAGE_ARGS;
     
-    rpc_log(rpc, "UNMT from %s for '%s'", name, path);
+    rpc_log(rpc, "UMNT from %s for '%s'", name, path);
     
     found = mnt_remove(&rpc->rmtab, name, path);
     

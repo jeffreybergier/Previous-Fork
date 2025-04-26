@@ -25,6 +25,7 @@
 #include <slirp.h>
 #include <stdlib.h>
 
+#include "host.h"
 #include "rpc.h"
 #include "portmap.h"
 #include "mount.h"
@@ -43,9 +44,9 @@
 
 const struct rpc_prog_t rpc_prog_table_template[] = 
 {
+    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_UDP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL },
     { BOOTPARAMPROG, BOOTPARAMVERS, IPPROTO_UDP, 0,        bootparam_prog, 1, "BOOTPARAM"  , NULL, NULL },
     { MOUNTPROG,     MOUNTVERS,     IPPROTO_UDP, 0,        mount_prog,     1, "MOUNT"      , NULL, NULL },
-    { PORTMAPPROG,   PORTMAPVERS,   IPPROTO_UDP, PORT_RPC, portmap_prog,   1, "PORTMAP"    , NULL, NULL },
     { NFSPROG,       NFSVERS,       IPPROTO_UDP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
     { NFSPROG,       NFSVERS,       IPPROTO_TCP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
     { NIBINDPROG,    NIBINDVERS,    IPPROTO_UDP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL },
@@ -158,6 +159,8 @@ static void rpc_input(struct csocket_t* cs) {
     
     struct rpc_t* rpc = (struct rpc_t*)cs->m_pServer;
     
+    host_mutex_lock(rpc->lock);
+    
     rpc->m_in  = m_in  = cs->m_Input;
     rpc->m_out = m_out = cs->m_Output;
     rpc->port  = cs->m_serverPort;
@@ -176,72 +179,72 @@ static void rpc_input(struct csocket_t* cs) {
     if (rpc->msg == RPC_CALL) {
         xdr_write_long(m_out, rpc->xid);
         xdr_write_long(m_out, RPC_REPLY); /* Message type */
-    } else {
+        rpc->rpcvers = xdr_read_long(m_in);
+        if (rpc->rpcvers == RPCVERS) {
+            rpc->prog = xdr_read_long(m_in);
+            rpc->vers = xdr_read_long(m_in);
+            rpc->proc = xdr_read_long(m_in);
+            rpc->auth.flavor = xdr_read_long(m_in);
+            rpc->auth.length = xdr_read_long(m_in);
+#if DBG
+            printf("RPC XID:     %08x\n", rpc->xid);
+            printf("RPC MSG:     %d\n",   rpc->msg);
+            printf("RPC VERSION: %d\n",   rpc->rpcvers);
+            printf("RPC PROG:    %d\n",   rpc->prog);
+            printf("RPC PROGVER: %d\n",   rpc->vers);
+            printf("RPC PROC:    %d\n",   rpc->proc);
+            printf("RPC AUTH:    %d\n",   rpc->auth.flavor);
+            printf("RPC AUTHLEN: %d\n",   rpc->auth.length);
+#endif
+            if (rpc->auth.flavor == RPC_AUTH_UNIX) {
+                rpc_read_auth_unix(rpc, &auth_unix);
+            } else {
+                xdr_read_skip(m_in, rpc->auth.length);
+            }
+            rpc->verif.flavor = xdr_read_long(m_in);
+            rpc->verif.length = xdr_read_long(m_in);
+            xdr_read_skip(m_in, rpc->verif.length);
+#if DBG
+            printf("RPC VERIF:   %d\n", rpc->verif.flavor);
+            printf("RPC VERLEN:  %d\n", rpc->verif.length);
+#endif
+            /* RPC Reply */    
+            xdr_write_long(m_out, RPC_MSG_ACCEPTED); /* Message */
+            xdr_write_long(m_out, rpc->verif.flavor);
+            xdr_write_long(m_out, rpc->verif.length);
+            xdr_write_zero(m_out, rpc->verif.length);
+            status_ptr = xdr_get_pointer(m_out);
+            xdr_write_skip(m_out, 4); /* Status will be updated later */
+            
+            status = rpc_call(rpc);
+            
+            xdr_write_long_at(status_ptr, status); /* Status */
+            
+            if (status == RPC_PROG_MISMATCH) {
+                rpc_log(rpc, "Version mismatch: req %d, min %d, max %d", rpc->vers, rpc->low, rpc->high);
+                xdr_write_long(m_out, rpc->low);
+                xdr_write_long(m_out, rpc->high);
+            } else if (status == RPC_PROG_UNAVAIL) {
+                printf("[%s:RPC:%d:%d] Program not registered\n", rpc->hostname, rpc->prog, rpc->proc);
+            } else if (status == RPC_GARBAGE_ARGS) {
+                rpc_log(rpc, "Procedure cannot decode input (garbage args)");
+            } else if (status == RPC_PROC_UNAVAIL) {
+                rpc_log(rpc, "Procedure not available");
+            } else if (m_in->size > 0) {
+                rpc_log(rpc, "Unused data in buffer (%d bytes)", m_in->size);
+            }
+        } else { /* RPC version is not 2 */
+            printf("[%s:RPC] Version mismatch (%d)\n", rpc->hostname, rpc->rpcvers);
+            xdr_write_long(m_out, RPC_MSG_DENIED); /* Message */
+            xdr_write_long(m_out, RPC_MISMATCH); /* Status */
+            xdr_write_long(m_out, 2); /* Min version */
+            xdr_write_long(m_out, 2); /* Max version */
+        }
+    } else { /* Message type is not call */
         printf("[RPC] %s received\n", rpc->msg == RPC_REPLY ? "Reply" : "Unknown message");
         return;
     }
-    rpc->rpcvers = xdr_read_long(m_in);
-    if (rpc->rpcvers == RPCVERS) {
-        rpc->prog = xdr_read_long(m_in);
-        rpc->vers = xdr_read_long(m_in);
-        rpc->proc = xdr_read_long(m_in);
-        rpc->auth.flavor = xdr_read_long(m_in);
-        rpc->auth.length = xdr_read_long(m_in);
-#if DBG
-        printf("RPC XID:     %08x\n", rpc->xid);
-        printf("RPC MSG:     %d\n",   rpc->msg);
-        printf("RPC VERSION: %d\n",   rpc->rpcvers);
-        printf("RPC PROG:    %d\n",   rpc->prog);
-        printf("RPC PROGVER: %d\n",   rpc->vers);
-        printf("RPC PROC:    %d\n",   rpc->proc);
-        printf("RPC AUTH:    %d\n",   rpc->auth.flavor);
-        printf("RPC AUTHLEN: %d\n",   rpc->auth.length);
-#endif
-        if (rpc->auth.flavor == RPC_AUTH_UNIX) {
-            rpc_read_auth_unix(rpc, &auth_unix);
-        } else {
-            xdr_read_skip(m_in, rpc->auth.length);
-        }
-        rpc->verif.flavor = xdr_read_long(m_in);
-        rpc->verif.length = xdr_read_long(m_in);
-        xdr_read_skip(m_in, rpc->verif.length);
-#if DBG
-        printf("RPC VERIF:   %d\n", rpc->verif.flavor);
-        printf("RPC VERLEN:  %d\n", rpc->verif.length);
-#endif
-        /* RPC Reply */    
-        xdr_write_long(m_out, RPC_MSG_ACCEPTED); /* Message */
-        xdr_write_long(m_out, rpc->verif.flavor);
-        xdr_write_long(m_out, rpc->verif.length);
-        xdr_write_zero(m_out, rpc->verif.length);
-        status_ptr = xdr_get_pointer(m_out);
-        xdr_write_skip(m_out, 4); /* Status will be updated later */
-        
-        status = rpc_call(rpc);
-        
-        xdr_write_long_at(status_ptr, status); /* Status */
-        
-        if (status == RPC_PROG_MISMATCH) {
-            rpc_log(rpc, "[RPC] Version mismatch: req %d, min %d, max %d", rpc->vers, rpc->low, rpc->high);
-            xdr_write_long(m_out, rpc->low);
-            xdr_write_long(m_out, rpc->high);
-        } else if (status == RPC_PROG_UNAVAIL) {
-            printf("[RPC:%d:%d] Program not registered\n", rpc->prog, rpc->proc);
-        } else if (status == RPC_GARBAGE_ARGS) {
-            rpc_log(rpc, "[RPC] Procedure cannot decode input (garbage args)");
-        } else if (status == RPC_PROC_UNAVAIL) {
-            rpc_log(rpc, "[RPC] Procedure not available");
-        } else if (m_in->size > 0) {
-            rpc_log(rpc, "[RPC] Unused data in buffer (%d bytes)", m_in->size);
-        }
-    } else { /* RPC version is not 2 */
-        printf("[RPC] Version mismatch (%d)\n", rpc->rpcvers);
-        xdr_write_long(m_out, RPC_MSG_DENIED); /* Message */
-        xdr_write_long(m_out, RPC_MISMATCH); /* Status */
-        xdr_write_long(m_out, 2); /* Min version */
-        xdr_write_long(m_out, 2); /* Max version */
-    }
-    
+
 #if DBG
     printf("RPC OUT = %d, DATA:\n", m_out->size);
     for (int i = 0; i < m_out->size; i++) {
@@ -251,6 +254,8 @@ static void rpc_input(struct csocket_t* cs) {
 #endif
     
     csocket_send(cs);
+    
+    host_mutex_unlock(rpc->lock);
 }
 
 int proc_null(struct rpc_t* rpc) {
@@ -446,20 +451,20 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
         struct rpc_prog_t* prog;
         
         printf("[RPC] Starting '%s' at %d.%d.%d.%d, exporting '%s'.\n", rpc->hostname, 
-               (rpc->ip_addr>>24)&0xFF, (rpc->ip_addr>>16)&0xFF, (rpc->ip_addr>>8)&0xFF, 
-               (rpc->ip_addr&0xFF), path);
+               (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, path);
+        
+        rpc->lock = host_mutex_create();
+        netinfo_add_host(rpc->hostname, rpc->ip_addr);
+        vdns_add_rec(rpc->hostname, rpc->ip_addr);
         
         for (i = 0; i < TBL_SIZE(rpc_prog_table_template); i++) {
             prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
             memcpy(prog, &rpc_prog_table_template[i], sizeof(struct rpc_prog_t));
             rpc_add_program(rpc, prog);
         }
-        
         nibind_init(rpc);
-        netinfo_add_host(rpc->hostname, rpc->ip_addr);
-        vdns_add_rec(rpc->hostname, rpc->ip_addr);
     } else {
-        printf("[RPC] Startup failed for '%s', exporting %s.\n", rpc->hostname, path);
+        printf("[RPC] Startup failed for '%s', exporting '%s'.\n", rpc->hostname, path);
     }
 }
 
@@ -474,6 +479,7 @@ static void rpc_stop_server(struct rpc_t* rpc) {
             
             netinfo_remove_host(rpc->hostname);
             vdns_remove_rec(rpc->ip_addr);
+            host_mutex_destroy(rpc->lock);
             rpc->ft = ft_uninit(rpc->ft);
         }
     }
@@ -481,7 +487,7 @@ static void rpc_stop_server(struct rpc_t* rpc) {
 
 static int rpc_check_nfs(struct rpc_t* rpc, const char* path, const char* name) {
     if (access(path, F_OK | R_OK | W_OK) < 0) {
-        printf("[RPC] Cannot access directory '%s'. NFS startup canceled for %s.\n", path, name);
+        printf("[RPC] Cannot access directory '%s'. NFS startup canceled for '%s'.\n", path, name);
         return -1;
     } else if (ft_is_inited(rpc->ft)) {
         if (ft_path_changed(rpc->ft, path)) {
