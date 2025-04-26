@@ -36,7 +36,7 @@ const struct rpc_prog_t ni_rpc_prog_template =
     NETINFOPROG, NETINFOVERS, 0, 0, netinfo_prog, 1, "NETINFO", NULL, NULL
 };
 
-const struct ni_prog_t ni_prog_table_template[] = 
+const struct nireg_t ni_register_template[] = 
 {
 /*  { "local",   0,            0,            NULL, NULL, NULL }, */
     { "network", PORT_NETINFO, PORT_NETINFO, NULL, NULL, NULL }
@@ -50,54 +50,54 @@ static void ni_register_program(struct ni_prog_t* prog) {
 }
 #endif
 
-static void ni_add_program(struct rpc_t* rpc, struct ni_prog_t* prog) {
-    struct ni_prog_t** entry = &rpc->ni_prog;
+static void ni_register_add(struct rpc_t* rpc, struct nireg_t* nireg) {
+    struct nireg_t** entry = &rpc->nireg;
         
-    prog->udp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
-    prog->tcp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
+    nireg->udp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
+    nireg->tcp_prog = (struct rpc_prog_t*)malloc(sizeof(struct rpc_prog_t));
     
-    *(prog->udp_prog) = ni_rpc_prog_template;
-    prog->udp_prog->prot = IPPROTO_UDP;
-    prog->udp_prog->port = prog->udp_port;
+    *(nireg->udp_prog) = ni_rpc_prog_template;
+    nireg->udp_prog->prot = IPPROTO_UDP;
+    nireg->udp_prog->port = nireg->udp_port;
     
-    *(prog->tcp_prog) = ni_rpc_prog_template;
-    prog->tcp_prog->prot = IPPROTO_TCP;
-    prog->tcp_prog->port = prog->tcp_port;
+    *(nireg->tcp_prog) = ni_rpc_prog_template;
+    nireg->tcp_prog->prot = IPPROTO_TCP;
+    nireg->tcp_prog->port = nireg->tcp_port;
 
-    rpc_add_program(rpc, prog->udp_prog);
-    rpc_add_program(rpc, prog->tcp_prog);
+    rpc_add_program(rpc, nireg->udp_prog);
+    rpc_add_program(rpc, nireg->tcp_prog);
     
-    prog->udp_port = prog->udp_prog->port;
-    prog->tcp_port = prog->tcp_prog->port;
+    nireg->udp_port = nireg->udp_prog->port;
+    nireg->tcp_port = nireg->tcp_prog->port;
     
-    printf("[NETINFOBIND] Registering '%s' at udp:%d, tcp:%d\n", nidb->tag, prog->udp_port, prog->tcp_port);
+    printf("[NETINFOBIND] Registering '%s' at udp:%d, tcp:%d\n", nidb->tag, nireg->udp_port, nireg->tcp_port);
 
     while (*entry) {
         entry = &(*entry)->next;
     }
     
-    *entry = prog;
+    *entry = nireg;
     (*entry)->next = NULL;
 }
 
 void nibind_init(struct rpc_t* rpc) {
     int i;
-    struct ni_prog_t* prog;
+    struct nireg_t* nireg;
     
-    for (i = 0; i < TBL_SIZE(ni_prog_table_template); i++) {
-        prog = (struct ni_prog_t*)malloc(sizeof(struct ni_prog_t));
-        memcpy(prog, &ni_prog_table_template[i], sizeof(struct ni_prog_t));
-        ni_add_program(rpc, prog);
+    for (i = 0; i < TBL_SIZE(ni_register_template); i++) {
+        nireg = (struct nireg_t*)malloc(sizeof(struct nireg_t));
+        memcpy(nireg, &ni_register_template[i], sizeof(struct nireg_t));
+        ni_register_add(rpc, nireg);
     }
 }
 
 void nibind_uninit(struct rpc_t* rpc) {
-    struct ni_prog_t* next;
+    struct nireg_t* next;
     
-    while (rpc->ni_prog) {
-        next = rpc->ni_prog->next;
-        free(rpc->ni_prog);
-        rpc->ni_prog = next;
+    while (rpc->nireg) {
+        next = rpc->nireg->next;
+        free(rpc->nireg);
+        rpc->nireg = next;
     }
 }
 
@@ -114,7 +114,7 @@ static int proc_unregister(struct rpc_t* rpc) {
 }
 
 static int proc_getregister(struct rpc_t* rpc) {
-    struct ni_prog_t* prog = NULL;
+    struct nireg_t* nireg = NULL;
     char tag[MAXNAMELEN+1];
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -122,22 +122,22 @@ static int proc_getregister(struct rpc_t* rpc) {
     
     if (xdr_read_string(m_in, tag, sizeof(tag)) < 0) return RPC_GARBAGE_ARGS;
     
-    prog = rpc->ni_prog;
-    while (prog) {
-        if (strncmp(nidb->tag, tag, MAXNAMELEN) == 0) {
+    nireg = rpc->nireg;
+    while (nireg) {
+        if (strncmp(nireg->tag, tag, MAXNAMELEN) == 0) {
             break;
         }
-        prog = prog->next;
+        nireg = nireg->next;
     }
     
-    if (prog == NULL) {
+    if (nireg == NULL) {
         rpc_log(rpc, "GETREGISTER no tag '%s'", tag);
         xdr_write_long(m_out, NI_NOTAG);
     } else {
-        rpc_log(rpc, "GETREGISTER '%s' at udp:%d, tcp:%d", tag, prog->udp_port, prog->tcp_port);
+        rpc_log(rpc, "GETREGISTER '%s' at udp:%d, tcp:%d", tag, nireg->udp_port, nireg->tcp_port);
         xdr_write_long(m_out, NI_OK);
-        xdr_write_long(m_out, prog->udp_port);
-        xdr_write_long(m_out, prog->tcp_port);
+        xdr_write_long(m_out, nireg->udp_port);
+        xdr_write_long(m_out, nireg->tcp_port);
     }
     
     return RPC_SUCCESS;

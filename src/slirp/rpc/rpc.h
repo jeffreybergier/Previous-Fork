@@ -85,7 +85,7 @@ struct rpc_t {
     char hostname[MAX_HOST_NAME];
     
     struct rpc_prog_t* prog_list;
-    struct ni_prog_t* ni_prog;
+    struct nireg_t* nireg;
     struct mount_t* rmtab;
     
     int log;
@@ -95,6 +95,8 @@ struct rpc_t {
     uint16_t udp_from_local[1<<16];
     uint16_t tcp_to_local[1<<16];
     uint16_t tcp_from_local[1<<16];
+    
+    void* lock;
 };
 
 struct rpc_prog_t {

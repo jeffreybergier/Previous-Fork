@@ -435,6 +435,10 @@ Previous v3.7:
   > Improves accuracy and reliability of internal NFS and NetInfo server.
   > Fixes bugs that caused memory leaks and orphaned threads on quit.
 
+Previous v3.8 (unreleased):
+  > Adds support for multiple internal NFS servers.
+  > Fixes bugs that caused memory leaks and use after free errors.
+
 
  7) Running Previous
  -------------------

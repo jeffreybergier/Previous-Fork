@@ -677,7 +677,7 @@ static void ni_log(struct rpc_t* rpc, struct nidb_t* ni, const char *format, ...
     if (rpc->log)
     {
         va_start(vargs, format);
-        printf("[%s:RPC:%s:%s:%d] ", rpc->hostname, rpc->name, ni->tag, rpc->proc);
+        printf("[%s:RPC:%s:%d:%s] ", rpc->hostname, rpc->name, rpc->proc, ni->tag);
         vprintf(format, vargs);
         printf("\n");
         va_end(vargs);
@@ -756,6 +756,7 @@ static int proc_root(struct rpc_t* rpc, struct nidb_t* ni) {
 
 static int proc_self(struct rpc_t* rpc, struct nidb_t* ni) {
     struct ni_id_t ni_id;
+    struct ni_node_t* node;
     enum ni_status status = NI_OK;
     
     struct xdr_t* m_in  = rpc->m_in;
@@ -765,10 +766,10 @@ static int proc_self(struct rpc_t* rpc, struct nidb_t* ni) {
     
     ni_log(rpc, ni, "SELF obj=%d, inst=%d", ni_id.object, ni_id.instance);
     
-    ni_node_find(ni->root, &ni_id, &status, 0);
+    node = ni_node_find(ni->root, &ni_id, &status, 0);
     xdr_write_long(m_out, status);
     if (status == NI_OK)
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
     
     return RPC_SUCCESS;
 }
@@ -801,7 +802,7 @@ static int proc_parent(struct rpc_t* rpc, struct nidb_t* ni) {
     xdr_write_long(m_out, status);
     if (status == NI_OK) {
         xdr_write_long(m_out, node->parent->id.object);
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
 #if DBG
         snprintf(dbg + strlen(dbg), DBGMAX - strlen(dbg), "%d", node->parent->id.object);
 #endif
@@ -847,7 +848,7 @@ static int proc_read(struct rpc_t* rpc, struct nidb_t* ni) {
     
     xdr_write_long(m_out, status);
     if (status == NI_OK) {
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
         write_ni_proplist(m_out, node->props);
 #if DBG
         prop_to_string(dbg, node->props);
@@ -900,7 +901,7 @@ static int proc_children(struct rpc_t* rpc, struct nidb_t* ni) {
             child = child->next;
         }
         
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
     }
     
 #if DBG
@@ -957,7 +958,7 @@ static int proc_lookup(struct rpc_t* rpc, struct nidb_t* ni) {
 #endif
             list = list->next;
         }
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
     }
     
 #if DBG
@@ -1015,7 +1016,7 @@ static int proc_list(struct rpc_t* rpc, struct nidb_t* ni) {
             child = child->next;
         }
         
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
     }
     
 #if DBG
@@ -1074,7 +1075,7 @@ static int proc_readprop(struct rpc_t* rpc, struct nidb_t* ni) {
     
     if (status == NI_OK) {
         write_ni_namelist(m_out, values);
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
 #if DBG
         val_to_string(dbg, values);
 #endif
@@ -1125,7 +1126,7 @@ static int proc_listprops(struct rpc_t* rpc, struct nidb_t* ni) {
     if (status == NI_OK) {
         names = ni_node_get_prop_names(node);
         write_ni_namelist(m_out, names);
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
 #if DBG
         val_to_string(dbg, names);
 #endif
@@ -1255,7 +1256,7 @@ static int proc_lookupread(struct rpc_t* rpc, struct nidb_t* ni) {
             list = list->next;
         }
         
-        write_ni_id(m_out, &ni_id);
+        write_ni_id(m_out, &node->id);
         write_ni_proplist(m_out, result);
 #if DBG
         prop_to_string(dbg, result);
