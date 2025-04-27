@@ -300,8 +300,8 @@ static void print_about(void) {
     
     if (show) {
         char hostname[NAME_HOST_MAX];
-        memset(hostname, 0, sizeof(hostname));
         gethostname(hostname, sizeof(hostname));
+        hostname[NAME_HOST_MAX-1] = '\0';
         printf("[NFSD] Starting local NFS daemon on '%s':\n", hostname);
         
         printf("[NFSD] Network File System server\n");
@@ -544,11 +544,16 @@ void rpc_uninit(void) {
     vdns_uninit();
 }
 
-static struct rpc_t* rpc_find_server(uint32_t addr) {
+static struct rpc_t* rpc_find_server(uint32_t addr, uint16_t port) {
     int i;
     for (i = 0; i < EN_MAX_SHARES; i++) {
         if (rpc_server[i] && rpc_server[i]->ft) {
-            if (rpc_server[i]->ip_addr == addr || (addr & 0xFF) == 0xFF) {
+            if (rpc_server[i]->ip_addr == addr) {
+                return rpc_server[i];
+            } else if ((addr & 0xFF) == 0xFF) {
+                printf("[RPC] Warning: Broadcast to %d.%d.%d.%d, port %d only received by %s\n", 
+                       (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, port, 
+					   rpc_server[i]->hostname);
                 return rpc_server[i];
             }
         }
@@ -595,7 +600,7 @@ int rpc_match_addr(uint32_t addr) {
 }
 
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
-    struct rpc_t* rpc = rpc_find_server(htonl(ipNBO->s_addr));
+    struct rpc_t* rpc = rpc_find_server(htonl(ipNBO->s_addr), htons(*dportNBO));
     
     uint16_t dport = ntohs(*dportNBO);
     uint16_t port  = rpc_udp_to_local(rpc, dport);
@@ -606,7 +611,7 @@ void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
 }
 
 void rpc_tcp_map_to_local_port(uint32_t addr, uint16_t port, uint16_t* sin_portNBO) {
-    struct rpc_t* rpc = rpc_find_server(addr);
+    struct rpc_t* rpc = rpc_find_server(addr, port);
     
     uint16_t localPort = rpc_tcp_to_local(rpc, port);
     if (localPort)

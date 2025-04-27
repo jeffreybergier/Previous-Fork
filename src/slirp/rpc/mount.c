@@ -46,20 +46,20 @@ struct mount_t {
 };
 
 
-static int mnt_add(struct mount_t** entry, char* name, char* path) {    
+static void mnt_add(struct mount_t** entry, char* name, char* path) {    
     while (*entry) {
         if (strncmp((*entry)->name, name, MAXNAMELEN) || 
             strncmp((*entry)->path, path, MAXPATHLEN)) {
             entry = &(*entry)->next;
             continue;
         }
-        return 1;
+        printf("[RPC] Note: rmtab duplicate entry for '%s' from %s.\n", path, name);
+        return;
     }
     *entry = (struct mount_t*)malloc(sizeof(struct mount_t));
     (*entry)->name = strdup(name);
     (*entry)->path = strdup(path);
     (*entry)->next = NULL;
-    return 0;
 }
 
 static void mnt_remove(struct mount_t** entry, char* name, char* path) {
@@ -134,9 +134,7 @@ static int proc_mnt(struct rpc_t* rpc) {
             xdr_write_long(m_out, MNT_OK);
             xdr_write_data(m_out, data, FHSIZE);
             
-            if (mnt_add(&rpc->rmtab, name, path.vfs)) {
-                rpc_log(rpc, "MNT '%s' already mounted from %s", path.vfs, name);
-            }
+            mnt_add(&rpc->rmtab, name, path.vfs);
         } else {
             rpc_log(rpc, "MNT '%s' is not a directory (NOTDIR)", path.vfs);
             xdr_write_long(m_out, MNTERR_NOTDIR);
