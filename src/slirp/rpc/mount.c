@@ -62,7 +62,7 @@ static int mnt_add(struct mount_t** entry, char* name, char* path) {
     return 0;
 }
 
-static int mnt_remove(struct mount_t** entry, char* name, char* path) {
+static void mnt_remove(struct mount_t** entry, char* name, char* path) {
     struct mount_t* next = NULL;
     
     while (*entry) {
@@ -76,9 +76,7 @@ static int mnt_remove(struct mount_t** entry, char* name, char* path) {
         next = (*entry)->next;
         free((*entry));
         *entry = next;
-        return 1;
     }
-    return 0;
 }
 
 static void mnt_remove_all(struct mount_t** entry, char* name) {
@@ -123,27 +121,29 @@ static int proc_mnt(struct rpc_t* rpc) {
     if (xdr_read_string(m_in, path.vfs, sizeof(path.vfs)) < 0) return RPC_GARBAGE_ARGS;
     vfs_to_host_path(rpc->ft->vfs, &path);
     
-    rpc_log(rpc, "MNT from %s for '%s'", name, path.vfs);
-    
     handle = ft_get_fhandle(rpc->ft, &path);
     if (handle) {
-        uint64_t data[8] = {handle, 0, 0, 0, 0, 0, 0, 0};
+        struct stat fstat;
         
-        xdr_write_long(m_out, MNT_OK);
-        
-        if (rpc->vers == 1 || rpc->vers == 2) {
+        ft_stat(rpc->ft, &path, &fstat);
+        if (S_ISDIR(fstat.st_mode)) {
+            uint64_t data[4] = {handle, 0, 0, 0};
+            
+            rpc_log(rpc, "MNT from %s for '%s' = %"PRIu64" (OK)", name, path.vfs, handle);
+            
+            xdr_write_long(m_out, MNT_OK);
             xdr_write_data(m_out, data, FHSIZE);
+            
+            if (mnt_add(&rpc->rmtab, name, path.vfs)) {
+                rpc_log(rpc, "MNT '%s' already mounted from %s", path.vfs, name);
+            }
         } else {
-            xdr_write_long(m_out, FHSIZE_NFS3);
-            xdr_write_data(m_out, data, FHSIZE_NFS3);
-            xdr_write_long(m_out, 0);  /* flavor */
-        }
-        
-        if (mnt_add(&rpc->rmtab, name, path.vfs)) {
-            rpc_log(rpc, "MNT '%s' already mounted from %s", path, name);
+            rpc_log(rpc, "MNT '%s' is not a directory (NOTDIR)", path.vfs);
+            xdr_write_long(m_out, MNTERR_NOTDIR);
         }
     } else {
-        xdr_write_long(m_out, MNTERR_ACCESS);  /* Permission denied */
+        rpc_log(rpc, "MNT '%s' not found (NOENT)", path.vfs);
+        xdr_write_long(m_out, MNTERR_NOENT);
     }
     
     return RPC_SUCCESS;
@@ -162,9 +162,8 @@ static int proc_dump(struct rpc_t* rpc) {
         xdr_write_string(m_out, entry->path, MAXPATHLEN);
         entry = entry->next;
     }
-    xdr_write_long(m_out, 0);
     
-    xdr_write_long(m_out, MNT_OK);
+    xdr_write_long(m_out, 0);
     
     return RPC_SUCCESS;
 }
@@ -173,10 +172,7 @@ static int proc_umnt(struct rpc_t* rpc) {
     char path[MAXPATHLEN];
     char name[MAXNAMELEN+1];
     
-    int found = 0;
-    
     struct xdr_t* m_in  = rpc->m_in;
-    struct xdr_t* m_out = rpc->m_out;
     
     vfscpy(name, NAME_HOST, sizeof(name));
     
@@ -184,13 +180,7 @@ static int proc_umnt(struct rpc_t* rpc) {
     
     rpc_log(rpc, "UMNT from %s for '%s'", name, path);
     
-    found = mnt_remove(&rpc->rmtab, name, path);
-    
-    if (!found) {
-        rpc_log(rpc, "UMNT '%s' not mounted from %s", path, name);
-    }
-    
-    xdr_write_long(m_out, found ? MNT_OK : MNTERR_NOTDIR);
+    mnt_remove(&rpc->rmtab, name, path);
     
     return RPC_SUCCESS;
 }
@@ -198,15 +188,11 @@ static int proc_umnt(struct rpc_t* rpc) {
 static int proc_umntall(struct rpc_t* rpc) {
     char name[MAXNAMELEN+1];
     
-    struct xdr_t* m_out = rpc->m_out;
-    
     vfscpy(name, NAME_HOST, sizeof(name));
     
     rpc_log(rpc, "UMNTALL from %s", name);
     
     mnt_remove_all(&rpc->rmtab, name);
-    
-    xdr_write_long(m_out, MNT_OK);
     
     return RPC_SUCCESS;
 }
@@ -236,8 +222,6 @@ static int proc_export(struct rpc_t* rpc) {
     xdr_write_long(m_out, 0);
     
     xdr_write_long(m_out, 0); /* no more filesystems */
-    
-    xdr_write_long(m_out, MNT_OK);
     
     return RPC_SUCCESS;
 }
