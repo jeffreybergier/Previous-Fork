@@ -48,7 +48,7 @@ struct mount_t {
 
 static int mnt_add(struct mount_t** entry, char* name, char* path) {    
     while (*entry) {
-        if (strncmp((*entry)->name, name, INET_ADDRSTRLEN) || 
+        if (strncmp((*entry)->name, name, MAXNAMELEN) || 
             strncmp((*entry)->path, path, MAXPATHLEN)) {
             entry = &(*entry)->next;
             continue;
@@ -79,6 +79,22 @@ static int mnt_remove(struct mount_t** entry, char* name, char* path) {
         return 1;
     }
     return 0;
+}
+
+static void mnt_remove_all(struct mount_t** entry, char* name) {
+    struct mount_t* next = NULL;
+    
+    while (*entry) {
+        if (strncmp((*entry)->name, name, MAXNAMELEN)) {
+            entry = &(*entry)->next;
+        } else {
+            free((*entry)->name);
+            free((*entry)->path);
+            next = (*entry)->next;
+            free((*entry));
+            *entry = next;
+        }
+    }
 }
 
 static void mnt_delete(struct mount_t** entry) {
@@ -133,6 +149,26 @@ static int proc_mnt(struct rpc_t* rpc) {
     return RPC_SUCCESS;
 }
 
+static int proc_dump(struct rpc_t* rpc) {
+    struct mount_t* entry = rpc->rmtab;
+    
+    struct xdr_t* m_out = rpc->m_out;
+    
+    rpc_log(rpc, "DUMP");
+    
+    while (entry) {
+        xdr_write_long(m_out, 1);
+        xdr_write_string(m_out, entry->name, MAXNAMELEN);
+        xdr_write_string(m_out, entry->path, MAXPATHLEN);
+        entry = entry->next;
+    }
+    xdr_write_long(m_out, 0);
+    
+    xdr_write_long(m_out, MNT_OK);
+    
+    return RPC_SUCCESS;
+}
+
 static int proc_umnt(struct rpc_t* rpc) {
     char path[MAXPATHLEN];
     char name[MAXNAMELEN+1];
@@ -159,28 +195,49 @@ static int proc_umnt(struct rpc_t* rpc) {
     return RPC_SUCCESS;
 }
 
+static int proc_umntall(struct rpc_t* rpc) {
+    char name[MAXNAMELEN+1];
+    
+    struct xdr_t* m_out = rpc->m_out;
+    
+    vfscpy(name, NAME_HOST, sizeof(name));
+    
+    rpc_log(rpc, "UMNTALL from %s", name);
+    
+    mnt_remove_all(&rpc->rmtab, name);
+    
+    xdr_write_long(m_out, MNT_OK);
+    
+    return RPC_SUCCESS;
+}
+
 static int proc_export(struct rpc_t* rpc) {
     char path[MAXPATHLEN];
-    uint8_t group[4] = { '*', '.', '.', '.' }; /* "*..." */
     
     struct xdr_t* m_out = rpc->m_out;
     
     rpc_log(rpc, "EXPORT");
     
+    /* root filesystem */
     vfs_get_basepath_alias(rpc->ft->vfs, path, sizeof(path));
     
-    /* dirpath */
     xdr_write_long(m_out, 1);
     xdr_write_string(m_out, path, sizeof(path));
+    xdr_write_long(m_out, 0); /* groups (no group entry means everyone) */
+    
+    /* private filesystem */
+    if (strlen(path) > 0 && path[strlen(path)-1] != '/') {
+        vfscat(path, "/", sizeof(path));
+    }
+    vfscat(path, "private", sizeof(path));
 
-    /* groups */
     xdr_write_long(m_out, 1);
-    xdr_write_long(m_out, 1);
-    xdr_write_data(m_out, group, 4);
+    xdr_write_string(m_out, path, sizeof(path));
     xdr_write_long(m_out, 0);
     
-    xdr_write_long(m_out, 0);
-    xdr_write_long(m_out, 0);
+    xdr_write_long(m_out, 0); /* no more filesystems */
+    
+    xdr_write_long(m_out, MNT_OK);
     
     return RPC_SUCCESS;
 }
@@ -195,23 +252,20 @@ int mount_prog(struct rpc_t* rpc) {
             return proc_mnt(rpc);
             
         case MOUNTPROC_DUMP:
-            rpc_log(rpc, "DUMP unimplemented");
-            return RPC_PROC_UNAVAIL;
+            return proc_dump(rpc);
             
         case MOUNTPROC_UMNT:
             return proc_umnt(rpc);
             
         case MOUNTPROC_UMNTALL:
-            rpc_log(rpc, "UMNTALL unimplemented");
-            return RPC_PROC_UNAVAIL;
+            return proc_umntall(rpc);
             
         case MOUNTPROC_EXPORT:
             return proc_export(rpc);
             
         case MOUNTPROC_EXPORTALL:
-            rpc_log(rpc, "EXPORTALL unimplemented");
-            return RPC_PROC_UNAVAIL;
-
+            return proc_export(rpc);
+            
         default:
             break;
     }
