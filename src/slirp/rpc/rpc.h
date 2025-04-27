@@ -3,6 +3,8 @@
 #ifndef _RPC_H_
 #define _RPC_H_
 
+#define HAVE_RPC 1
+
 #include "xdr.h"
 #include "filetable.h"
 
@@ -41,7 +43,6 @@
 
 /* The size in bytes of the opaque file handle. */
 #define FHSIZE      32
-#define FHSIZE_NFS3 64
 
 /* The maximum size of a hostname (not FQDN) including null */
 #define MAX_HOST_NAME 64

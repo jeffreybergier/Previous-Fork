@@ -389,8 +389,8 @@ void vdns_init(void) {
 
     if (vdns.local_port) {
         char hostname[NAME_HOST_MAX];
-        memset(hostname, 0, sizeof(hostname));
         gethostname(hostname, sizeof(hostname));
+        hostname[NAME_HOST_MAX-1] = '\0';
         vfscat(hostname, NAME_DOMAIN, sizeof(hostname));
         
         printf("[DNS] Creating database.\n");

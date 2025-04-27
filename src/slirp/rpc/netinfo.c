@@ -508,8 +508,8 @@ void netinfo_build_nidb(void) {
     } else {
         vfscat(system_type, "cube", sizeof(system_type));
     }
-    memset(hostname, 0, sizeof(hostname));
     gethostname(hostname, sizeof(hostname));
+    hostname[NAME_HOST_MAX-1] = '\0';
     domain = (NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
     
     /* Create root network:/ */

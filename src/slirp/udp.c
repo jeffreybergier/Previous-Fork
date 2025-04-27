@@ -140,37 +140,37 @@ udp_input(register struct mbuf *m, int iphlen)
 	    goto done;
 	  }
 	}
-    
-    int dport = ntohs(uh->uh_dport);
-
-    struct in_addr dst_addr = ip->ip_dst; /* Do not use pointers to packed structure. */
-    u_int16_t      dst_port = uh->uh_dport;
-    
-    if (rpc_match_addr(ntohl(save_ip.ip_dst.s_addr))) {
-        rpc_udp_map_to_local_port(&dst_addr, &dst_port);
-    } else if (vdns_match(m, ntohl(save_ip.ip_dst.s_addr), dport)) {
-        vdns_udp_map_to_local_port(&dst_addr, &dst_port);
-    }
-    
-    ip->ip_dst   = dst_addr; /* Copy back to packed structure. */
-    uh->uh_dport = dst_port;
-    
-    switch(dport) {
-        case BOOTP_SERVER:
-            bootp_input(m);
-            goto done;
-        case TFTP_SERVER:
-            tftp_input(m);
-            goto done;
-        case NTP_SERVER:
-            ntp_input(m);
-            break;
-        case RIP_ROUTER:
-            rip_input(m);
-            goto done;
-        default:
-            break;
-    }
+	
+	switch (ntohs(uh->uh_dport)) {
+		case BOOTP_SERVER:
+			bootp_input(m);
+			goto done;
+		case TFTP_SERVER:
+			tftp_input(m);
+			goto done;
+		case NTP_SERVER:
+			ntp_input(m);
+			break;
+		case RIP_ROUTER:
+			rip_input(m);
+			goto done;
+		default:
+			break;
+	}
+	
+#ifdef HAVE_RPC
+	struct in_addr dst_addr = ip->ip_dst; /* Do not use pointers to packed structure. */
+	u_int16_t      dst_port = uh->uh_dport;
+	
+	if (rpc_match_addr(ntohl(save_ip.ip_dst.s_addr))) {
+		rpc_udp_map_to_local_port(&dst_addr, &dst_port);
+	} else if (vdns_match(m, ntohl(save_ip.ip_dst.s_addr), ntohs(uh->uh_dport))) {
+		vdns_udp_map_to_local_port(&dst_addr, &dst_port);
+	}
+	
+	ip->ip_dst   = dst_addr; /* Copy back to packed structure. */
+	uh->uh_dport = dst_port;
+#endif
 
 	/*
 	 * Locate pcb for datagram.
