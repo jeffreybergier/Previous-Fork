@@ -158,7 +158,6 @@ udp_input(register struct mbuf *m, int iphlen)
 			break;
 	}
 	
-#ifdef HAVE_RPC
 	struct in_addr dst_addr = ip->ip_dst; /* Do not use pointers to packed structure. */
 	u_int16_t      dst_port = uh->uh_dport;
 	
@@ -170,7 +169,6 @@ udp_input(register struct mbuf *m, int iphlen)
 	
 	ip->ip_dst   = dst_addr; /* Copy back to packed structure. */
 	uh->uh_dport = dst_port;
-#endif
 
 	/*
 	 * Locate pcb for datagram.

@@ -553,7 +553,7 @@ static struct rpc_t* rpc_find_server(uint32_t addr, uint16_t port) {
             } else if ((addr & 0xFF) == 0xFF) {
                 printf("[RPC] Warning: Broadcast to %d.%d.%d.%d, port %d only received by %s\n", 
                        (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, port, 
-					   rpc_server[i]->hostname);
+                       rpc_server[i]->hostname);
                 return rpc_server[i];
             }
         }
@@ -584,16 +584,36 @@ int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len
 }
 
 int rpc_match_arp(uint8_t byte) {
-    return byte > (CTL_NFSD - EN_MAX_SHARES) && byte != 255;
+    int i;
+    for (i = 0; i < EN_MAX_SHARES; i++) {
+        if (rpc_server[i] && rpc_server[i]->ft) {
+            if ((rpc_server[i]->ip_addr & 0xFF) == byte) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int rpc_match_icmp(uint32_t addr) {
+    int i;
+    for (i = 0; i < EN_MAX_SHARES; i++) {
+        if (rpc_server[i] && rpc_server[i]->ft) {
+            if (rpc_server[i]->ip_addr == addr) {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 int rpc_match_addr(uint32_t addr) {
-    if ((addr & CTL_NET_MASK) == ntohl(special_addr.s_addr) && 
+    if ((addr &  CTL_NET_MASK) == CTL_NET && 
         (addr & ~CTL_NET_MASK) > (CTL_NFSD - EN_MAX_SHARES)) {
         return 1;
     }
     /* NS kernel broadcasts on 10.255.255.255 */
-    if (addr == (ntohl(special_addr.s_addr) | ~(uint32_t)CTL_CLASS_MASK(CTL_NET))) {
+    if (addr == (CTL_NET | ~(uint32_t)CTL_CLASS_MASK(CTL_NET))) {
         return 1;
     }
     return 0;

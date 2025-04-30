@@ -3,8 +3,6 @@
 #ifndef _RPC_H_
 #define _RPC_H_
 
-#define HAVE_RPC 1
-
 #include "xdr.h"
 #include "filetable.h"
 
@@ -38,14 +36,14 @@
 #define RPC_AUTH_DES      3
 
 /* Authentication constants */
-#define MAX_MACHINE_NAME 255
-#define NUM_GROUPS       16
+#define MAX_MACHINE_NAME  255
+#define NUM_GROUPS        16
 
 /* The size in bytes of the opaque file handle. */
-#define FHSIZE      32
+#define FHSIZE            32
 
 /* The maximum size of a hostname (not FQDN) including null */
-#define MAX_HOST_NAME 64
+#define MAX_HOST_NAME     64
 
 struct auth_unix_t {
     uint32_t time;
@@ -131,6 +129,7 @@ void rpc_log(struct rpc_t* rpc, const char *format, ...);
 int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len);
 
 int rpc_match_arp(uint8_t byte);
+int rpc_match_icmp(uint32_t addr);
 int rpc_match_addr(uint32_t addr);
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO);
 void rpc_tcp_map_to_local_port(uint32_t addr, uint16_t port, uint16_t* sin_portNBO);
