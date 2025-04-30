@@ -24,6 +24,7 @@
  */
 #include <slirp.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "rpc.h"
 #include "mount.h"

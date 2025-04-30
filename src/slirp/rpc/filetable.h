@@ -3,7 +3,6 @@
 #ifndef _FILETABLE_H_
 #define _FILETABLE_H_
 
-#include "host.h"
 #include "vfs.h"
 
 #define HASH_BITS  8
@@ -17,7 +16,6 @@ struct ft_entry_t {
 };
 
 struct ft_t {
-    mutex_t* mutex;
     struct ft_entry_t* table[HASH_SIZE];
     struct vfs_t* vfs;
 };
