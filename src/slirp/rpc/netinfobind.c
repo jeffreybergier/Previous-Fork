@@ -114,15 +114,14 @@ static int proc_unregister(struct rpc_t* rpc) {
 }
 
 static int proc_getregister(struct rpc_t* rpc) {
-    struct nireg_t* nireg = NULL;
     char tag[MAXNAMELEN+1];
+    struct nireg_t* nireg = rpc->nireg;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
     
     if (xdr_read_string(m_in, tag, sizeof(tag)) < 0) return RPC_GARBAGE_ARGS;
     
-    nireg = rpc->nireg;
     while (nireg) {
         if (strncmp(nireg->tag, tag, MAXNAMELEN) == 0) {
             break;
@@ -144,9 +143,25 @@ static int proc_getregister(struct rpc_t* rpc) {
 }
 
 static int proc_listreg(struct rpc_t* rpc) {
-    rpc_log(rpc, "LISTREG unimplemented");
+    struct nireg_t* nireg = rpc->nireg;
     
-    return RPC_PROC_UNAVAIL;
+    struct xdr_t* m_out = rpc->m_out;
+    
+    rpc_log(rpc, "LISTREG");
+    
+    xdr_write_long(m_out, NI_OK);
+    
+    while (nireg) {
+        xdr_write_long(m_out, 1);
+        xdr_write_string(m_out, nireg->tag, MAXNAMELEN);
+        xdr_write_long(m_out, nireg->udp_port);
+        xdr_write_long(m_out, nireg->tcp_port);
+        nireg = nireg->next;
+    }
+    
+    xdr_write_long(m_out, 0);
+    
+    return RPC_SUCCESS;
 }
 
 static int proc_createmaster(struct rpc_t* rpc) {
