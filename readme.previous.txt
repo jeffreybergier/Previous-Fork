@@ -438,7 +438,9 @@ Previous v3.7:
 Previous v3.8 (unreleased):
   > Adds support for multiple internal NFS servers.
   > Adds missing MOUNT procedures to make showmount work as expected.
+  > Adds LISTREG procedure to the internal NetInfo server.
   > Fixes bug that could cause memory leaks when stopping SLIRP thread.
+  > Fixes bug in internal network time server that caused bad reference time. 
 
 
  7) Running Previous
