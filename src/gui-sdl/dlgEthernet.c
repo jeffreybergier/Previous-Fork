@@ -28,8 +28,8 @@ char nfs_root_string[64] = "";
 
 #define DLGENET_MAC         15
 
-#define DLGENET_NFSMORE     18
-#define DLGENET_NFSBROWSE   19
+#define DLGENET_NFSBROWSE   18
+#define DLGENET_NFSMORE     19
 #define DLGENET_NFSROOT     20
 
 #define DLGENET_EXIT        22
@@ -64,8 +64,8 @@ static SGOBJ enetdlg[] =
 	
 	{ SGBOX, 0, 0, 1,17, 49,5, NULL },
 	{ SGTEXT, 0, 0, 3,18, 12,1, "NFS shared directory:" },
-	{ SGBUTTON, 0, 0, 25,18, 10,1, "More" },
-	{ SGBUTTON, 0, 0, 37,18, 10,1, "Browse" },
+	{ SGBUTTON, 0, 0, 25,18, 10,1, "Browse" },
+	{ SGBUTTON, 0, 0, 37,18, 10,1, "More" },
 	{ SGTEXT, 0, 0, 3,20, 44,1, nfs_root_string },
 
 	{ SGTEXT, 0, 0, 4,23, 22,1, "Note: PCAP requires super user privileges." },

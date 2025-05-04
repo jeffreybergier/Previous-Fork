@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.7
+                                  Previous 3.8
 
 
 
@@ -432,7 +432,7 @@ Previous v3.7:
   > Improves accuracy and reliability of internal NFS and NetInfo server.
   > Fixes bugs that caused memory leaks and orphaned threads on quit.
 
-Previous v3.8 (unreleased):
+Previous v3.8:
   > Adds support for multiple internal NFS servers.
   > Adds missing MOUNT procedures to make showmount work as expected.
   > Adds LISTREG procedure to the internal NetInfo server.
