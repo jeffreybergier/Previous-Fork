@@ -133,6 +133,6 @@ int rpc_match_icmp(uint32_t addr);
 int rpc_match_addr(uint32_t addr);
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO);
 void rpc_tcp_map_to_local_port(uint32_t addr, uint16_t port, uint16_t* sin_portNBO);
-void rpc_udp_map_from_local_port(uint16_t port, struct in_addr* saddrNBO, uint16_t* sin_portNBO);
+void rpc_udp_map_from_local_port(struct in_addr* saddrNBO, uint16_t* sin_portNBO);
 
 #endif /* _RPC_H_ */

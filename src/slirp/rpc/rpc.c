@@ -483,6 +483,70 @@ static void rpc_stop_server(struct rpc_t* rpc) {
     }
 }
 
+static struct rpc_broadcast_t {
+    struct udpsocket_t* udp;
+    uint16_t            udp_port;
+} broadcasthost;
+
+static void rpc_broadcast(struct csocket_t* cs) {
+    int i;
+    int saved_size;
+    sock_t saved_sock;
+    
+    if (cs->m_nType != SOCK_DGRAM) {
+        printf("[RPC] Only datagram socket supported for broadcast.\n");
+        return;
+    }
+    saved_size = cs->m_Input->size;
+    
+    for (i = 0; i < EN_MAX_SHARES; i++) {
+        if (rpc_server[i] && rpc_server[i]->ft) {
+            struct rpc_prog_t* prog = rpc_server[i]->prog_list;
+            while (prog) {
+                if (prog->port == PORT_RPC && prog->prot == IPPROTO_UDP) {
+                    struct udpsocket_t* us = (struct udpsocket_t*)prog->sock;
+                    saved_sock         = cs->m_Socket;
+                    cs->m_Socket       = us->m_pSocket->m_Socket;
+                    cs->m_pServer      = (void*)rpc_server[i];
+                    cs->m_Input->size  = saved_size;
+                    cs->m_Input->data  = cs->m_Input->head;
+                    cs->m_Output->size = 0;
+                    cs->m_Output->data = cs->m_Output->head;
+                    rpc_input(cs);
+                    cs->m_Socket = saved_sock;
+                    break;
+                }
+                prog = prog->next;
+            }
+        }
+    }
+}
+
+static void rpc_broadcast_stop(void) {
+    if (broadcasthost.udp) {
+        broadcasthost.udp_port = 0;
+        udpsocket_close(broadcasthost.udp);
+        broadcasthost.udp = udpsocket_uninit(broadcasthost.udp);
+    }
+}
+
+static void rpc_broadcast_start(void) {
+    if (broadcasthost.udp_port == 0) {
+        broadcasthost.udp  = udpsocket_init(rpc_broadcast, NULL);
+        if (broadcasthost.udp) {
+            broadcasthost.udp_port = udpsocket_open(broadcasthost.udp, PORT_RPC);
+            if (broadcasthost.udp_port) {
+                printf("[RPC] Broadcast enabled (UDP: %d -> %d).\n", PORT_RPC, broadcasthost.udp_port);
+            } else {
+                printf("[RPC] Broadcast startup failed.\n");
+                rpc_broadcast_stop();
+            }
+        } else {
+            printf("[RPC] Broadcast UDP socket initialisation failed.\n");
+        }
+    }
+}
+
 static int rpc_check_nfs(struct rpc_t* rpc, const char* path, const char* name) {
     if (access(path, F_OK | R_OK | W_OK) < 0) {
         printf("[RPC] Cannot access directory '%s'. NFS startup canceled for '%s'.\n", path, name);
@@ -529,10 +593,14 @@ void rpc_reset(void) {
         free(rpc_server[i]);
         rpc_server[i] = NULL;
     }
+    
+    rpc_broadcast_start();
 }
 
 void rpc_uninit(void) {
     int i;
+    
+    rpc_broadcast_stop();
     
     for (i = 0; i < EN_MAX_SHARES; i++) {
         if (rpc_server[i]) {
@@ -546,16 +614,11 @@ void rpc_uninit(void) {
     vdns_uninit();
 }
 
-static struct rpc_t* rpc_find_server(uint32_t addr, uint16_t port) {
+static struct rpc_t* rpc_find_server(uint32_t addr) {
     int i;
     for (i = 0; i < EN_MAX_SHARES; i++) {
         if (rpc_server[i] && rpc_server[i]->ft) {
             if (rpc_server[i]->ip_addr == addr) {
-                return rpc_server[i];
-            } else if ((addr & 0xFF) == 0xFF) {
-                printf("[RPC] Warning: Broadcast to %d.%d.%d.%d, port %d only received by %s\n", 
-                       (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF, port, 
-                       rpc_server[i]->hostname);
                 return rpc_server[i];
             }
         }
@@ -622,10 +685,16 @@ int rpc_match_addr(uint32_t addr) {
 }
 
 void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
-    struct rpc_t* rpc = rpc_find_server(htonl(ipNBO->s_addr), htons(*dportNBO));
-    
     uint16_t dport = ntohs(*dportNBO);
-    uint16_t port  = rpc_udp_to_local(rpc, dport);
+    uint16_t port  = 0;
+    if (dport == PORT_RPC && (ipNBO->s_addr == htonl(CTL_NET | ~(uint32_t)CTL_NET_MASK) ||
+                              ipNBO->s_addr == htonl(CTL_NET | ~(uint32_t)CTL_CLASS_MASK(CTL_NET)))) {
+        printf("[RPC] Broadcast to %s, port %d\n", inet_ntoa(*ipNBO), dport);
+        port = broadcasthost.udp_port;
+    } else {
+        struct rpc_t* rpc = rpc_find_server(htonl(ipNBO->s_addr));
+        port = rpc_udp_to_local(rpc, dport);
+    }
     if (port) {
         *dportNBO = htons(port);
         *ipNBO    = loopback_addr;
@@ -633,14 +702,14 @@ void rpc_udp_map_to_local_port(struct in_addr* ipNBO, uint16_t* dportNBO) {
 }
 
 void rpc_tcp_map_to_local_port(uint32_t addr, uint16_t port, uint16_t* sin_portNBO) {
-    struct rpc_t* rpc = rpc_find_server(addr, port);
-    
+    struct rpc_t* rpc = rpc_find_server(addr);
     uint16_t localPort = rpc_tcp_to_local(rpc, port);
     if (localPort)
         *sin_portNBO = htons(localPort);
 }
 
-void rpc_udp_map_from_local_port(uint16_t port, struct in_addr* saddrNBO, uint16_t* sin_portNBO) {
+void rpc_udp_map_from_local_port(struct in_addr* saddrNBO, uint16_t* sin_portNBO) {
+    uint16_t port = ntohs(*sin_portNBO);
     struct rpc_t* rpc = rpc_find_server_by_port(port);
     uint16_t srcPort = rpc_udp_from_local(rpc, port);
     if (srcPort) {
