@@ -55,18 +55,6 @@ const struct rpc_prog_t rpc_prog_table_template[] =
 };
 
 
-static void rpc_set_cred(struct rpc_t* rpc) {
-    struct auth_unix_t* auth = (struct auth_unix_t*)rpc->auth.auth;
-    
-    if (rpc->ft) {
-        if (rpc->auth.flavor == RPC_AUTH_UNIX) {
-            vfs_set_process_uid_gid(rpc->ft->vfs, auth->uid, auth->gid);
-        } else {
-            vfs_set_process_uid_gid(rpc->ft->vfs, 0, 0);
-        }
-    }
-}
-
 int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
     if (prog->prog == rpc->prog && prog->prot == rpc->prot) {
         rpc->name = prog->name;
@@ -91,7 +79,6 @@ static int rpc_call(struct rpc_t* rpc) {
         if (prog->port == rpc->port) {
             result = rpc_match_prog(rpc, prog);
             if (result > 0) {
-                rpc_set_cred(rpc);
                 return prog->run(rpc);
             }
             if (result < 0) {
@@ -106,52 +93,51 @@ static int rpc_call(struct rpc_t* rpc) {
     return mismatch ? RPC_PROG_MISMATCH : RPC_PROG_UNAVAIL;
 }
 
-static void rpc_read_auth_unix(struct rpc_t* rpc, struct auth_unix_t* auth) {
+static void rpc_read_auth(struct rpc_t* rpc) {
     int i;
     
     struct xdr_t* m_in = rpc->m_in;
-    int len            = rpc->auth.length;
-    uint8_t* restore   = m_in->data + len;
+    int len = rpc->auth.length;
     
-    rpc->auth.auth = auth;
-
-    if (len > m_in->size) {
-        memset(rpc->auth.auth, 0, sizeof(struct auth_unix_t));
-        printf("[RPC] Auth UNIX underrun\n");
-        return;
-    }
-    
-    len -= 5 * 4;
-    auth->time = xdr_read_long(m_in);
-    len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
-    len &= ~3; /* align */
-    auth->uid  = xdr_read_long(m_in);
-    auth->gid  = xdr_read_long(m_in);
-    auth->len  = xdr_read_long(m_in);
-    len -= auth->len * 4;
-    for (i = 0; i < auth->len && i < NUM_GROUPS; i++) {
-        auth->gids[i] = xdr_read_long(m_in);
-    }
+    if (rpc->auth.flavor == RPC_AUTH_UNIX) {
+        struct auth_unix_t* auth = &rpc->unix;
+        len -= 5 * 4;
+        auth->time = xdr_read_long(m_in);
+        len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
+        len &= ~3; /* align */
+        auth->uid  = xdr_read_long(m_in);
+        auth->gid  = xdr_read_long(m_in);
+        auth->len  = xdr_read_long(m_in);
+        len -= auth->len * 4;
+        for (i = 0; i < auth->len && i < NUM_GROUPS; i++) {
+            auth->gids[i] = xdr_read_long(m_in);
+        }
 #if DBG
-    printf("RPC UNIX TIME:   %d\n", auth->time);
-    printf("RPC UNIX NAME:   %s\n", auth->machine);
-    printf("RPC UNIX UID:    %d\n", auth->uid);
-    printf("RPC UNIX GID:    %d\n", auth->gid);
-    printf("RPC UNIX LEN:    %d\n", auth->len);
-    printf("RPC UNIX GIDS:   [");
-    for (i = 0; i < auth->len; i++) {
-        printf("%d%s", auth->gids[i], i == auth->len - 1 ? "" : ", ");
-    }
-    printf("]\n");
+        printf("UNIX TIME:   %d\n", auth->time);
+        printf("UNIX NAME:   %s\n", auth->machine);
+        printf("UNIX UID:    %d\n", auth->uid);
+        printf("UNIX GID:    %d\n", auth->gid);
+        printf("UNIX LEN:    %d\n", auth->len);
+        printf("UNIX GIDS:   [");
+        for (i = 0; i < auth->len; i++) {
+            printf("%d%s", auth->gids[i], i == auth->len - 1 ? "" : ", ");
+        }
+        printf("]\n");
 #endif
+        vfs_set_process_uid_gid(rpc->ft->vfs, auth->uid, auth->gid);
+    } else {
+        if (rpc->auth.flavor != RPC_AUTH_NONE) {
+            printf("[RPC] Authentication type %d not supported.\n", rpc->auth.flavor);
+        }
+        len = xdr_read_skip(m_in, len);
+        vfs_set_process_uid_gid(rpc->ft->vfs, 0, 0);
+    }
     if (len) {
-        printf("[RPC] Auth UNIX decode error\n");
-        m_in->data = restore;
+        printf("[RPC] Authentication decode error.\n");
     }
 }
 
 static void rpc_input(struct csocket_t* cs) {
-    struct auth_unix_t auth_unix;
     uint32_t status;
     uint8_t* status_ptr;
     
@@ -197,11 +183,8 @@ static void rpc_input(struct csocket_t* cs) {
             printf("RPC AUTH:    %d\n",   rpc->auth.flavor);
             printf("RPC AUTHLEN: %d\n",   rpc->auth.length);
 #endif
-            if (rpc->auth.flavor == RPC_AUTH_UNIX) {
-                rpc_read_auth_unix(rpc, &auth_unix);
-            } else {
-                xdr_read_skip(m_in, rpc->auth.length);
-            }
+            rpc_read_auth(rpc);
+            
             rpc->verif.flavor = xdr_read_long(m_in);
             rpc->verif.length = xdr_read_long(m_in);
             xdr_read_skip(m_in, rpc->verif.length);
@@ -493,10 +476,7 @@ static void rpc_broadcast(struct csocket_t* cs) {
     int saved_size;
     sock_t saved_sock;
     
-    if (cs->m_nType != SOCK_DGRAM) {
-        printf("[RPC] Only datagram socket supported for broadcast.\n");
-        return;
-    }
+    saved_sock = cs->m_Socket;
     saved_size = cs->m_Input->size;
     
     for (i = 0; i < EN_MAX_SHARES; i++) {
@@ -505,7 +485,6 @@ static void rpc_broadcast(struct csocket_t* cs) {
             while (prog) {
                 if (prog->port == PORT_RPC && prog->prot == IPPROTO_UDP) {
                     struct udpsocket_t* us = (struct udpsocket_t*)prog->sock;
-                    saved_sock         = cs->m_Socket;
                     cs->m_Socket       = us->m_pSocket->m_Socket;
                     cs->m_pServer      = (void*)rpc_server[i];
                     cs->m_Input->size  = saved_size;
@@ -513,13 +492,13 @@ static void rpc_broadcast(struct csocket_t* cs) {
                     cs->m_Output->size = 0;
                     cs->m_Output->data = cs->m_Output->head;
                     rpc_input(cs);
-                    cs->m_Socket = saved_sock;
                     break;
                 }
                 prog = prog->next;
             }
         }
     }
+    cs->m_Socket = saved_sock;
 }
 
 static void rpc_broadcast_stop(void) {
