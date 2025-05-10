@@ -439,6 +439,9 @@ Previous v3.8:
   > Fixes bug that could cause memory leaks when stopping SLIRP thread.
   > Fixes bug in internal network time server that caused bad reference time. 
 
+Previous v3.9 (unreleased):
+  > Adds support for RPC broadcasts to the internal NFS servers.
+
 
  7) Running Previous
  -------------------

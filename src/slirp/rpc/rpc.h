@@ -57,7 +57,7 @@ struct auth_unix_t {
 struct cred_t {
     uint32_t flavor;
     uint32_t length;
-    void* auth;
+    void* data;
 };
 
 struct rpc_t {
@@ -69,6 +69,8 @@ struct rpc_t {
     uint32_t proc;
     struct cred_t auth;
     struct cred_t verif;
+    
+    struct auth_unix_t unix;
     
     struct xdr_t* m_in;
     struct xdr_t* m_out;
