@@ -6045,6 +6045,12 @@ static void m68k_run_jit(void)
 	}
 #endif
 
+	if (regs.spcflags) {
+		if (do_specialties(0)) {
+			return;
+		}
+	}
+
 	for (;;) {
 #ifdef USE_STRUCTURED_EXCEPTION_HANDLING
 		__try {
