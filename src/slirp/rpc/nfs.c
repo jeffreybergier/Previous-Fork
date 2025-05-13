@@ -726,31 +726,25 @@ static int proc_readdir(struct rpc_t* rpc) {
     if (status == NFS_OK && handle) {
         char name[MAXNAMELEN+1];
         size_t namelen;
-        size_t size;
         struct dirent* fileinfo;
         uint32_t fileid;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
-            if(--skip >= 0) continue;
-#if HAVE_STRUCT_DIRENT_D_NAMELEN
-            namelen = fileinfo->d_namlen;
-#else
-            namelen = strlen(fileinfo->d_name);
-#endif
-            if (namelen >= sizeof(name)) {
-                rpc_log(rpc, "name too long");
-                namelen = sizeof(name) - 1;
+            if (--skip >= 0) continue;
+            /* We assume that d_name is null-terminated */
+            if (vfscpy(name, fileinfo->d_name, sizeof(name)) >= sizeof(name)) {
+                rpc_log(rpc, "filename too long: %s", fileinfo->d_name);
+                cookie++;
+                continue;
             }
-            memcpy(name, fileinfo->d_name, namelen);
-            name[namelen] = '\0';
-            size = (strlen(name) + 3) & ~3;  /* matches xdr_write_string() */
-            if (count < 4 * 4 + size + 4) {  /* includes final valid false */
+            namelen = (strlen(name) + 3) & ~3;  /* matches xdr_write_string() */
+            if (count < 4 * 4 + namelen + 4) {  /* includes final valid false */
                 eof = 0;
                 break;
             }
-            count -= 4 * 4 + size; /* valid, fileid, namelen, name, cookie */
-            rpc_log(rpc, "%d %s %s", cookie, path, name);
+            count -= 4 * 4 + namelen; /* valid, fileid, namelen, name, cookie */
+            rpc_log(rpc, "%d %s %s", cookie, path.vfs, name);
             cookie++;
 #ifdef _WIN32
             struct path_t file_path;

@@ -170,17 +170,15 @@ check_symbol_exists(posix_memalign "stdlib.h" HAVE_POSIX_MEMALIGN)
 check_symbol_exists(aligned_alloc "stdlib.h" HAVE_ALIGNED_ALLOC)
 check_symbol_exists(_aligned_malloc "stdlib.h" HAVE__ALIGNED_MALLOC)
 
-# ########################################
-# Check for non-POSIXness on macOS et al.:
-# ########################################
+# ###########################################
+# Check for platform specific struct members:
+# ###########################################
 message("-- The following HAVE_STRUCT_* tests are checking for non-POSIX systems such as macOS; 'Failed' does not indicate a problem")
 check_struct_has_member("struct stat" st_atimespec.tv_nsec
     "sys/types.h;sys/stat.h" HAVE_STRUCT_STAT_ST_ATIMESPEC)
 check_struct_has_member("struct stat" st_mtimespec.tv_nsec
     "sys/types.h;sys/stat.h" HAVE_STRUCT_STAT_ST_MTIMESPEC)
-# Linux glibc provides a _D_EXACT_NAMELEN macro to work around this exact issue, but other supported platforms may not
-check_struct_has_member("struct dirent" d_namelen
-	"dirent.h" HAVE_STRUCT_DIRENT_D_NAMELEN)
+check_struct_has_member("struct dirent" d_type dirent.h HAVE_DIRENT_D_TYPE)
 
 # #############
 # Other CFLAGS:

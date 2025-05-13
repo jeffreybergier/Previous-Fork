@@ -51,7 +51,7 @@ const struct rpc_prog_t rpc_prog_table_template[] =
     { NFSPROG,       NFSVERS,       IPPROTO_UDP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
     { NFSPROG,       NFSVERS,       IPPROTO_TCP, PORT_NFS, nfs_prog,       1, "NFS"        , NULL, NULL },
     { NIBINDPROG,    NIBINDVERS,    IPPROTO_UDP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL },
-    { NIBINDPROG,    NIBINDVERS,    IPPROTO_TCP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL },
+    { NIBINDPROG,    NIBINDVERS,    IPPROTO_TCP, 0,        nibind_prog,    1, "NETINFOBIND", NULL, NULL }
 };
 
 
@@ -59,7 +59,7 @@ int rpc_match_prog(struct rpc_t* rpc, struct rpc_prog_t* prog) {
     if (prog->prog == rpc->prog && prog->prot == rpc->prot) {
         rpc->name = prog->name;
         rpc->log  = prog->log;
-        if (prog->vers == 0 || prog->vers == rpc->vers) {
+        if (prog->vers == rpc->vers) {
             return 1;
         }
         return -1;
