@@ -94,10 +94,13 @@ static const char* status_str(int status) {
 static int nfs_err(int error) {
     switch (error) {
         case 0:            return NFS_OK;
+        case EPERM:        return NFSERR_PERM;
         case ENOENT:       return NFSERR_NOENT;
         case EACCES:       return NFSERR_ACCES;
         case EEXIST:       return NFSERR_EXIST;
+        case ENOTDIR:      return NFSERR_NOTDIR;
         case EISDIR:       return NFSERR_ISDIR;
+        case ENOSPC:       return NFSERR_NOSPC;
         case EROFS:        return NFSERR_ROFS;
         case ENOTEMPTY:    return NFSERR_NOTEMPTY;
         default:           return NFSERR_IO;

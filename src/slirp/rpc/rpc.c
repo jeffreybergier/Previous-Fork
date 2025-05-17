@@ -527,7 +527,7 @@ static void rpc_broadcast_start(void) {
 }
 
 static int rpc_check_nfs(struct rpc_t* rpc, const char* path, const char* name) {
-    if (access(path, F_OK | R_OK | W_OK) < 0) {
+    if (access(path, F_OK | R_OK) < 0) {
         printf("[RPC] Cannot access directory '%s'. NFS startup canceled for '%s'.\n", path, name);
         return -1;
     } else if (ft_is_inited(rpc->ft)) {
