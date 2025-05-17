@@ -724,35 +724,34 @@ static int proc_readdir(struct rpc_t* rpc) {
     rpc_log(rpc, "READDIR %s (%s)", path.vfs, status_str(status));
     
     if (status == NFS_OK && handle) {
-        char name[MAXNAMELEN+1];
-        size_t namelen;
         struct dirent* fileinfo;
         uint32_t fileid;
+        int namelen;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
             if (--skip >= 0) continue;
             /* We assume that d_name is null-terminated */
-            if (vfscpy(name, fileinfo->d_name, sizeof(name)) >= sizeof(name)) {
-                rpc_log(rpc, "filename too long: %s", fileinfo->d_name);
+            if ((namelen = strlen(fileinfo->d_name)) > MAXNAMELEN) {
+                rpc_log(rpc, "file name too long: %s", fileinfo->d_name);
                 cookie++;
                 continue;
             }
-            namelen = (strlen(name) + 3) & ~3;  /* matches xdr_write_string() */
+            namelen = (namelen + 3) & ~3;    /* must match xdr_write_string() */
             if (count < 4 * 4 + namelen + 4) {  /* includes final valid false */
                 eof = 0;
                 break;
             }
             count -= 4 * 4 + namelen; /* valid, fileid, namelen, name, cookie */
-            rpc_log(rpc, "%d %s %s", cookie, path.vfs, name);
+            rpc_log(rpc, "%d %s %s", cookie, path.vfs, fileinfo->d_name);
             cookie++;
 #ifdef _WIN32
             struct path_t file_path;
             int len = vfscpy(file_path.vfs, path.vfs, sizeof(file_path.vfs));
-            if (len > 0 && file_path.vfs[len - 1] != '/' && strlen(name) > 0) {
+            if (len > 0 && file_path.vfs[len - 1] != '/' && namelen > 0) {
                 vfscat(file_path.vfs, "/", sizeof(file_path.vfs));
             }
-            vfscat(file_path.vfs, name, sizeof(file_path.vfs));
+            vfscat(file_path.vfs, fileinfo->d_name, sizeof(file_path.vfs));
             vfs_to_host_path(rpc->ft->vfs, &file_path);
             fileid = vfs_file_id(ft_get_fhandle(rpc->ft, &file_path));
 #else
@@ -760,7 +759,7 @@ static int proc_readdir(struct rpc_t* rpc) {
 #endif
             xdr_write_long(m_out, 1); /* valid entry follows */
             xdr_write_long(m_out, fileid);
-            xdr_write_string(m_out, name, sizeof(name));
+            xdr_write_string(m_out, fileinfo->d_name, namelen);
             xdr_write_long(m_out, cookie);
         }
         xdr_write_long(m_out, 0);  /* no valid entry follows */
