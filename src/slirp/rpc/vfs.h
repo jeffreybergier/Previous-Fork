@@ -68,14 +68,6 @@ struct fattr_t {
     struct timeval_t ctime;
 };
 
-struct vfs_t {
-    char* vfs_base_path;
-    char* host_base_path;
-    
-    uint32_t uid;
-    uint32_t gid;
-};
-
 
 /* The maximum number of bytes in a pathname argument. */
 #define MAXPATHLEN 1024
@@ -86,6 +78,13 @@ struct vfs_t {
 struct path_t {
     char vfs[MAXPATHLEN];
     char host[FILENAME_MAX];
+};
+
+struct vfs_t {
+    struct path_t base_path;
+    
+    uint32_t uid;
+    uint32_t gid;
 };
 
 int vfscpy(char* dst, const char* src, int size);

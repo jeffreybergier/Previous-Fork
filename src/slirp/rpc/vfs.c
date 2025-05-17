@@ -256,10 +256,10 @@ int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path) {
         return 0;
     }
     strcpy(vfs_path, "/");
-    vfscat(vfs_path, path_relative(path->vfs, vfs->vfs_base_path), sizeof(vfs_path));
+    vfscat(vfs_path, path_relative(path->vfs, vfs->base_path.vfs), sizeof(vfs_path));
     vfs_path_canonicalize(vfs_path);
     
-    return make_host_path(vfs->host_base_path, vfs_path, path->host);
+    return make_host_path(vfs->base_path.host, vfs_path, path->host);
 }
 
 static int make_vfs_path(const char* vfs_base, char* host_path, char* vfs_path, int relative) {
@@ -287,9 +287,9 @@ static int make_vfs_path(const char* vfs_base, char* host_path, char* vfs_path, 
 }
 
 int vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path) {
-    char* host_path = path_relative(path->host, vfs->host_base_path);
+    char* host_path = path_relative(path->host, vfs->base_path.host);
     
-    return make_vfs_path(vfs->vfs_base_path, host_path, path->vfs, host_path == path->host);
+    return make_vfs_path(vfs->base_path.vfs, host_path, path->vfs, host_path == path->host);
 }
 
 static int host_path_is_directory(const char* host_path) {
@@ -688,8 +688,8 @@ struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias) {
     if (host_path && vfs_path_alias && strlen(host_path) && strlen(vfs_path_alias)) {
         vfs = (struct vfs_t*)malloc(sizeof(struct vfs_t));
         if (vfs) {
-            vfs->vfs_base_path = strdup(vfs_path_alias);
-            vfs->host_base_path = strdup(host_path);
+            vfscpy(vfs->base_path.vfs, vfs_path_alias, sizeof(vfs->base_path.vfs));
+            vfscpy(vfs->base_path.host, host_path, sizeof(vfs->base_path.host));
             vfs->uid = 20;
             vfs->gid = 20;
         }
@@ -699,8 +699,6 @@ struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias) {
 
 struct vfs_t* vfs_uninit(struct vfs_t* vfs) {
     if (vfs) {
-        free(vfs->vfs_base_path);
-        free(vfs->host_base_path);
         free(vfs);
     }
     return NULL;
@@ -712,5 +710,5 @@ void vfs_set_process_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid) {
 }
 
 void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen) {
-    vfscpy(path, vfs->vfs_base_path, maxlen);
+    vfscpy(path, vfs->base_path.vfs, maxlen);
 }
