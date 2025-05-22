@@ -234,7 +234,7 @@ static int make_host_path(const char* host_base, char* vfs_path, char* host_path
         vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
     }
     
-    if (vfs_path_is_absolute(vfs_path)) {
+    if (strchr(vfs_path, '/') == vfs_path) {
         vfs_path++; /* skip leading '/' */
     }
     
