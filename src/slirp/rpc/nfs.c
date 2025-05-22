@@ -102,6 +102,7 @@ static int nfs_err(int error) {
         case EISDIR:       return NFSERR_ISDIR;
         case ENOSPC:       return NFSERR_NOSPC;
         case EROFS:        return NFSERR_ROFS;
+        case ENAMETOOLONG: return NFSERR_NAMETOOLONG;
         case ENOTEMPTY:    return NFSERR_NOTEMPTY;
         default:           return NFSERR_IO;
     }
