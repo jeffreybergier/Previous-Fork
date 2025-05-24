@@ -122,11 +122,11 @@ int portmap_prog(struct rpc_t* rpc) {
         case PORTMAPPROC_SET:
             rpc_log(rpc, "SET unimplemented");
             return RPC_PROC_UNAVAIL;
-
+            
         case PORTMAPPROC_UNSET:
             rpc_log(rpc, "UNSET unimplemented");
             return RPC_PROC_UNAVAIL;
-
+            
         case PORTMAPPROC_GETPORT:
             return proc_getport(rpc);
             
@@ -135,7 +135,7 @@ int portmap_prog(struct rpc_t* rpc) {
             
         case PORTMAPPROC_CALLIT:
             return proc_callit(rpc);
-
+            
         default:
             break;
     }
