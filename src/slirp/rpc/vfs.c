@@ -38,13 +38,6 @@
 
 #ifdef _WIN32
 #include <Winsock2.h>
-#include <Windows.h>
-#include <ws2tcpip.h>
-#include <fileapi.h>
-#include <errhandlingapi.h>
-#include <shellapi.h>
-#include <stdbool.h>
-
 #else
 
 #if !HAVE_STRUCT_STAT_ST_ATIMESPEC
@@ -104,7 +97,7 @@ int vfscat(char* dst, const char* src, int size) {
 }
 
 /* ----- VFS and host path */
-void vfs_path_canonicalize(char* vfs_path) {    
+void vfs_path_canonicalize(char* vfs_path) {
     char* vfsPath = vfs_path;
     char* slashslashptr;
     char* dotdotptr;
@@ -150,7 +143,7 @@ void vfs_path_canonicalize(char* vfs_path) {
         slashptr = strrchr(vfsPath,'/');
         if(NULL == slashptr) {
             /* this happens if this function was called with a relative path.
-             don't do that.  */
+             don't do that. */
             assert("can't find leading '/' before '/../ sequence\n");
             break;
         }
@@ -437,7 +430,7 @@ int vfs_chmod(const struct path_t* path, mode_t mode) {
 #ifdef _WIN32
     return 0; /* not supported */
 #else
-    return get_error(fchmodat(AT_FDCWD, path->host, mode | S_IWUSR  | S_IRUSR, AT_SYMLINK_NOFOLLOW));
+    return get_error(fchmodat(AT_FDCWD, path->host, mode | S_IWUSR | S_IRUSR, AT_SYMLINK_NOFOLLOW));
 #endif
 }
 

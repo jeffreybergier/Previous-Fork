@@ -190,7 +190,7 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
     if (vfs_to_host_path(ft->vfs, path) >= sizeof(path->host)) {
         return NFSERR_NAMETOOLONG;
     }
-    return create ? NFS_OK : check_file(ft, path, 0);    
+    return create ? NFS_OK : check_file(ft, path, 0);
 }
 
 
