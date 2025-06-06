@@ -443,7 +443,9 @@ Previous v3.9 (unreleased):
   > Adds support for RPC broadcasts to the internal NFS servers.
   > Adds support for using read-only file systems as NFS shared directory.
   > Improves behaviour of READDIR for file names that are too long.
+  > Fixes bug that prevented directories with limited permissions from mounting.
   > Fixes bug that could cause a crash when calling the READDIR procedure.
+  > Fixes bug that caused certain file mode bits to be unreadable through NFS.
 
 
  7) Running Previous

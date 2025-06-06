@@ -381,20 +381,14 @@ int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fst
     vfs_get_sattr(vfs, path, &sattr);
     
     if (valid16(sattr.mode)) {
-        uint32_t mode = fstat->st_mode; /* copy format & permissions from actual file in the file system */
-#ifdef _WIN32
-        mode &= ~(S_IWUSR | S_IRUSR);
-        mode |= sattr.mode & (S_IWUSR | S_IRUSR); /* copy user R/W permissions from attributes */
-#else
-        mode &= ~(S_IWUSR | S_IRUSR | S_ISVTX);
-        mode |= sattr.mode & (S_IWUSR | S_IRUSR | S_ISVTX); /* copy user R/W permissions and directory restricted delete from attributes */
-#endif
+        /* copy permissions from attributes */
+        fstat->st_mode &= S_IFMT;
+        fstat->st_mode |= sattr.mode & ~S_IFMT; 
+        /* mode heuristics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */
         if (S_ISREG(fstat->st_mode) && fstat->st_size == 0 && (sattr.mode & S_IFMT)) {
-            /* mode heuristics: if file is empty we map it to the various special formats (CHAR, BLOCK, FIFO, etc.) from stored attributes */
-            mode &= ~S_IFMT;               /* clear format */
-            mode |= (sattr.mode & S_IFMT); /* copy format from attributes */
+            fstat->st_mode &= ~S_IFMT;             /* clear format */
+            fstat->st_mode |= sattr.mode & S_IFMT; /* copy format from attributes */
         }
-        fstat->st_mode = mode;
     }
     fstat->st_uid  = valid16(sattr.uid)  ? sattr.uid  : fstat->st_uid;
     fstat->st_gid  = valid16(sattr.gid)  ? sattr.gid  : fstat->st_gid;
@@ -498,6 +492,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
 #endif
         fstat.st_uid = vfs->uid;
         fstat.st_gid = vfs->gid;
+        fstat.st_mode |= S_ISDIR(fstat.st_mode) ? 0755 : 0644;
         stat_to_sattr(&fstat, sattr);
     }
 }
