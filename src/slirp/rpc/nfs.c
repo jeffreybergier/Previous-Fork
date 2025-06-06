@@ -316,13 +316,11 @@ static void write_handle(struct xdr_t* m_out, uint64_t handle) {
 }
 
 
-static uint32_t nfs_blocks(const struct statvfs* fsstat, uint32_t fsblocks) {
-    uint64_t result = fsblocks;
+static uint32_t nfs_blocks(const struct statvfs* fsstat, uint64_t fsblocks) {
     /* take minimum as block size, looks like every filesystem uses these fields somewhat different */
-    result *= (uint64_t)min(fsstat->f_frsize, fsstat->f_bsize);
-    result /= BLOCK_SIZE;
-    if(result >= 0x7FFFFFFF) result = 0x7FFFFFFF; /* fix size for signed 32bit */
-    return (uint32_t)result;
+    fsblocks *= (uint64_t)min(fsstat->f_frsize, fsstat->f_bsize);
+    if (fsblocks > 0x7FFFFFFF) fsblocks = 0x7FFFFFFF; /* limit size to signed 32-bit integer */
+    return (uint32_t)(fsblocks / BLOCK_SIZE);
 }
 
 
@@ -789,8 +787,8 @@ static int proc_statfs(struct rpc_t* rpc) {
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
-        xdr_write_long(m_out, BLOCK_SIZE*2); /* transfer size */
-        xdr_write_long(m_out, BLOCK_SIZE);   /* block size */
+        xdr_write_long(m_out, BLOCK_SIZE * 2);                       /* transfer size */
+        xdr_write_long(m_out, BLOCK_SIZE);                           /* block size */
         xdr_write_long(m_out, nfs_blocks(&fsstat, fsstat.f_blocks)); /* total blocks */
         xdr_write_long(m_out, nfs_blocks(&fsstat, fsstat.f_bfree));  /* free blocks */
         xdr_write_long(m_out, nfs_blocks(&fsstat, fsstat.f_bavail)); /* available blocks */
