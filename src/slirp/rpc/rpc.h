@@ -128,7 +128,7 @@ void rpc_uninit(void);
 
 void rpc_log(struct rpc_t* rpc, const char *format, ...);
 
-int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len);
+int rpc_read_file(const char* vfs_path, uint32_t offset, uint8_t* data, uint32_t len);
 
 int rpc_match_arp(uint8_t byte);
 int rpc_match_icmp(uint32_t addr);
