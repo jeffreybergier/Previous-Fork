@@ -425,10 +425,10 @@ static int proc_read(struct rpc_t* rpc) {
     struct path_t path;
     int status;
     uint8_t* data;
-    int len;
-    int skip;
+    uint32_t skip;
     
     uint32_t offset;
+    uint32_t count;
     
     struct xdr_t* m_in  = rpc->m_in;
     struct xdr_t* m_out = rpc->m_out;
@@ -437,27 +437,24 @@ static int proc_read(struct rpc_t* rpc) {
     if (m_in->size < 3 * 4) return RPC_GARBAGE_ARGS;
     
     offset = xdr_read_long(m_in);
-    len    = xdr_read_long(m_in);
+    count  = xdr_read_long(m_in);
     xdr_read_skip(m_in, 4); /* totalcount unused */
     
     if (status == NFS_OK) {
         data = xdr_get_pointer(m_out);
         skip = (1 + 17 + 1) * 4; /* status + fattr + count */
-        if (xdr_write_check(m_out, skip + len) < 0) {
-            len = 0;
-        } else {
-            len = vfs_read(&path, offset, data + skip, len);
-            if (len < 0) {
-                len = 0;
-                status = nfs_err(errno);
-            }
+        if (xdr_write_check(m_out, skip + count) < 0) {
+            count = 0;
+        } else if (vfs_read(&path, offset, data + skip, &count) < 0) {
+            status = nfs_err(errno);
+            count = 0;
         }
     }
     xdr_write_long(m_out, status);
     if (status == NFS_OK) {
         write_fattr(rpc->ft, m_out, &path);
-        xdr_write_long(m_out, len);
-        xdr_write_skip(m_out, len); /* written before by vfs_read() */
+        xdr_write_long(m_out, count);
+        xdr_write_skip(m_out, count); /* written before by vfs_read() */
     }
     rpc_log(rpc, "READ %s (%s)", path.vfs, status_str(status));
     
@@ -474,7 +471,7 @@ static int proc_write(struct rpc_t* rpc) {
     int status;
     struct sattr_t sattr;
     uint8_t* data;
-    int len;
+    uint32_t len;
     
     uint32_t offset;
     

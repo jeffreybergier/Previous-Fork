@@ -572,13 +572,12 @@ int vfs_readlink(const struct path_t* path, struct path_t* result) {
 #endif
 }
 
-int vfs_read(const struct path_t* path, size_t offset, uint8_t* data, size_t len) {
-    struct file_t* file;
-    int retval = 0;
-    
-    file = file_open(path, "rb");
+int vfs_read(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t* len) {
+    int retval;
+    struct file_t* file = file_open(path, "rb");
     if (file_is_open(file)) {
-        retval = file_read(file, offset, data, len);
+        *len = file_read(file, offset, data, *len);
+        retval = 1;
     } else {
         retval = -1;
     }
@@ -586,9 +585,9 @@ int vfs_read(const struct path_t* path, size_t offset, uint8_t* data, size_t len
     return retval;
 }
 
-int vfs_write(const struct path_t* path, size_t offset, uint8_t* data, size_t len) {
+int vfs_write(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t len) {
+    int retval;
     struct file_t* file = file_open(path, "r+b");
-    int retval = 0;
     if (file_is_open(file)) {
         file_write(file, offset, data, len);
         retval = 1;

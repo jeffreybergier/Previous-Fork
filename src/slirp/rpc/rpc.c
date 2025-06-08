@@ -473,7 +473,7 @@ static struct rpc_broadcast_t {
 
 static void rpc_broadcast(struct csocket_t* cs) {
     int i;
-    int saved_size;
+    uint32_t saved_size;
     sock_t saved_sock;
     
     saved_sock = cs->m_Socket;
@@ -617,12 +617,13 @@ static struct rpc_t* rpc_find_server_by_port(uint16_t local_port) {
     return NULL;
 }
 
-int rpc_read_file(const char* vfs_path, size_t offset, uint8_t* data, size_t len) {
+int rpc_read_file(const char* vfs_path, uint32_t offset, uint8_t* data, uint32_t len) {
     if (rpc_server[0] && rpc_server[0]->ft) {
         struct path_t path;
         vfscpy(path.vfs, vfs_path, sizeof(path.vfs));
         vfs_to_host_path(rpc_server[0]->ft->vfs, &path);
-        return vfs_read(&path, offset, data, len);
+        if (vfs_read(&path, offset, data, &len) >= 0)
+            return (int)len;
     }
     return -1;
 }

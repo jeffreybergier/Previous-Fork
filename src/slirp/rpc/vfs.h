@@ -107,8 +107,8 @@ int vfs_stat(const struct path_t* path, struct stat* fstat);
 
 uint64_t vfs_get_fhandle(const struct path_t* path);
 int vfs_readlink(const struct path_t* path, struct path_t* result);
-int vfs_read(const struct path_t* path, size_t offset, uint8_t* data, size_t len);
-int vfs_write(const struct path_t* path, size_t offset, uint8_t* data, size_t len);
+int vfs_read(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t* len);
+int vfs_write(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t len);
 int vfs_touch(const struct path_t* path);
 int vfs_remove(const struct path_t* path);
 int vfs_rename(const struct path_t* path_from, const struct path_t* path_to);

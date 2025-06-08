@@ -81,7 +81,7 @@ static int proc_dump(struct rpc_t* rpc) {
 
 static int proc_callit(struct rpc_t* rpc) {
     int result;
-    int before;
+    uint32_t before;
     uint8_t* size_ptr;
     struct rpc_prog_t* prog = rpc->prog_list;
     
