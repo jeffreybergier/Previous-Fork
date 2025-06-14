@@ -273,15 +273,13 @@ void Screen_Init(void) {
 
 	sdlWindow = SDL_CreateWindow(PROG_NAME, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!sdlWindow) {
-		fprintf(stderr, "Failed to create window: %s!\n", SDL_GetError());
-		exit(-1);
+		Main_ErrorExit("Failed to create window:", SDL_GetError(), -1);
 	}
 	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
 
 	sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
 	if (!sdlRenderer) {
-		fprintf(stderr, "Failed to create renderer: %s!\n", SDL_GetError());
-		exit(-1);
+		Main_ErrorExit("Failed to create renderer:", SDL_GetError(), -1);
 	}
 #ifdef ENABLE_RENDERING_THREAD
 	SDL_SetRenderVSync(sdlRenderer, 1);
@@ -291,9 +289,11 @@ void Screen_Init(void) {
 	format = SDL_PIXELFORMAT_BGRA32;
 
 	uiTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
-	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
-
 	fbTexture = SDL_CreateTexture(sdlRenderer, format, SDL_TEXTUREACCESS_STREAMING, width, height);
+	if (!uiTexture || !fbTexture) {
+		Main_ErrorExit("Failed to create texture:", SDL_GetError(), -1);
+	}
+	SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(fbTexture, SDL_BLENDMODE_NONE);
 
 	SDL_GetMasksForPixelFormat(format, &d, &r, &g, &b, &a);
@@ -302,9 +302,7 @@ void Screen_Init(void) {
 
 	/* Exit if we can not open a screen */
 	if (!sdlscrn) {
-		fprintf(stderr, "Could not set video mode:\n %s\n", SDL_GetError() );
-		SDL_Quit();
-		exit(-2);
+		Main_ErrorExit("Could not set video mode:", SDL_GetError(), -2);
 	}
 
 	/* Clear UI with mask */
