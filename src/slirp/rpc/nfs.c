@@ -318,7 +318,7 @@ static void write_handle(struct xdr_t* m_out, uint64_t handle) {
 
 static uint32_t nfs_blocks(const struct statvfs* fsstat, uint64_t fsblocks) {
     /* take minimum as block size, looks like every filesystem uses these fields somewhat different */
-    fsblocks *= (uint64_t)min(fsstat->f_frsize, fsstat->f_bsize);
+    fsblocks *= fsstat->f_frsize > 0 ? fsstat->f_frsize : fsstat->f_bsize;
     if (fsblocks > 0x7FFFFFFF) fsblocks = 0x7FFFFFFF; /* limit size to signed 32-bit integer */
     return (uint32_t)(fsblocks / BLOCK_SIZE);
 }
