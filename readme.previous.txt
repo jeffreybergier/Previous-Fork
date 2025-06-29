@@ -444,6 +444,7 @@ Previous v3.9 (unreleased):
   > Adds support for using read-only file systems as NFS shared directories.
   > Improves behaviour of READDIR for file names that are too long.
   > Improves behaviour when sharing directories from large file systems.
+  > Improves support for disk images with sizes beyond 2 GB on some platforms.
   > Fixes bug that prevented directories with limited permissions from mounting.
   > Fixes bug that could cause a crash when calling the READDIR procedure.
   > Fixes bug that caused certain file mode bits to be unreadable through NFS.
