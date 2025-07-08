@@ -220,15 +220,18 @@ static char* path_relative(char* path, const char* base_path) {
 
 static int make_host_path(const char* host_base, char* vfs_path, char* host_path) {
     char* p;
+        
+    if (strchr(vfs_path, '/') == vfs_path) {
+        vfs_path++;  /* skip leading '/' */
+    }
+    if ((p = strrchr(vfs_path, '/')) && p[1] == '\0') {
+        p[0] = '\0'; /* remove trailing '/' */
+    }
     
     vfscpy(host_path, host_base, FILENAME_MAX);
     
-    if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR)) {
+    if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR) && vfs_path[0]) {
         vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
-    }
-    
-    if (strchr(vfs_path, '/') == vfs_path) {
-        vfs_path++; /* skip leading '/' */
     }
     
     while ((p = strchr(vfs_path, '/'))) {
@@ -261,8 +264,8 @@ static int make_vfs_path(const char* vfs_base, char* host_path, char* vfs_path, 
     if (relative) {
         vfs_path[0] = '\0';
     } else {
-        vfscpy(vfs_path, vfs_base, MAXPATHLEN);
-        if (strncmp(vfs_path, "/", 1)) {
+        int len = vfscpy(vfs_path, vfs_base, MAXPATHLEN);
+        if (len > 0 && len < MAXPATHLEN && vfs_path[len - 1] != '/') {
             vfscat(vfs_path, "/", MAXPATHLEN);
         }
         if (strncmp(host_path, HOST_SEPARATOR, strlen(HOST_SEPARATOR)) == 0) {
