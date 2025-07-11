@@ -230,7 +230,7 @@ static int make_host_path(const char* host_base, char* vfs_path, char* host_path
     
     vfscpy(host_path, host_base, FILENAME_MAX);
     
-    if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR) && vfs_path[0]) {
+    if (vfs_path[0] != '\0') {
         vfscat(host_path, HOST_SEPARATOR, FILENAME_MAX);
     }
     
@@ -676,21 +676,21 @@ int vfs_access(const struct path_t* path, int mode) {
 struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias) {
     struct vfs_t* vfs = NULL;
     if (host_path && vfs_path_alias && strlen(host_path) && strlen(vfs_path_alias)) {
-        vfs = (struct vfs_t*)malloc(sizeof(struct vfs_t));
-        if (vfs) {
-            vfscpy(vfs->base_path.vfs, vfs_path_alias, sizeof(vfs->base_path.vfs));
-            vfscpy(vfs->base_path.host, host_path, sizeof(vfs->base_path.host));
-            vfs->uid = 20;
-            vfs->gid = 20;
+        if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR)) {
+            vfs = (struct vfs_t*)malloc(sizeof(struct vfs_t));
+            if (vfs) {
+                vfscpy(vfs->base_path.vfs, vfs_path_alias, sizeof(vfs->base_path.vfs));
+                vfscpy(vfs->base_path.host, host_path, sizeof(vfs->base_path.host));
+                vfs->uid = 20;
+                vfs->gid = 20;
+            }
         }
     }
     return vfs;
 }
 
 struct vfs_t* vfs_uninit(struct vfs_t* vfs) {
-    if (vfs) {
-        free(vfs);
-    }
+    free(vfs);
     return NULL;
 }
 
