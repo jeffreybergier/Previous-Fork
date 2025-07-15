@@ -614,26 +614,27 @@ void fmt_sector_done(void) {
 int sector_timer=0;
 #define SECTOR_TIMEOUT_COUNT 32
 bool fmt_match_id(uint32_t sector_id) {
+    uint32_t fmt_id = (osp.tracknumh<<16)|(osp.tracknuml<<8)|osp.sector_num;
+    
     if ((osp.init&MOINIT_ID_MASK)==MOINIT_ID_0) {
-        Log_Printf(LOG_MO_CMD_LEVEL, "[OSP] Sector ID matching disabled!");
+        Log_Printf(LOG_WARN, "[OSP] Sector ID matching disabled!");
         abort(); /* CHECK: this routine is critical to disk image corruption, check if it gives correct results */
         return true;
     }
+    if (osp.init&MOINIT_ID_CMP_TRK) {
+        Log_Printf(LOG_WARN, "[OSP] Compare only track ID.");
+        fmt_id&=0xFFFF00;
+        sector_id&=0xFFFF00;
+        abort(); /* CHECK: this could cause disk image corruption */
+    }
     
-    uint32_t fmt_id = (osp.tracknumh<<16)|(osp.tracknuml<<8)|osp.sector_num;
-    
-    if (sector_id==fmt_id) {
+    if (sector_id==fmt_id && (sector_id>>8)>=MO_TRACK_OFFSET) {
         sector_timer=0;
         return true;
     } else {
         Log_Printf(LOG_MO_CMD_LEVEL, "[OSP] Sector ID mismatch (Sector ID=%06X, Looking for %06X)",
                    sector_id,fmt_id);
         if (osp.ctrlr_csr2&MOCSR2_SECT_TIMER) {
-            if (osp.init&MOINIT_ID_CMP_TRK) {
-                Log_Printf(LOG_MO_CMD_LEVEL, "[OSP] Compare only track ID.");
-                fmt_id&=0xFFFF00;
-                sector_id&=0xFFFF00;
-            }
             sector_timer++;
             if (sector_timer>SECTOR_TIMEOUT_COUNT || sector_id>fmt_id) {
                 Log_Printf(LOG_WARN, "[OSP] Sector timeout!");
