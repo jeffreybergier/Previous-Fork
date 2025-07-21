@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.8
+                                  Previous 3.9
 
 
 
@@ -215,6 +215,9 @@ Issues in NeXTstep:
     affect other models.
   > Formatting floppy disks sporadically fails under NeXTstep 2.0 and 2.1. The 
     cause of this issue is unknown but is likely inside NeXTstep.
+  > NeXTstep 2.0 Magenta (beta version of NeXTstep 2.0) does not work on 
+    68040 based machines due to a bug in the FPSP unimplemented packed format 
+    handler.
 
 
  6) Release notes
@@ -439,7 +442,7 @@ Previous v3.8:
   > Fixes bug that could cause memory leaks when stopping SLIRP thread.
   > Fixes bug in internal network time server that caused bad reference time. 
 
-Previous v3.9 (unreleased):
+Previous v3.9:
   > Adds support for RPC broadcasts to the internal NFS servers.
   > Adds support for using read-only file systems as NFS shared directories.
   > Improves behaviour of READDIR for file names that are too long.

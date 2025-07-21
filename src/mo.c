@@ -628,7 +628,7 @@ bool fmt_match_id(uint32_t sector_id) {
         abort(); /* CHECK: this could cause disk image corruption */
     }
     
-    if (sector_id==fmt_id && (sector_id>>8)>=MO_TRACK_OFFSET) {
+    if (sector_id==fmt_id) {
         sector_timer=0;
         return true;
     } else {
