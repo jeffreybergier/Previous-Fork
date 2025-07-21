@@ -70,7 +70,7 @@ struct rpc_t {
     struct cred_t auth;
     struct cred_t verif;
     
-    struct auth_unix_t unix;
+    struct auth_unix_t auth_unix;
     
     struct xdr_t* m_in;
     struct xdr_t* m_out;

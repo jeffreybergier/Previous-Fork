@@ -100,7 +100,7 @@ static void rpc_read_auth(struct rpc_t* rpc) {
     int len = rpc->auth.length;
     
     if (rpc->auth.flavor == RPC_AUTH_UNIX) {
-        struct auth_unix_t* auth = &rpc->unix;
+        struct auth_unix_t* auth = &rpc->auth_unix;
         len -= 5 * 4;
         auth->time = xdr_read_long(m_in);
         len -= xdr_read_string(m_in, auth->machine, sizeof(auth->machine));
