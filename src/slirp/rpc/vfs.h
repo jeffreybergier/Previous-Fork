@@ -80,6 +80,19 @@ struct path_t {
     char host[FILENAME_MAX];
 };
 
+struct file_t {
+    struct stat fstat;
+    int restore_stat;
+    FILE* file;
+};
+
+struct file_t* file_open(const struct path_t* path, const char* mode);
+void file_close(const struct path_t* path, struct file_t* file);
+size_t file_read(struct file_t* file, size_t fileOffset, void* dst, size_t count);
+size_t file_write(struct file_t* file, size_t fileOffset, void* src, size_t count);
+int file_is_open(struct file_t* file);
+
+
 struct vfs_t {
     struct path_t base_path;
     
@@ -100,6 +113,7 @@ uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path);
 int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fstat);
 void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr);
 void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr);
+void vfs_stat_to_sattr(const struct stat* fstat, struct sattr_t* sattr);
 
 int vfs_chmod(const struct path_t* path, mode_t mode);
 int vfs_utimes(const struct path_t* path, struct timeval times[2]);
