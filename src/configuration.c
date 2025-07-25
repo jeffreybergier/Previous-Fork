@@ -646,9 +646,9 @@ void Configuration_Apply(bool bReset)
 
 	/* make sure there are no trailing path separators */
 	for (i = 0; i < EN_MAX_SHARES; i++) {
-		File_CleanDirName(ConfigureParams.Ethernet.nfs[i].szPathName);
+		File_CleanFileName(ConfigureParams.Ethernet.nfs[i].szPathName);
 	}
-	File_CleanDirName(ConfigureParams.Printer.szPrintToFileName);
+	File_CleanFileName(ConfigureParams.Printer.szPrintToFileName);
 	
 	/* make path names absolute, but handle special file names */
 	File_MakeAbsoluteSpecialName(ConfigureParams.Log.sLogFileName);

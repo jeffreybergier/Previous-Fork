@@ -831,27 +831,6 @@ bool File_Write(uint8_t *data, uint32_t size, off_t offset, FILE *fp)
 
 /*-----------------------------------------------------------------------*/
 /**
- * Remove any '/'s from end of pathnames
- */
-void File_CleanDirName(char *pszDirName)
-{
-	int len;
-#ifdef WIN32
-	int minlen = 3;
-#else
-	int minlen = 1;
-#endif
-	
-	len = strlen(pszDirName);
-	
-	/* Remove end slashes from pathname. */
-	while (len > minlen && pszDirName[--len] == PATHSEP)
-		pszDirName[len] = '\0';
-}
-
-
-/*-----------------------------------------------------------------------*/
-/**
  * Check if input is available at the specified file descriptor.
  */
 bool File_InputAvailable(FILE *fp)
