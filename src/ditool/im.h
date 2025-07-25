@@ -9,17 +9,12 @@
 #ifndef DiskImage_h
 #define DiskImage_h
 
-#include <fstream>
-#include <vector>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdbool.h>
 
-#include "Partition.h"
+#include "part.h"
 
-uint32_t fsv(uint32_t v);
-uint16_t fsv(uint16_t v);
-
-int32_t fsv(int32_t v);
-int16_t fsv(int16_t v);
 
 #pragma pack(push, 1)
 
@@ -82,7 +77,7 @@ struct disk_label {
 #pragma pack(pop)
 
 
-class Partition;
+//class Partition;
 
 #define BLOCKSZ    1024
 #define MO_BLOCKSZ 1296
@@ -93,33 +88,31 @@ class Partition;
 #define BM_WRITTEN  2
 #define BM_ERASED   3
 
-class DiskImage {
-    std::ifstream          imf;
-    int64_t                diskOffset;
-    int64_t                blockSize;
-    bool                   rawOptical;
-public:
-    struct disk_label      dl;
-    uint32_t               bm[16*BLOCKSZ];
-    int64_t                bm_off;
-    int64_t                bm_size;
-    uint32_t               bbt[3*BLOCKSZ];
-    int64_t                bbt_off;
-    int64_t                bbt_size;
-    int32_t                spa;
-    int16_t                apag;
-    std::vector<Partition> parts;
-    uint64_t               sectorSize;
-    const std::string      path;
-    std::string            error;
+struct im_t {
+    FILE*             imf;
+    int64_t           diskOffset;
+    int64_t           blockSize;
+    bool              rawOptical;
 
-    DiskImage(const std::string& path);
-    ~DiskImage(void);
-    bool valid(void);
-    
-    std::ios_base::iostate read(std::streampos offset, std::streamsize size, void* data);
+    struct disk_label dl;
+    uint32_t          bm[16*BLOCKSZ];
+    int64_t           bm_off;
+    int64_t           bm_size;
+    uint32_t          bbt[3*BLOCKSZ];
+    int64_t           bbt_off;
+    int64_t           bbt_size;
+    int32_t           spa;
+    int16_t           apag;
+    struct part_t*    parts;
+    uint64_t          sectorSize;
+    const char*       path;
+    char*             error;
 };
 
-std::ostream& operator<< (std::ostream& stream, const DiskImage& im);
+struct im_t* diskimage_init(const char* path);
+void diskimage_uninit(struct im_t* img);
+bool diskimage_valid(struct im_t* img);
+int diskimage_read(struct im_t* img, int offset, int size, void* data);
+void diskimage_print(struct im_t* img);
 
 #endif /* DiskImage_hpp */

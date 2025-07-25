@@ -95,9 +95,9 @@ struct 	icommon
     uint16_t	ic_gid;		/*  6: owner's group id */
     uint32_t    ic_pad;     /*  8: padding */
     uint32_t    ic_size;	/* 12: number of bytes in file */
-    ufs_timeval	ic_atime;	/* 16: time last accessed */
-    ufs_timeval	ic_mtime;	/* 24: time last modified */
-    ufs_timeval	ic_ctime;	/* 32: last time inode changed */
+    struct ufs_timeval ic_atime;	/* 16: time last accessed */
+    struct ufs_timeval ic_mtime;	/* 24: time last modified */
+    struct ufs_timeval ic_ctime;	/* 32: last time inode changed */
 #if	defined(NeXT) || defined(MULTIMAX)
     union {
         struct {

@@ -1,0 +1,35 @@
+//
+//  Partition.hpp
+//  Previous
+//
+//  Created by Simon Schubiger on 03.03.19.
+//
+
+#ifndef Partition_hpp
+#define Partition_hpp
+
+#include "im.h"
+
+enum Error {
+    ERR_NO   = 0,
+    ERR_EOF  = -1,
+    ERR_FAIL = -2,
+    ERR_BMAP = -2,
+};
+
+struct part_t {
+    int                      partNo;
+    size_t                   partIdx;
+    struct im_t*             im;
+    const struct disk_label* dl;
+    struct disk_partition*   part;
+    struct part_t*           next;
+};
+
+void partition_init(int partNo, size_t partIdx, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition);
+void partition_uninit(struct part_t* part);
+bool partition_isUFS(struct part_t* part);
+int  partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, uint8_t* dst);
+void partition_print(struct part_t* part);
+
+#endif /* Partition_hpp */

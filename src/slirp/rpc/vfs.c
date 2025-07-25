@@ -297,13 +297,7 @@ static int host_path_is_directory(const char* host_path) {
 
 
 /*----- file io */
-struct file_t {
-    struct stat fstat;
-    int restore_stat;
-    FILE* file;
-};
-
-static struct file_t* file_open(const struct path_t* path, const char* mode) {
+struct file_t* file_open(const struct path_t* path, const char* mode) {
     struct file_t* file = (struct file_t*)malloc(sizeof(struct file_t));
     
     file->restore_stat = 0;
@@ -317,7 +311,7 @@ static struct file_t* file_open(const struct path_t* path, const char* mode) {
     return file;
 }
 
-static void file_close(const struct path_t* path, struct file_t* file) {
+void file_close(const struct path_t* path, struct file_t* file) {
     if (file->restore_stat) {
         vfs_chmod(path, file->fstat.st_mode);
         struct timeval times[2];
@@ -338,17 +332,17 @@ static void file_close(const struct path_t* path, struct file_t* file) {
     free(file);
 }
 
-static size_t file_read(struct file_t* file, size_t fileOffset, void* dst, size_t count) {
+size_t file_read(struct file_t* file, size_t fileOffset, void* dst, size_t count) {
     fseek(file->file, fileOffset, SEEK_SET);
     return fread(dst, sizeof(uint8_t), count, file->file);
 }
 
-static size_t file_write(struct file_t* file, size_t fileOffset, void* src, size_t count) {
+size_t file_write(struct file_t* file, size_t fileOffset, void* src, size_t count) {
     fseek(file->file, fileOffset, SEEK_SET);
     return fwrite(src, sizeof(uint8_t), count, file->file);
 }
 
-static int file_is_open(struct file_t* file) {
+int file_is_open(struct file_t* file) {
     return file->file != NULL;
 }
 
@@ -400,7 +394,7 @@ int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fst
     return result;
 }
 
-static void stat_to_sattr(const struct stat* stat, struct sattr_t* sattr) {
+void vfs_stat_to_sattr(const struct stat* stat, struct sattr_t* sattr) {
     sattr->mode = stat->st_mode;
     sattr->uid  = stat->st_uid;
     sattr->gid  = stat->st_gid;
@@ -496,7 +490,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
         fstat.st_uid = vfs->uid;
         fstat.st_gid = vfs->gid;
         fstat.st_mode |= S_ISDIR(fstat.st_mode) ? 0755 : 0644;
-        stat_to_sattr(&fstat, sattr);
+        vfs_stat_to_sattr(&fstat, sattr);
     }
 }
 

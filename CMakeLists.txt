@@ -271,12 +271,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-bool-conversion")
 endif()
 
-# Silence warnings in DiskImage.cpp
-CHECK_CXX_COMPILER_FLAG("-Wimplicit-fallthrough=0" WARN_CXX_FALLTRHOUGH_AVAILABLE)
-if(WARN_CXX_FALLTRHOUGH_AVAILABLE)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wimplicit-fallthrough=0")
-endif(WARN_CXX_FALLTRHOUGH_AVAILABLE)
-
 # Building Previous w/o optimization is no fun...
 IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	set(CMAKE_C_FLAGS "-O ${CMAKE_C_FLAGS}")
