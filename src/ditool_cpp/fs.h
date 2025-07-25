@@ -32,7 +32,9 @@
   #include <sys/types.h>
 #endif
 
-#include <time.h>
+#ifdef _WIN32
+typedef uint8_t u_char;
+#endif
 
 /*
  * Copyright (c) 1982, 1986 Regents of the University of California.
@@ -375,23 +377,23 @@ struct csum {
 	__fs32	cs_nffree;	/* number of free frags */
 };
 
-#define    INOPB(fs)    (ntohl((fs)->fs_inopb))
+#define    INOPB(fs)    (fsv((fs)->fs_inopb))
 
 #define blkstofrags(fs, blks)    /* calculates (blks * fs->fs_frag) */ \
-((blks) << ntohl((fs)->fs_fragshift))
+((blks) << fsv((fs)->fs_fragshift))
 
-#define    cgbase(fs, c)    ((int32_t)(ntohl((fs)->fs_fpg) * (c)))
+#define    cgbase(fs, c)    ((int32_t)(fsv((fs)->fs_fpg) * (c)))
 
 #define cgstart(fs, c) \
-(cgbase(fs, c) + ntohl((fs)->fs_cgoffset) * ((c) & ~(ntohl((fs)->fs_cgmask))))
+(cgbase(fs, c) + fsv((fs)->fs_cgoffset) * ((c) & ~(fsv((fs)->fs_cgmask))))
 
-#define    cgimin(fs, c)    (cgstart(fs, c) + ntohl((fs)->fs_iblkno))    /* inode blk */
+#define    cgimin(fs, c)    (cgstart(fs, c) + fsv((fs)->fs_iblkno))    /* inode blk */
 
 #define    itoo(fs, x)    ((x) % INOPB(fs))
-#define    itog(fs, x)    ((x) / ntohl((fs)->fs_ipg))
+#define    itog(fs, x)    ((x) / fsv((fs)->fs_ipg))
 #define    itod(fs, x) \
 ((int32_t)(cgimin(fs, itog(fs, x)) + \
-(blkstofrags((fs), (((x) % ntohl((fs)->fs_ipg)) / INOPB(fs))))))
+(blkstofrags((fs), (((x) % fsv((fs)->fs_ipg)) / INOPB(fs))))))
 
 /*
  * Preference for optimization.
@@ -441,7 +443,7 @@ struct	cg {
 	int16_t	cg_b[MAXCPG][NRPOS];	/* positions of free blocks */
 	char	cg_iused[MAXIPG/NBBY];	/* used inode map */
 	int32_t	cg_magic;		/* magic number */
-	uint8_t	cg_free[1];		/* free block map */
+	u_char	cg_free[1];		/* free block map */
 /* actually int32_ter */
 };
 
