@@ -1,3 +1,12 @@
+/*
+ *  ditool.c (former ditool.cpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
@@ -348,12 +357,12 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t i
             if ((ntohs(inode.ic_mode) & IFMT) != IFDIR) {
                 if (fstat.st_size != ntohl(inode.ic_size))
                     printf("size mismatch (act/exp) %"PRId64" != %d %s\n", fstat.st_size, ntohl(inode.ic_size), dirEntPath.vfs);
-                /*
-                 if(fstat.st_atimespec.tv_sec != fsv(inode.ic_atime.tv_sec))
-                 printf("atime_sec mismatch " << dirEntPath << " diff:" << (fstat.st_atimespec.tv_sec - fsv(inode.ic_atime.tv_sec)) << endl;
-                 if(fstat.st_atimespec.tv_nsec != fsv(inode.ic_atime.tv_usec) * 1000)
-                 printf("atime_nsec mismatch " << dirEntPath << " diff:" << (fstat.st_atimespec.tv_nsec - (fsv(inode.ic_atime.tv_usec) * 1000)) << endl;
-                 */
+#if 0           /* needs checking */
+                if (fstat.st_atimespec.tv_sec != ntohl(inode.ic_atime.tv_sec))
+                    printf("atime_sec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_sec - ntohl(inode.ic_atime.tv_sec), dirEntPath.vfs);
+                if (fstat.st_atimespec.tv_nsec != ntohl(inode.ic_atime.tv_usec) * 1000)
+                    printf("atime_nsec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_nsec - (ntohl(inode.ic_atime.tv_usec) * 1000), dirEntPath.vfs);
+#endif
 #ifdef _WIN32
                 if (fstat.st_mtime != ntohl(inode.ic_mtime.tv_sec))
                     printf("mtime_sec mismatch diff: %ld %s\n", fstat.st_mtime - ntohl(inode.ic_mtime.tv_sec), dirEntPath.vfs);
@@ -462,13 +471,13 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                         struct path_t link;
                         vfs_readlink(&dirEntPath, &link);
                         if (strcasecmp(link.vfs, dirEnt->d_name) == 0) {
+                            char tmp[FILENAME_MAX];
                             printf("Existing file '%s' is link pointing to variant, removing link\n", dirEntPath.vfs);
                             vfs_remove(&dirEntPath);
-                            char tmp[FILENAME_MAX]; 
-                            vfscpy(tmp, path, sizeof(tmp)); // string tmp = path;
-                            strcat(tmp, "/"); // tmp += "/";
-                            vfscat(tmp, link.vfs, sizeof(tmp)); // tmp += link.string();
-                            skip_add(skip, tmp); // skip.insert(tmp);
+                            vfscpy(tmp, path, sizeof(tmp));
+                            vfscat(tmp, "/", sizeof(tmp));
+                            vfscat(tmp, link.vfs, sizeof(tmp));
+                            skip_add(skip, tmp);
                         }
                     } else
 #endif
@@ -516,10 +525,10 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                 case IFREG:       /* regular */
                     if ((doPrint = do_print("FILE", listType, doPrint, forcePrint))) printf("[FILE]  ");
                     if (ft && vfs_access(&dirEntPath, F_OK) != 0) {
-                        struct file_t* file = file_open(&dirEntPath, "wb"); //VFSFile file(*ft, dirEntPath, "wb");
+                        struct file_t* file = file_open(&dirEntPath, "wb");
                         if (file_is_open(file)) {
                             size_t size = ntohl(inode.ic_size);
-                            uint8_t* buffer = (uint8_t*)malloc(size); //unique_ptr<uint8_t[]> buffer(new uint8_t[size]);
+                            uint8_t* buffer = (uint8_t*)malloc(size);
                             ufs_readFile(ufs, &inode, 0, size, buffer);
                             if (file_write(file, 0, buffer, size) != size) {
                                 printf("Error while writing '%s'\n", dirEntPath.vfs);
@@ -564,26 +573,27 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
     
     ufs = ufs_init(part);
     
-    if (ufs && outPath)
-        ft = vfs_init(outPath, ufs_mountPoint(ufs));
-    
-    if (ft) {
-        printf("---- copying '%s' partition %zu to '%s'\n", im->path, part->partIdx, ft->base_path.host);
-        process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
-        printf("---- setting file attributes for NFSD\n");
-        set_attrs_inode(ufs, ROOTINO, "", ft);
-        set_attrs_recr(ufs, &skip, ROOTINO, "", ft);
-        printf("---- verifying inode structure\n");
-        verify_inodes_recr(ufs, &inode2inode, &skip, ROOTINO, "", ft);
-        printf("---- verifying file attributes and sizes\n");
-        verify_attr_recr(ufs, &skip, ROOTINO, "", ft);
-        ft = vfs_uninit(ft);
-    } else {
-        printf("---- listing '%s' partition %zu\n", im->path, part->partIdx);
-        process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
+    if (ufs) {
+        if (outPath) {
+            ft = vfs_init(outPath, ufs_mountPoint(ufs));
+        }
+        if (ft) {
+            printf("---- copying '%s' partition %zu to '%s'\n", im->path, part->partIdx, ft->base_path.host);
+            process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
+            printf("---- setting file attributes for NFSD\n");
+            set_attrs_inode(ufs, ROOTINO, "", ft);
+            set_attrs_recr(ufs, &skip, ROOTINO, "", ft);
+            printf("---- verifying inode structure\n");
+            verify_inodes_recr(ufs, &inode2inode, &skip, ROOTINO, "", ft);
+            printf("---- verifying file attributes and sizes\n");
+            verify_attr_recr(ufs, &skip, ROOTINO, "", ft);
+            ft = vfs_uninit(ft);
+        } else {
+            printf("---- listing '%s' partition %zu\n", im->path, part->partIdx);
+            process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
+        }
+        ufs_uninit(ufs);
     }
-    
-    ufs_uninit(ufs);
     i2i_delete(inode2inode);
     i2p_delete(inode2path);
     skip_delete(skip);
@@ -640,10 +650,6 @@ static void clean_dir(const char* path) {
     }
 }
 
-static const char* to_host_path(const char* path) { /* FIXME: expand path? */
-    return (path && strlen(path)) ? path : NULL; //path ? HostPath(path) : HostPath();
-}
-
 static bool is_case_insensitive(const char* path) {
     int i;
     char* p;
@@ -664,18 +670,17 @@ static bool is_case_insensitive(const char* path) {
 
 
 int main(int argc, const char* argv[]) {
-    sleep(10);
     if (has_option(argv, argc, "-h") || has_option(argv, argc, "--help")) {
         print_help();
         return 0;
     }
     
-    const char* imageFile = to_host_path(get_option(argv, argc, "-im"));
+    const char* imageFile = get_option(argv, argc, "-im");
     bool        listParts = has_option(argv, argc, "-lsp");
     const char* partNum   = get_option(argv, argc, "-p");
     bool        listFiles = has_option(argv, argc, "-ls");
     const char* listType  = get_option(argv, argc, "-lst");
-    const char* outPath   = to_host_path(get_option(argv, argc, "-out"));
+    const char* outPath   = get_option(argv, argc, "-out");
     bool        clean     = has_option(argv, argc, "-clean");
     bool        netboot   = has_option(argv, argc, "-netboot");
 
@@ -693,6 +698,9 @@ int main(int argc, const char* argv[]) {
             diskimage_print(im);
         
         if (listFiles || outPath) {
+            struct part_t* parts = im->parts;
+            int part = partNum ? atoi(partNum) : -1;
+
             if (outPath) {
                 if (is_case_insensitive(outPath)) {
                     printf("WARNING: %s is on a case insensitive file system.\n", outPath);
@@ -712,8 +720,6 @@ int main(int argc, const char* argv[]) {
                 }
             }
             
-            int part = partNum ? atoi(partNum) : -1;
-            struct part_t* parts = im->parts;
             while (parts) {
                 if (part < 0 || part == parts->partIdx) {
                     dump_part(im, parts, outPath, listFiles, listType);
@@ -739,7 +745,6 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
-    sleep(10);
     
     printf("---- done.\n");
     return 0;

@@ -78,9 +78,9 @@
  *  device blocks based on the blocksize of the device...
  */
 #define	SBLOCK		((int32_t)(BBLOCK + BBSIZE))
-#else	// NeXT
+#else	/* NeXT */
 #define	SBLOCK		((int32_t)(BBLOCK + BBSIZE) / DEV_BSIZE)
-#endif	// NeXT
+#endif	/* NeXT */
 
 /*
  * Addresses stored in inodes are capable of addressing fragments
@@ -413,7 +413,7 @@ struct csum {
 #define FS_STATE_CLEAN		1	/* cleanly unmounted */
 #define FS_STATE_DIRTY		2	/* dirty */
 #define FS_STATE_CORRUPTED	3	/* mounted while dirty */
-#endif	// NeXT
+#endif	/* NeXT */
 
 /* As noted in cpu/sysdeps.h, "if a char has more than 8 bits, good night" */
 #ifndef NBBY
@@ -451,7 +451,7 @@ struct	cg {
  * At NeXT, all little endian machines read and write big endian file systems.
  */
 #define	BIG_ENDIAN_FS	(__LITTLE_ENDIAN__)
-#endif	// NeXT
+#endif	/* NeXT */
 
 #pragma pack(pop)
 

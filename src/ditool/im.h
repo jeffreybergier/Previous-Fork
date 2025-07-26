@@ -1,10 +1,13 @@
-//
-//  DiskImage.hpp
-//  Previous
-//
-//  Created by Simon Schubiger on 03.03.19.
-//
-//  portion of it Copyright (c) 1982, 1986 Regents of the University of California
+/*
+ *  im.h (former DiskImage.hpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger on 03.03.19.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ *
+ *  Portion of it Copyright (c) 1982, 1986 Regents of the University of California
+ */
 
 #ifndef DiskImage_h
 #define DiskImage_h
@@ -76,8 +79,6 @@ struct disk_label {
 
 #pragma pack(pop)
 
-
-//class Partition;
 
 #define BLOCKSZ    1024
 #define MO_BLOCKSZ 1296

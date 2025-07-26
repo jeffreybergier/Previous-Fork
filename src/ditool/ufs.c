@@ -1,9 +1,11 @@
-//
-//  UFS.cpp
-//  Previous
-//
-//  Created by Simon Schubiger on 03.03.19.
-//
+/*
+ *  ufs.c (former UFS.cpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger on 03.03.19.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -15,22 +17,19 @@
 
 const uint32_t BLOCK_INVALID = ~0;
 
-struct ufs_t* ufs_init(struct part_t* part) { //UFS::UFS(const Partition& part) : part(part) {
-    struct ufs_t* ufs = (struct ufs_t*)malloc(sizeof(struct ufs_t));
-    
-    for (int i = 0; i <= BCACHE_SIZE; i++) {
-        ufs->blockCache[i]   = NULL;
-        ufs->cacheBlockNo[i] = BLOCK_INVALID;
-    }
+struct ufs_t* ufs_init(struct part_t* part) {
+    struct ufs_t* ufs = NULL;
     
     if (strncmp(&part->part->p_type[1], "4.3BSD", 6) == 0) {    
         uint8_t* sectors = (uint8_t*)malloc(8 * part->im->sectorSize);
-        if (partition_readSectors(part, 8, 8, sectors) == 0) { // part.readSectors(8, 8, sectors))
-            memcpy(&ufs->superBlock, sectors, sizeof(ufs->superBlock));
-            if (ntohl(ufs->superBlock.fs_magic) == FS_MAGIC &&
-                ntohl(ufs->superBlock.fs_bsize) == 0x2000 &&
-                ntohl(ufs->superBlock.fs_fsize) == 0x400
+        if (partition_readSectors(part, 8, 8, sectors) == 0) {
+            struct ufs_super_block* superblock = (struct ufs_super_block*)sectors;
+            if (ntohl(superblock->fs_magic) == FS_MAGIC &&
+                ntohl(superblock->fs_bsize) == 0x2000 &&
+                ntohl(superblock->fs_fsize) == 0x400
                 ) {
+                ufs = (struct ufs_t*)malloc(sizeof(struct ufs_t));
+                memcpy(&ufs->superBlock, superblock, sizeof(ufs->superBlock));
                 ufs->fsBShift = ntohl(ufs->superBlock.fs_bshift);
                 ufs->fsBMask  = ntohl(~ufs->superBlock.fs_bmask);
                 ufs->fsBSize  = ntohl(ufs->superBlock.fs_bsize);
@@ -41,18 +40,26 @@ struct ufs_t* ufs_init(struct part_t* part) { //UFS::UFS(const Partition& part) 
                     ufs->blockCache[i]   = (uint8_t*)malloc(part->im->sectorSize * ufs->fsFrag);
                     ufs->cacheBlockNo[i] = BLOCK_INVALID;
                 }
+            } else {
+                printf("file system magic or block size mismatch\n");
             }
+        } else {
+            printf("cannot read super block\n");
         }
         free(sectors);
+    } else {
+        printf("partition type %.*s not supported\n", MAXFSTLEN - 1, &part->part->p_type[1]);
     }
     
     return ufs;
 }
 
-void ufs_uninit(struct ufs_t* ufs) { //UFS::~UFS(void) {
-    for (int i = 0; i <= BCACHE_SIZE; i++)
-        free(ufs->blockCache[i]);
-    free(ufs);
+void ufs_uninit(struct ufs_t* ufs) {
+    if (ufs) {
+        for (int i = 0; i <= BCACHE_SIZE; i++)
+            free(ufs->blockCache[i]);
+        free(ufs);
+    }
 }
 
 int ufs_readInode(struct ufs_t* ufs, struct icommon* inode, uint32_t ino) {
@@ -71,7 +78,7 @@ int ufs_readInode(struct ufs_t* ufs, struct icommon* inode, uint32_t ino) {
     }
     
     idx = itoo(&ufs->superBlock, ino);
-    memcpy(inode, &indsb.ibs[idx], sizeof(struct icommon));  // *inode = &indsb.ibs[idx];
+    memcpy(inode, &indsb.ibs[idx], sizeof(struct icommon));
     return ERR_NO;
 }
 
