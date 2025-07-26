@@ -1,9 +1,11 @@
-//
-//  UFS.h
-//  Previous
-//
-//  Created by Simon Schubiger on 03.03.19.
-//
+/*
+ *  ufs.h (former UFS.hpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger on 03.03.19.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ */
 
 #ifndef UFS_hpp
 #define UFS_hpp
@@ -15,7 +17,7 @@
 #include "inode.h"
 #include "fsdir.h"
 
-#define BCACHE_SHIFT  8 // block cache size as power-of-two
+#define BCACHE_SHIFT  8 /* block cache size as power-of-two */
 #define BCACHE_SIZE   (1 << BCACHE_SHIFT)
 #define BCACHE_MASK   (BCACHE_SIZE-1)
 

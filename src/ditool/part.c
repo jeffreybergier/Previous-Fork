@@ -1,9 +1,11 @@
-//
-//  Partition.cpp
-//  Previous
-//
-//  Created by Simon Schubiger on 03.03.19.
-//
+/*
+ *  part.c (former Partition.cpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger on 03.03.19.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -35,20 +37,6 @@ void partition_uninit(struct part_t* parts) {
         free(parts);
         parts = next;
     }
-}
-
-bool partition_isUFS(struct part_t* part) {
-    bool retval = false;
-    
-    if (strncmp(part->part->p_type + 1, "4.3BSD", 6) == 0) {    
-        uint8_t* sectors = (uint8_t*)malloc(8 * part->im->sectorSize);
-        if (partition_readSectors(part, 8, 8, sectors) == 0) {
-            struct ufs_super_block* fs = (struct ufs_super_block*)sectors;
-            retval = ntohl(fs->fs_magic) == FS_MAGIC;
-        }
-        free(sectors);
-    }
-    return retval;
 }
 
 int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, uint8_t* dst) {
@@ -92,12 +80,13 @@ int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, 
 }
 
 void partition_print(struct part_t* part) {
+    struct ufs_t* ufs;
     uint64_t size = ntohl(part->part->p_size);
     size *= part->im->sectorSize;
     size >>= 20;
     printf("  Partition #%zu: %.*s %"PRIu64" MBytes\n", part->partIdx, MAXFSTLEN - 1, &part->part->p_type[1], size);
-    if (partition_isUFS(part)) {
-        struct ufs_t* ufs = ufs_init(part);
+    ufs = ufs_init(part);
+    if (ufs) {
         ufs_print(ufs);
         ufs_uninit(ufs);
     }

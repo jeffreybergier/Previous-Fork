@@ -1,3 +1,12 @@
+/*
+ *  netboot.c
+ *  Previous
+ *
+ *  Created by Andreas Grabher on 25.07.2025.
+ *
+ *  Inspired by ditool.cpp by Simon Schubiger.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,7 +173,7 @@ static void netboot_patch_hostconfig(struct vfs_t* ft, const char* file, const c
     vfs_to_host_path(ft, &temp);
     
     if (vfs_access(&temp, F_OK | R_OK) == 0) {
-        printf("       - using template %s\n", template);
+        printf("       - using template '%s'\n", template);
     } else {
         vfscpy(temp.vfs, file, sizeof(temp.vfs));
         vfs_to_host_path(ft, &temp);

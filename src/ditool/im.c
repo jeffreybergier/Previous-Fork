@@ -1,9 +1,11 @@
-//
-//  DiskImage.cpp
-//  Previous
-//
-//  Created by Simon Schubiger on 03.03.19.
-//
+/*
+ *  im.c (former DiskImage.cpp)
+ *  Previous
+ *
+ *  Created by Simon Schubiger on 03.03.19.
+ *
+ *  Rewritten in C by Andreas Grabher.
+ */
 
 #include <stdlib.h>
 #include <string.h>
