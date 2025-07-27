@@ -14,25 +14,7 @@
 
 #include "rs.h"
 #include "im.h"
-
-/* Pull in ntohs()/ntohl()/htons()/htonl() declarations... shotgun approach */
-#if defined(linux) || defined(__MINGW32__)
-    /* netinet/in.h doesn't have proper extern "C" declarations for these... may also apply to other Unices */
-    extern "C" uint32_t ntohl(uint32_t);
-    extern "C" uint16_t ntohs(uint16_t);
-    extern "C" uint32_t htonl(uint32_t);
-    extern "C" uint16_t htons(uint16_t);
-#else
-    #if HAVE_ARPA_INET_H
-        #include <arpa/inet.h>
-    #endif
-    #if HAVE_NETINET_IN_H
-        #include <netinet/in.h>
-    #endif
-    #if HAVE_WINSOCK_H
-        #include <winsock.h>
-    #endif
-#endif
+#include "part.h"
 
 
 struct im_t* diskimage_init(const char* path) {

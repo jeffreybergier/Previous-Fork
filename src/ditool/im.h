@@ -12,11 +12,22 @@
 #ifndef DiskImage_h
 #define DiskImage_h
 
+#include "config.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "part.h"
+#if HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+
+#ifdef _WIN32
+#include <Winsock2.h>
+#endif
 
 
 #pragma pack(push, 1)
