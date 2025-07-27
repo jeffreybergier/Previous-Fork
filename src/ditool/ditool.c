@@ -19,9 +19,7 @@
 #include "ufs.h"
 #include "vfs.h"
 
-#ifdef _WIN32
-#include <shellapi.h>
-#else
+#ifndef _WIN32
 
 #if !HAVE_STRUCT_STAT_ST_ATIMESPEC
 #define st_atimespec st_atim
@@ -32,6 +30,7 @@
 #endif
 
 #endif
+
 
 /* Helper structs */
 struct i2i_t {
@@ -255,10 +254,17 @@ static void set_attrs(struct icommon* inode, uint32_t rdev, struct path_t* dirEn
     vfs_stat_to_sattr(&fstat, &sattr);
     vfs_set_sattr(ft, dirEntPath, &sattr);
     
+#ifdef _WIN32
+    times[0].tv_sec  = fstat.st_atime;
+    times[0].tv_usec = 0;
+    times[1].tv_sec  = fstat.st_mtime;
+    times[1].tv_usec = 0;
+#else
     times[0].tv_sec  = fstat.st_atimespec.tv_sec;
     times[0].tv_usec = fstat.st_atimespec.tv_nsec / 1000;
     times[1].tv_sec  = fstat.st_mtimespec.tv_sec;
     times[1].tv_usec = fstat.st_mtimespec.tv_nsec / 1000;
+#endif
     
     if (vfs_chmod(dirEntPath, fstat.st_mode & ~IFMT))
         printf("Unable to set mode for %s\n", dirEntPath->vfs);
@@ -405,7 +411,7 @@ static void verify_inodes_recr(struct ufs_t* ufs, struct i2i_t** inode2inode, st
         ino64 = i2i_find(*inode2inode, dirEnt->d_inonum);
         if (ino64) {
             if (ino64 != fstat.st_ino) {
-                printf("inode mismatch (exp/act) %"PRIu64" != %"PRIu64" %s\n", ino64, fstat.st_ino, dirEntPath.vfs);
+                printf("inode mismatch (exp/act) %"PRIu64" != %"PRIu64" %s\n", ino64, (uint64_t)fstat.st_ino, dirEntPath.vfs);
             }
         } else {
             i2i_add(inode2inode, dirEnt->d_inonum, fstat.st_ino);
