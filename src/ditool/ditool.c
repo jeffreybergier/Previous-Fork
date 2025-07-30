@@ -322,6 +322,11 @@ static void set_attrs_inode(struct ufs_t* ufs, uint32_t ino, const char* path, s
 }
 
 static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft) {
+#if HAVE_SYS_XATTR_H
+    bool ignore = false;
+#else
+    bool ignore = true;
+#endif
     struct dirlist_t* dirlist = ufs_list(ufs, ino);
     struct dirlist_t* entry = dirlist;
     
@@ -354,32 +359,32 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t i
             }
             vfs_get_fstat(ft, &dirEntPath, &fstat);
             
-            if (fstat.st_mode != ntohs(inode.ic_mode))
+            if (fstat.st_mode != ntohs(inode.ic_mode) && !ignore)
                 printf("mode mismatch (act/exp) %o != %o %s\n", fstat.st_mode, ntohs(inode.ic_mode), dirEntPath.vfs);
-            if (fstat.st_uid != ntohs(inode.ic_uid))
+            if (fstat.st_uid != ntohs(inode.ic_uid) && !ignore)
                 printf("uid mismatch (act/exp) %d != %d %s\n", fstat.st_uid, ntohs(inode.ic_uid), dirEntPath.vfs);
-            if (fstat.st_gid != ntohs(inode.ic_gid))
+            if (fstat.st_gid != ntohs(inode.ic_gid) && !ignore)
                 printf("gid mismatch (act/exp) %d != %d %s\n", fstat.st_gid, ntohs(inode.ic_gid), dirEntPath.vfs);
             if ((ntohs(inode.ic_mode) & IFMT) != IFDIR) {
                 if (fstat.st_size != ntohl(inode.ic_size))
-                    printf("size mismatch (act/exp) %"PRId64" != %d %s\n", fstat.st_size, ntohl(inode.ic_size), dirEntPath.vfs);
-#if 0           /* needs checking */
-                if (fstat.st_atimespec.tv_sec != ntohl(inode.ic_atime.tv_sec))
-                    printf("atime_sec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_sec - ntohl(inode.ic_atime.tv_sec), dirEntPath.vfs);
-                if (fstat.st_atimespec.tv_nsec != ntohl(inode.ic_atime.tv_usec) * 1000)
-                    printf("atime_nsec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_nsec - (ntohl(inode.ic_atime.tv_usec) * 1000), dirEntPath.vfs);
-#endif
+                    printf("size mismatch (act/exp) %"PRId64" != %d %s\n", fstat.st_size, (int)ntohl(inode.ic_size), dirEntPath.vfs);
 #ifdef _WIN32
-                if (fstat.st_mtime != ntohl(inode.ic_mtime.tv_sec))
-                    printf("mtime_sec mismatch diff: %ld %s\n", fstat.st_mtime - ntohl(inode.ic_mtime.tv_sec), dirEntPath.vfs);
+                if (fstat.st_atime != ntohl(inode.ic_atime.tv_sec) && !ignore)
+                    printf("atime_sec mismatch diff: %lld %s\n", fstat.st_atime - ntohl(inode.ic_atime.tv_sec), dirEntPath.vfs);
+                if (fstat.st_mtime != ntohl(inode.ic_mtime.tv_sec) && !ignore)
+                    printf("mtime_sec mismatch diff: %lld %s\n", fstat.st_mtime - ntohl(inode.ic_mtime.tv_sec), dirEntPath.vfs);
 #else
-                if (fstat.st_mtimespec.tv_sec != ntohl(inode.ic_mtime.tv_sec))
+                if (fstat.st_atimespec.tv_sec != ntohl(inode.ic_atime.tv_sec) && !ignore)
+                    printf("atime_sec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_sec - ntohl(inode.ic_atime.tv_sec), dirEntPath.vfs);
+                if (fstat.st_atimespec.tv_nsec != ntohl(inode.ic_atime.tv_usec) * 1000 && !ignore)
+                    printf("atime_nsec mismatch diff: %ld %s\n", fstat.st_atimespec.tv_nsec - (ntohl(inode.ic_atime.tv_usec) * 1000), dirEntPath.vfs);
+                if (fstat.st_mtimespec.tv_sec != ntohl(inode.ic_mtime.tv_sec) && !ignore)
                     printf("mtime_sec mismatch diff: %ld %s\n", fstat.st_mtimespec.tv_sec - ntohl(inode.ic_mtime.tv_sec), dirEntPath.vfs);
-                if (fstat.st_mtimespec.tv_nsec != ntohl(inode.ic_mtime.tv_usec) * 1000)
+                if (fstat.st_mtimespec.tv_nsec != ntohl(inode.ic_mtime.tv_usec) * 1000 && !ignore)
                     printf("mtime_nsec mismatch diff: %ld %s\n", fstat.st_mtimespec.tv_nsec - (ntohl(inode.ic_mtime.tv_usec) * 1000), dirEntPath.vfs);
 #endif
             }
-            if ((uint32_t)fstat.st_rdev != rdev)
+            if ((uint32_t)fstat.st_rdev != rdev && !ignore)
                 printf("rdev mismatch (act/exp) %d != %d %s\n", fstat.st_rdev, rdev, dirEntPath.vfs);
         }
     }

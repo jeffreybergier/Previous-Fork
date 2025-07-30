@@ -252,6 +252,6 @@ char* ufs_mountPoint(struct ufs_t* ufs) {
 
 void ufs_print(struct ufs_t* ufs) {
     printf("    Mount point:   '%.*s'\n", UFS_MAXMNTLEN, ufs_mountPoint(ufs));
-    printf("    Fragment size: %d Bytes\n", ntohl(ufs->superBlock.fs_fsize));
-    printf("    Block size:    %d Bytes\n\n", ntohl(ufs->superBlock.fs_bsize));
+    printf("    Fragment size: %d Bytes\n", (int)ntohl(ufs->superBlock.fs_fsize));
+    printf("    Block size:    %d Bytes\n\n", (int)ntohl(ufs->superBlock.fs_bsize));
 }
