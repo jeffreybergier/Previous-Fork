@@ -32,45 +32,66 @@
 #endif
 
 
-/* Helper structs */
+/* Helper functions */
+#define HASH_BITS 10
+#define HASH_SIZE (1<<HASH_BITS)
+#define HASH_MASK (HASH_SIZE-1)
+
+#define GET_HASH(x) ((x)&HASH_MASK)
+
+
 struct i2i_t {
     uint32_t inode32;
     uint64_t inode64;
     struct i2i_t* next;
 };
 
-static int i2i_add(struct i2i_t** i2i, uint32_t inode32, uint64_t inode64) {
-    while (*i2i) {
-        if ((*i2i)->inode32 == inode32) {
-            if ((*i2i)->inode64 != inode64) {
+static struct i2i_t** i2i_create(void) {
+    struct i2i_t** table = (struct i2i_t**)malloc(sizeof(struct i2i_t*) * HASH_SIZE);
+    for (int i = 0; i < HASH_SIZE; i++) {
+        table[i] = NULL;
+    }
+    return table;
+}
+
+static void i2i_delete(struct i2i_t** table) {
+    struct i2i_t* entry;
+    struct i2i_t* next;
+    for (int i = 0; i < HASH_SIZE; i++) {
+        entry = table[i];
+        while (entry) {
+            next = entry->next;
+            free(entry);
+            entry = next;
+        }
+    }
+    free(table);
+}
+
+static void i2i_add(struct i2i_t** table, uint32_t inode32, uint64_t inode64) {
+    struct i2i_t** entry = &table[GET_HASH(inode32)];
+    while (*entry) {
+        if ((*entry)->inode32 == inode32) {
+            if ((*entry)->inode64 != inode64) {
                 printf("i2i error: value exists with different pairing\n");                
             }
-            return 1;
+            return;
         }
-        i2i = &(*i2i)->next;
+        entry = &(*entry)->next;
     }
-    *i2i = (struct i2i_t*)malloc(sizeof(struct i2i_t));
-    (*i2i)->inode32 = inode32;
-    (*i2i)->inode64 = inode64;
-    (*i2i)->next = NULL;
-    return 0;
+    *entry = (struct i2i_t*)malloc(sizeof(struct i2i_t));
+    (*entry)->inode32 = inode32;
+    (*entry)->inode64 = inode64;
+    (*entry)->next = NULL;
 }
 
-static void i2i_delete(struct i2i_t* i2i) {
-    struct i2i_t* next;
-    while (i2i) {
-        next = i2i->next;
-        free(i2i);
-        i2i = next;
-    }
-}
-
-static uint64_t i2i_find(struct i2i_t* i2i, uint32_t inode32) {
-    while (i2i) {
-        if (i2i->inode32 == inode32) {
-            return i2i->inode64;
+static uint64_t i2i_find(struct i2i_t** table, uint32_t inode32) {
+    struct i2i_t* entry = table[GET_HASH(inode32)];
+    while (entry) {
+        if (entry->inode32 == inode32) {
+            return entry->inode64;
         }
-        i2i = i2i->next;
+        entry = entry->next;
     }
     return 0;
 }
@@ -82,67 +103,77 @@ struct i2p_t {
     struct i2p_t* next;
 };
 
-static int i2p_add(struct i2p_t** i2p, uint32_t inode32, const char* path) {
-    if (path == NULL) {
-        return -1;
+static struct i2p_t** i2p_create(void) {
+    struct i2p_t** table = (struct i2p_t**)malloc(sizeof(struct i2p_t*) * HASH_SIZE);
+    for (int i = 0; i < HASH_SIZE; i++) {
+        table[i] = NULL;
     }
-    while (*i2p) {
-        if ((*i2p)->inode32 == inode32) {
-            if (strcmp((*i2p)->path, path)) {
+    return table;
+}
+
+static void i2p_delete(struct i2p_t** table) {
+    struct i2p_t* entry;
+    struct i2p_t* next;
+    for (int i = 0; i < HASH_SIZE; i++) {
+        entry = table[i];
+        while (entry) {
+            next = entry->next;
+            free(entry->path);
+            free(entry);
+            entry = next;
+        }
+    }
+    free(table);
+}
+
+static void i2p_add(struct i2p_t** table, uint32_t inode32, const char* path) {
+    struct i2p_t** entry = &table[GET_HASH(inode32)];
+    while (*entry) {
+        if ((*entry)->inode32 == inode32) {
+            if (strcmp((*entry)->path, path)) {
                 printf("i2p error: value exists with different pairing\n");
             }
-            return 1;
+            return;
         }
-        i2p = &(*i2p)->next;
+        entry = &(*entry)->next;
     }
-    *i2p = (struct i2p_t*)malloc(sizeof(struct i2p_t));
-    (*i2p)->inode32 = inode32;
-    (*i2p)->path = strdup(path);
-    (*i2p)->next = NULL;
-    return 0;
+    *entry = (struct i2p_t*)malloc(sizeof(struct i2p_t));
+    (*entry)->inode32 = inode32;
+    (*entry)->path = strdup(path);
+    (*entry)->next = NULL;
 }
 
-
-static void i2p_delete(struct i2p_t* i2p) {
-    struct i2p_t* next;
-    while (i2p) {
-        next = i2p->next;
-        free(i2p->path);
-        free(i2p);
-        i2p = next;
-    }
-}
-
-static char* i2p_find(struct i2p_t* i2p, uint32_t inode32) {
-    while (i2p) {
-        if (i2p->inode32 == inode32) {
-            return i2p->path;
+static char* i2p_find(struct i2p_t** table, uint32_t inode32) {
+    struct i2p_t* entry = table[GET_HASH(inode32)];
+    while (entry) {
+        if (entry->inode32 == inode32) {
+            return entry->path;
         }
-        i2p = i2p->next;
+        entry = entry->next;
     }
     return NULL;
 }
+
 
 struct skip_t {
     char* path;
     struct skip_t* next;
 };
 
-static int skip_add(struct skip_t** skip, const char* path) {
+static void skip_add(struct skip_t** skip, const char* path) {
     if (path == NULL) {
-        return -1;
+        return;
     }
     while (*skip) {
-        if (strcmp((*skip)->path, path)) {
+        if (strcmp((*skip)->path, path) == 0) {
             printf("skip error: value exists\n");                
-            return -1;
+            return;
         }
         skip = &(*skip)->next;
     }
     *skip = (struct skip_t*)malloc(sizeof(struct skip_t));
     (*skip)->path = strdup(path);
     (*skip)->next = NULL;
-    return 0;
 }
 
 static void skip_delete(struct skip_t* skip) {
@@ -166,7 +197,7 @@ static int skip_find(struct skip_t* skip, const char* path) {
 }
 
 
-
+/* Disk image tool functions */
 static const char* get_option(const char** args, int num_args, const char* opt) {
     int i;
     for (i = 0; i < num_args; i++) {
@@ -413,7 +444,7 @@ static void verify_inodes_recr(struct ufs_t* ufs, struct i2i_t** inode2inode, st
         
         vfs_get_fstat(ft, &dirEntPath, &fstat);
         
-        ino64 = i2i_find(*inode2inode, dirEnt->d_inonum);
+        ino64 = i2i_find(inode2inode, dirEnt->d_inonum);
         if (ino64) {
             if (ino64 != fstat.st_ino) {
                 printf("inode mismatch (exp/act) %"PRIu64" != %"PRIu64" %s\n", ino64, (uint64_t)fstat.st_ino, dirEntPath.vfs);
@@ -499,7 +530,7 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                         }
                 }
                 
-                found_path = i2p_find(*inode2path, ntohl(dirEnt->d_inonum));
+                found_path = i2p_find(inode2path, ntohl(dirEnt->d_inonum));
                 if (found_path) {
                     struct path_t path_from;
                     make_path(found_path, NULL, &path_from, ft);
@@ -576,11 +607,11 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
 }
 
 static void dump_part(struct im_t* im, struct part_t* part, const char* outPath, bool listFiles, const char* listType) {
-    struct vfs_t* ft          = NULL;
-    struct ufs_t* ufs         = NULL;
-    struct i2i_t* inode2inode = NULL;
-    struct i2p_t* inode2path  = NULL;
-    struct skip_t* skip       = NULL;
+    struct vfs_t* ft           = NULL;
+    struct ufs_t* ufs          = NULL;
+    struct skip_t* skip        = NULL;
+    struct i2i_t** inode2inode = i2i_create();
+    struct i2p_t** inode2path  = i2p_create();
     
     ufs = ufs_init(part);
     
@@ -590,18 +621,18 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
         }
         if (ft) {
             printf("---- copying '%s' partition %zu to '%s'\n", im->path, part->partIdx, ft->base_path.host);
-            process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
+            process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
             printf("---- setting file attributes for NFSD\n");
             set_attrs_inode(ufs, ROOTINO, "", ft);
             set_attrs_recr(ufs, &skip, ROOTINO, "", ft);
             printf("---- verifying inode structure\n");
-            verify_inodes_recr(ufs, &inode2inode, &skip, ROOTINO, "", ft);
+            verify_inodes_recr(ufs, inode2inode, &skip, ROOTINO, "", ft);
             printf("---- verifying file attributes and sizes\n");
             verify_attr_recr(ufs, &skip, ROOTINO, "", ft);
             ft = vfs_uninit(ft);
         } else {
             printf("---- listing '%s' partition %zu\n", im->path, part->partIdx);
-            process_inodes_recr(ufs, &inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
+            process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
         }
         ufs_uninit(ufs);
     }
@@ -699,6 +730,7 @@ int main(int argc, const char* argv[]) {
         struct im_t* im = diskimage_init(imageFile);
         if (!diskimage_valid(im)) {
             printf("Can't read '%s' (%s).\n", imageFile, im->error);
+            diskimage_uninit(im);
             return 1;
         }
 
@@ -714,7 +746,7 @@ int main(int argc, const char* argv[]) {
 
             if (outPath) {
                 if (is_case_insensitive(outPath)) {
-                    printf("WARNING: %s is on a case insensitive file system.\n", outPath);
+                    printf("WARNING: '%s' is on a case insensitive file system.\n", outPath);
                     printf("         NeXTstep requires a case sensitive file system to run properly.\n");
                     printf("         Use i.e. macOS Disk Utility to create a disk image with a\n");
                     printf("         case sensitive file system for your NFS directory.\n");
