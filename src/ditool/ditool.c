@@ -17,7 +17,7 @@
 #include "config.h"
 #include "netboot.h"
 #include "ufs.h"
-#include "vfs.h"
+#include "rpc/vfs.h"
 
 #ifndef _WIN32
 

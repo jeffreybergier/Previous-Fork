@@ -14,7 +14,7 @@
 
 #include "config.h"
 #include "netboot.h"
-#include "vfs.h"
+#include "rpc/vfs.h"
 #include "ctl.h"
 
 

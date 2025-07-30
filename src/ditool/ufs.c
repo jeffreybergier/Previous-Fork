@@ -11,8 +11,6 @@
 #include <string.h>
 
 #include "ufs.h"
-#include "fsdir.h"
-#include "vfs.h"
 
 
 const uint32_t BLOCK_INVALID = ~0;
