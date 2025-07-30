@@ -238,8 +238,12 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -D__USE_MINGW_ANSI_STDIO=1")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion -Wno-unused -Wno-sign-compare")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wtautological-compare")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare -Wno-conversion")
  	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+endif()
+
+if(APPLE AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+	# Silence linker warning with AppleClang 17
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-common")
 endif()
 
 CHECK_C_COMPILER_FLAG("-Wimplicit-fallthrough=0" WARN_FALLTRHOUGH_AVAILABLE)
