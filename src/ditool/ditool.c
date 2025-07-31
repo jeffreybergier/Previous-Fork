@@ -303,7 +303,7 @@ static void set_attrs(struct icommon* inode, uint32_t rdev, struct path_t* dirEn
         printf("Unable to set times for %s\n", dirEntPath->vfs);
 }
 
-static void set_attrs_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft) {
+static void set_attrs_recr(struct ufs_t* ufs, struct skip_t* skip, uint32_t ino, const char* path, struct vfs_t* ft) {
     struct dirlist_t* dirlist = ufs_list(ufs, ino);
     struct dirlist_t* entry = dirlist;
     
@@ -320,7 +320,7 @@ static void set_attrs_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t ino
         if (ignore_name(dirEnt->d_name)) {
             continue;
         }
-        if (skip_find(*skip, dirEntPath.vfs)) {
+        if (skip_find(skip, dirEntPath.vfs)) {
             continue;
         }
         
@@ -352,7 +352,7 @@ static void set_attrs_inode(struct ufs_t* ufs, uint32_t ino, const char* path, s
     }
 }
 
-static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft) {
+static void verify_attr_recr(struct ufs_t* ufs, struct skip_t* skip, uint32_t ino, const char* path, struct vfs_t* ft) {
 #if HAVE_SYS_XATTR_H
     bool ignore = false;
 #else
@@ -371,7 +371,7 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t i
         
         entry = entry->next;
         
-        if (skip_find(*skip, dirEntPath.vfs)) {
+        if (skip_find(skip, dirEntPath.vfs)) {
             continue;
         }
         
@@ -423,7 +423,7 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t** skip, uint32_t i
     dirlist_delete(dirlist);
 }
 
-static void verify_inodes_recr(struct ufs_t* ufs, struct i2i_t** inode2inode, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft) {
+static void verify_inodes_recr(struct ufs_t* ufs, struct i2i_t** inode2inode, struct skip_t* skip, uint32_t ino, const char* path, struct vfs_t* ft) {
     struct dirlist_t* dirlist = ufs_list(ufs, ino);
     struct dirlist_t* entry = dirlist;
     
@@ -438,7 +438,7 @@ static void verify_inodes_recr(struct ufs_t* ufs, struct i2i_t** inode2inode, st
         
         entry = entry->next;
         
-        if (skip_find(*skip, dirEntPath.vfs)) {
+        if (skip_find(skip, dirEntPath.vfs)) {
             continue;
         }
         
@@ -624,11 +624,11 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
             process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
             printf("---- setting file attributes for NFSD\n");
             set_attrs_inode(ufs, ROOTINO, "", ft);
-            set_attrs_recr(ufs, &skip, ROOTINO, "", ft);
+            set_attrs_recr(ufs, skip, ROOTINO, "", ft);
             printf("---- verifying inode structure\n");
-            verify_inodes_recr(ufs, inode2inode, &skip, ROOTINO, "", ft);
+            verify_inodes_recr(ufs, inode2inode, skip, ROOTINO, "", ft);
             printf("---- verifying file attributes and sizes\n");
-            verify_attr_recr(ufs, &skip, ROOTINO, "", ft);
+            verify_attr_recr(ufs, skip, ROOTINO, "", ft);
             ft = vfs_uninit(ft);
         } else {
             printf("---- listing '%s' partition %zu\n", im->path, part->partIdx);
