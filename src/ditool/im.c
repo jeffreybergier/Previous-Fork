@@ -63,13 +63,13 @@ struct im_t* diskimage_init(const char* path) {
             printf("Bad number of sectors per alternate\n");
             im->spa = 1;
         }
-
+        
         im->apag = ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
         if (im->apag < 1) {
             printf("Bad number of alternates per alternate group\n");
             im->apag = 1;
         }
-
+        
         if (strncmp(im->dl.dl_version, "dlV3", 4)) {
             im->bbt_off  = 558;
             im->bbt_size = 1670;
