@@ -73,7 +73,7 @@ static void i2i_add(struct i2i_t** table, uint32_t inode32, uint64_t inode64) {
     while (*entry) {
         if ((*entry)->inode32 == inode32) {
             if ((*entry)->inode64 != inode64) {
-                printf("i2i error: value exists with different pairing\n");                
+                printf("i2i error: value exists with different pairing\n");
             }
             return;
         }
@@ -166,7 +166,7 @@ static void skip_add(struct skip_t** skip, const char* path) {
     }
     while (*skip) {
         if (strcmp((*skip)->path, path) == 0) {
-            printf("skip error: value exists\n");                
+            printf("skip error: value exists\n");
             return;
         }
         skip = &(*skip)->next;
@@ -280,7 +280,7 @@ static void set_attrs(struct icommon* inode, uint32_t rdev, struct path_t* dirEn
     struct stat fstat;
     struct sattr_t sattr;
     struct timeval times[2];
-
+    
     copy_attrs(&fstat, inode, rdev);
     vfs_stat_to_sattr(&fstat, &sattr);
     vfs_set_sattr(ft, dirEntPath, &sattr);
@@ -366,7 +366,7 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t* skip, uint32_t in
         struct path_t dirEntPath;
         struct icommon inode;
         uint32_t rdev = 0;
-
+        
         make_path(path, dirEnt->d_name, &dirEntPath, ft);
         
         entry = entry->next;
@@ -725,7 +725,7 @@ int main(int argc, const char* argv[]) {
     const char* outPath   = get_option(argv, argc, "-out");
     bool        clean     = has_option(argv, argc, "-clean");
     bool        netboot   = has_option(argv, argc, "-netboot");
-
+    
     if (imageFile) {
         struct im_t* im = diskimage_init(imageFile);
         if (!diskimage_valid(im)) {
@@ -733,7 +733,7 @@ int main(int argc, const char* argv[]) {
             diskimage_uninit(im);
             return 1;
         }
-
+        
         if (listType)
             listFiles = true;
         
@@ -743,7 +743,7 @@ int main(int argc, const char* argv[]) {
         if (listFiles || outPath) {
             struct part_t* parts = im->parts;
             int part = partNum ? atoi(partNum) : -1;
-
+            
             if (outPath) {
                 if (is_case_insensitive(outPath)) {
                     printf("WARNING: '%s' is on a case insensitive file system.\n", outPath);
