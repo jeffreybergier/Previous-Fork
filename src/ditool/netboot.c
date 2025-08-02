@@ -87,16 +87,16 @@ static int add_line(char* data, int maxsize, const char* line) {
     int len    = strlen(line);
     int size   = strlen(data);
     int before = size;
-    if (size > 0 && size < maxsize && data[size - 1] != '\n') {
-        data[size] = '\n';
-        size++;
+    if (size > 0 && size + 1 < maxsize && data[size - 1] != '\n') {
+        vfscpy(data + size, "\n", maxsize);
+        size += 1;
     }
-    if (size + len < maxsize) {
+    if (size + len + 1 < maxsize) {
         printf("       - adding line '%s'\n", line);
         memcpy(data + size, line, len);
         size += len;
         vfscpy(data + size, "\n", maxsize);
-        size++;
+        size += 1;
     } else {
         printf("       ! adding line '%s' failed\n", line);
     }
@@ -110,16 +110,20 @@ static int remove_line(char* data, const char* line) {
     while ((start = strstr(data, line))) {
         if (start > data && *(start - 1) != '\n') {
             data = strchr(start, '\n');
-            if (data) continue;
-            else      break;
+            if (data++) continue;
+            break;
         }
         stop = strchr(start, '\n');
-        if (stop == NULL) {
-            stop = start + strlen(start);
+        if (stop++ == NULL) {
+            printf("       - removing line '%s'\n", start);
+            size += strlen(start);
+            start[0] = '\0';
+            break;
         }
-        printf("       - removing line '%.*s'\n", (int)(stop - start), start);
-        memmove(start, stop + 1, strlen(stop) + 1);
-        size += stop + 1 - start;
+        printf("       - removing line '%.*s'\n", (int)(stop - start - 1), start);
+        memmove(start, stop, strlen(stop) + 1);
+        size += stop - start;
+        data = start;
     }
     return size;
 }
