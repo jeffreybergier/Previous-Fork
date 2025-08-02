@@ -351,7 +351,7 @@ int valid16(uint32_t statval) { return (statval & 0x0000FFFF) != 0x0000FFFF; }
 
 uint32_t vfs_file_id(uint64_t ino) {
     uint32_t result = (uint32_t)ino;
-    return (result ^ (ino >> 32LL)) & 0x7FFFFFFF;
+    return (result ^ (ino >> 32)) & 0x7FFFFFFF;
 }
 
 uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path) {
@@ -488,14 +488,14 @@ void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
 #endif
         fstat.st_uid = vfs->uid;
         fstat.st_gid = vfs->gid;
-        fstat.st_mode |= S_ISDIR(fstat.st_mode) ? 0755 : 0644;
+        fstat.st_mode |= S_ISDIR(fstat.st_mode) ? 0755 : 0644; /* strcmp(vfs->base_path.vfs, path->vfs) ? 0 : 0755; */
         vfs_stat_to_sattr(&fstat, sattr);
     }
 }
 
 /* ----- file handle */
-static uint64_t rotl(uint64_t x, uint64_t n) {
-    return (x<<n) | (x>>(64LL-n));
+static uint64_t rotl(uint64_t x, int n) {
+    return (x << n) | (x >> (64 - n));
 }
 
 static uint64_t make_file_handle(struct stat* fstat) {

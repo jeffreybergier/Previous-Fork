@@ -4,11 +4,11 @@
  This file is distributed under the GNU General Public License, version 2
  or at your option any later version. Read the file gpl.txt for details.
  
- This file listens for the the Application to launch and for the window to open
+ This file listens for the Application to launch and for the window to open
  and then modifies the menu items and toolbar buttons to avoid conflicts
- with the openstep operating system and to remove fullscreen which does not
+ with the OPENSTEP operating system and to remove fullscreen which does not
  work correctly when activated by macOS. Rather fullscreen should be activated
- via the shortcut (Control + Option + F)
+ via the shortcut (Control + Option + F).
  
  Contributed by Jeffrey Bergier on 2024/11/01
  */
