@@ -167,7 +167,7 @@ void vfs_path_canonicalize(char* vfs_path) {
         }
     }
     
-    /* step 5 : remove a traling '/.' */
+    /* step 5 : remove a trailing '/.' */
     slashdotptr = vfsPath;
     while(1) {
         slashdotptr = strstr(slashdotptr,"/.");
