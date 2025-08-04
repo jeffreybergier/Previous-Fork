@@ -199,8 +199,8 @@ struct utimbuf
 #define VAL64(a) (a)
 #define UVAL64(a) (a)
 #elif SIZEOF_LONG == 8
-#define VAL64(a) (a ## L)
-#define UVAL64(a) (a ## UL)
+#define VAL64(a) (a ## l)
+#define UVAL64(a) (a ## ul)
 #endif
 
 #define uae_s64 uae_s64
@@ -240,21 +240,21 @@ typedef uae_u32 uaecptr;
 #undef uae_s64
 #undef uae_u64
 
-#if SIZEOF_LONG == 8
-    #define uae_s64 long;
-    #define uae_u64 unsigned long;
-    #define VAL64(a) (a ## L)
-    #define UVAL64(a) (a ## UL)
-#elif SIZEOF_LONG_LONG == 8
-    #define uae_s64 long long
-    #define uae_u64 unsigned long long
-    #define VAL64(a) (a ## LL)
-    #define UVAL64(a) (a ## ULL)
+#if SIZEOF_LONG_LONG == 8
+#define uae_s64 long long
+#define uae_u64 unsigned long long
+#define VAL64(a) (a ## LL)
+#define UVAL64(a) (a ## uLL)
 #elif SIZEOF___INT64 == 8
-    #define uae_s64 __int64
-    #define uae_u64 unsigned __int64
-    #define VAL64(a) (a)
-    #define UVAL64(a) (a)
+#define uae_s64 __int64
+#define uae_u64 unsigned __int64
+#define VAL64(a) (a)
+#define UVAL64(a) (a)
+#elif SIZEOF_LONG == 8
+#define uae_s64 long;
+#define uae_u64 unsigned long;
+#define VAL64(a) (a ## l)
+#define UVAL64(a) (a ## ul)
 #endif
 
 #endif /* WINUAE_FOR_HATARI */

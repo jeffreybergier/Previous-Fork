@@ -12,7 +12,6 @@ const char Audio_fileid[] = "Previous audio.c";
 #include "statusbar.h"
 #include "configuration.h"
 #include "m68000.h"
-#include "sysdeps.h"
 #include "audio.h"
 #include "dma.h"
 #include "snd.h"

@@ -11,7 +11,6 @@ const char Adb_fileid[] = "Previous adb.c";
 #include "main.h"
 #include "configuration.h"
 #include "m68000.h"
-#include "sysdeps.h"
 #include "sysReg.h"
 #include "rtcnvram.h"
 #include "adb.h"

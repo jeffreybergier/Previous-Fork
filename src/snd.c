@@ -11,7 +11,6 @@ const char Snd_fileid[] = "Previous snd.c";
 #include "main.h"
 #include "configuration.h"
 #include "m68000.h"
-#include "sysdeps.h"
 #include "cycInt.h"
 #include "audio.h"
 #include "snd.h"
