@@ -16,7 +16,7 @@
 #include "ufs.h"
 
 
-void partition_init(int partNo, size_t partIdx, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition) {
+void partition_init(int partNo, int partIdx, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition) {
     struct part_t** parts = &im->parts;
     while (*parts) {
         parts = &(*parts)->next;
@@ -47,7 +47,7 @@ int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, 
     
     sector += ntohl(part->part->p_base);
     
-    int64_t limit = 0;
+    int64_t limit  = 0;
     int64_t offset = 0;
     do {
         if (usable) {
@@ -84,7 +84,7 @@ void partition_print(struct part_t* part) {
     uint64_t size = ntohl(part->part->p_size);
     size *= part->im->sectorSize;
     size >>= 20;
-    printf("  Partition #%zu: %.*s %"PRIu64" MBytes\n", part->partIdx, MAXFSTLEN - 1, &part->part->p_type[1], size);
+    printf("  Partition #%d: %.*s %"PRIu64" MBytes\n", part->partIdx, MAXFSTLEN - 1, &part->part->p_type[1], size);
     ufs = ufs_init(part);
     if (ufs) {
         ufs_print(ufs);

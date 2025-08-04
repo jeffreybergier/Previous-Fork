@@ -617,7 +617,7 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
             ft = vfs_init(outPath, ufs_mountPoint(ufs));
         }
         if (ft) {
-            printf("---- copying '%s' partition %zu to '%s'\n", im->path, part->partIdx, ft->base_path.host);
+            printf("---- copying '%s' partition %d to '%s'\n", im->path, part->partIdx, ft->base_path.host);
             process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
             printf("---- setting file attributes for NFSD\n");
             set_attrs_inode(ufs, ROOTINO, "", ft);
@@ -628,7 +628,7 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
             verify_attr_recr(ufs, skip, ROOTINO, "", ft);
             ft = vfs_uninit(ft);
         } else {
-            printf("---- listing '%s' partition %zu\n", im->path, part->partIdx);
+            printf("---- listing '%s' partition %d\n", im->path, part->partIdx);
             process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
         }
         ufs_uninit(ufs);

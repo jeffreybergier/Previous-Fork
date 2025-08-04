@@ -94,12 +94,11 @@ static int rpc_call(struct rpc_t* rpc) {
 }
 
 static void rpc_read_auth(struct rpc_t* rpc) {
-    int i;
-    
     struct xdr_t* m_in = rpc->m_in;
     int len = rpc->auth.length;
     
     if (rpc->auth.flavor == RPC_AUTH_UNIX) {
+        uint32_t i;
         struct auth_unix_t* auth = &rpc->auth_unix;
         len -= 5 * 4;
         auth->time = xdr_read_long(m_in);
@@ -428,7 +427,7 @@ static void rpc_start_server(struct rpc_t* rpc, const char* path, const char* na
     
     rpc->ft = ft_init(path, "/");
     if (rpc->ft) {
-        int i;
+        size_t i;
         struct rpc_prog_t* prog;
         
         printf("[RPC] Starting '%s' at %d.%d.%d.%d, exporting '%s'.\n", rpc->hostname, 

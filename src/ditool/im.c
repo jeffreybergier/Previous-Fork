@@ -57,14 +57,14 @@ struct im_t* diskimage_init(const char* path) {
         if (strncmp(im->dl.dl_version, "NeXT", 4)) {
             im->spa = 1;
         } else {
-            im->spa = ntohl(im->dl.dl_dt.d_nsectors) >> 1;
+            im->spa = (int32_t)ntohl(im->dl.dl_dt.d_nsectors) / 2;
         }
         if (im->spa < 1) {
             printf("Bad number of sectors per alternate\n");
             im->spa = 1;
         }
         
-        im->apag = ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
+        im->apag = (int16_t)ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
         if (im->apag < 1) {
             printf("Bad number of alternates per alternate group\n");
             im->apag = 1;
@@ -97,7 +97,7 @@ struct im_t* diskimage_init(const char* path) {
             bad *= im->spa;
             printf("Disk has %d bad blocks\n", bad);
             printf("Label: %.4s\n", im->dl.dl_version);
-            printf("%"PRId64" entries in bad block table\n", im->bbt_size);
+            printf("%d entries in bad block table\n", im->bbt_size);
             printf("%d alternate groups of %d sectors each\n", ntohs(im->dl.dl_dt.d_ngroups), ntohs(im->dl.dl_dt.d_ag_size));
             printf("%d sectors per alternate group at offset %d\n", ntohs(im->dl.dl_dt.d_ag_alts), ntohs(im->dl.dl_dt.d_ag_off));
             printf("%d alternates per alternate group with %d sectors per alternate\n", im->apag, im->spa);
@@ -125,7 +125,7 @@ void diskimage_uninit(struct im_t* im) {
     free(im);
 }
 
-int diskimage_read(struct im_t* im, int offset, int size, void* data) {
+int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
     int64_t block     = offset / BLOCKSZ;
     int64_t blockOff  = offset % BLOCKSZ;
     int result        = 0;
@@ -133,28 +133,28 @@ int diskimage_read(struct im_t* im, int offset, int size, void* data) {
     uint8_t* dataPtr  = (uint8_t*)data;
     uint8_t* buffer   = (uint8_t*)malloc(im->blockSize);
     while (size > 0) {
-        int64_t rdSize = (int64_t)size < (BLOCKSZ - blockOff) ? (int64_t)size : (BLOCKSZ - blockOff);
+        int64_t rdSize = size < (BLOCKSZ - blockOff) ? size : (BLOCKSZ - blockOff);
         fseeko(im->imf, block * im->blockSize + im->diskOffset, SEEK_SET);
         bytesRead = fread(buffer, 1, im->blockSize, im->imf);
         if (im->rawOptical) {
-            size_t bmIndex = block / im->spa;
-            int    bmShift = (bmIndex & 0xF) << 1;
-            int    bmValue = (ntohl(im->bm[bmIndex>>4]) >> bmShift) & 3;
+            int bmIndex = block / im->spa;
+            int bmShift = (bmIndex & 0xF) << 1;
+            int bmValue = (ntohl(im->bm[bmIndex>>4]) >> bmShift) & 3;
             switch (bmValue) {
                 case BM_UNTESTED:
                 case BM_WRITTEN:
-                    if (rs_decode((uint8_t*)buffer) >= 0)
+                    if (rs_decode(buffer) >= 0)
                         break;
                     if (bmValue != BM_UNTESTED)
                         printf("Warning: block %"PRId64" not decodable\n", block);
                 case BM_BAD:
                 {
                     bool mappedBlock = false;
-                    for (size_t bbtIndex = 0; bbtIndex < im->bbt_size; bbtIndex++) {
+                    for (int bbtIndex = 0; bbtIndex < im->bbt_size; bbtIndex++) {
                         if (ntohl(im->bbt[bbtIndex]) == 0)
                             continue;
                         if (ntohl(im->bbt[bbtIndex]) == block) {
-                            uint32_t reserve = bbtIndex / im->apag;
+                            int64_t reserve = bbtIndex / im->apag;
                             if (reserve < ntohs(im->dl.dl_dt.d_ngroups)) {
                                 reserve *= ntohs(im->dl.dl_dt.d_ag_size);
                                 reserve += ntohs(im->dl.dl_dt.d_ag_off) + (bbtIndex % im->apag) * im->spa;
@@ -165,7 +165,7 @@ int diskimage_read(struct im_t* im, int offset, int size, void* data) {
                             reserve += block % im->spa;
                             reserve += ntohs(im->dl.dl_dt.d_front);
                             
-                            printf("Mapping bad block %"PRId64" to %d\n", block, reserve);
+                            printf("Mapping bad block %"PRId64" to %"PRId64"\n", block, reserve);
                             diskimage_read(im, reserve * BLOCKSZ, BLOCKSZ, buffer);
                             mappedBlock = true;
                             break;
@@ -191,7 +191,7 @@ int diskimage_read(struct im_t* im, int offset, int size, void* data) {
         block++;
         if (bytesRead != im->blockSize) {
             result = ferror(im->imf) ? ERR_FAIL : ERR_EOF;
-            printf("Can't read %d bytes at offset %d\n", size, offset);
+            printf("Can't read %"PRId64" bytes at offset %"PRId64"\n", size, offset);
             break;
         }
     }

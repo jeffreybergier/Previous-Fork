@@ -180,10 +180,10 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
     if (len > MAXNAMELEN) {
         return NFSERR_NAMETOOLONG;
     }
-    if (vfs_join(path->vfs, vfs_path, sizeof(path->vfs)) >= sizeof(path->vfs)) {
+    if (vfs_join(path->vfs, vfs_path, sizeof(path->vfs)) >= (int)sizeof(path->vfs)) {
         return NFSERR_NAMETOOLONG;
     }
-    if (vfs_to_host_path(ft->vfs, path) >= sizeof(path->host)) {
+    if (vfs_to_host_path(ft->vfs, path) >= (int)sizeof(path->host)) {
         return NFSERR_NAMETOOLONG;
     }
     return create ? NFS_OK : check_file(ft, path, 0);
@@ -721,7 +721,7 @@ static int proc_readdir(struct rpc_t* rpc) {
     if (status == NFS_OK && handle) {
         struct dirent* fileinfo;
         uint32_t fileid;
-        int namelen;
+        size_t namelen;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
