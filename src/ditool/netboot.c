@@ -225,7 +225,6 @@ static void netboot_patch_hostconfig(struct vfs_t* ft, const char* file, const c
 
 static void netboot_make_fstab(struct vfs_t* ft, const char* file) {
     void* data;
-    char ip_addr[32];
     char line[MAX_LINE_SIZE];
     int size    = 0;
     int maxsize = GET_EXTRA(2, sizeof(line));
