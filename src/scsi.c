@@ -12,7 +12,6 @@ const char Scsi_fileid[] = "Previous scsi.c";
 #include "ioMem.h"
 #include "ioMemTables.h"
 #include "configuration.h"
-#include "sysdeps.h"
 #include "m68000.h"
 #include "statusbar.h"
 #include "scsi.h"
