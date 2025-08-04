@@ -246,10 +246,7 @@ static void make_path(const char* path, const char* name, struct path_t* result,
         vfscpy(result->vfs, "/", sizeof(result->vfs));
     }
     if (name && strlen(name) > 0) {
-        if (result->vfs[strlen(result->vfs) - 1] != '/') {
-            vfscat(result->vfs, "/", sizeof(result->vfs));
-        }
-        vfscat(result->vfs, name, sizeof(result->vfs));
+        vfs_join(result->vfs, name, sizeof(result->vfs));
     }
     if (strcmp(result->vfs, "/.") == 0) {
         vfscpy(result->vfs, "/", sizeof(result->vfs));
