@@ -160,22 +160,42 @@ static void netboot_link_kernel(struct vfs_t* ft, const char* to, const char* fr
     }
 }
 
+static void netboot_copy_boot(struct vfs_t* ft, const char* to, const char* from) {
+    int err = 0;
+    struct path_t path_to;
+    struct path_t path_from;
+    
+    vfscpy(path_from.vfs, from, sizeof(path_from.vfs));
+    vfscpy(path_to.vfs, to, sizeof(path_to.vfs));
+    vfs_to_host_path(ft, &path_from);
+    vfs_to_host_path(ft, &path_to);
+    
+    if (vfs_access(&path_to, F_OK)) {
+        printf("     - linking '%s' -> '%s'\n", to, from);
+        if ((err = vfs_access(&path_from, F_OK))) {
+            printf("       ! cannot access '%s' (%s)\n", path_from.host, strerror(err));
+        } else if ((err = vfs_link(&path_from, &path_to, 0))) {
+            printf("       ! cannot create '%s' (%s)\n", path_to.host, strerror(err));
+        }
+    }
+}
+
 static void netboot_make_resolv(struct vfs_t* ft, const char* file) {
     void* data;
     char ip_addr[32];
     char line[MAX_LINE_SIZE];
-    int datasize = 0;
-    int bufsize = 2 * (sizeof(line) + 3);
+    int size    = 0;
+    int maxsize = GET_EXTRA(2, sizeof(line));
     
     printf("     - writing '%s'\n", file);
     
-    data = calloc(1, bufsize);
+    data = calloc(1, maxsize);
     
     snprintf(line, sizeof(line), "domain %s", NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
-    datasize += add_line(data, bufsize, line);
+    size += add_line(data, maxsize, line);
     snprintf(line, sizeof(line), "nameserver %s", ip_addr_str(ip_addr, sizeof(ip_addr), CTL_NET | CTL_DNS));
-    datasize += add_line(data, bufsize, line);
-    write_buffer_to_file(ft, file, data, datasize);
+    size += add_line(data, maxsize, line);
+    write_buffer_to_file(ft, file, data, size);
 }
 
 static void netboot_patch_hosts(struct vfs_t* ft, const char* file) {
@@ -245,6 +265,7 @@ void prepare_netboot(const char* path) {
     struct vfs_t* ft = vfs_init(path, "/");
     
     netboot_link_kernel(ft, "/private/tftpboot/mach", "../../sdmach");
+    netboot_copy_boot(ft, "/private/tftpboot/boot", "/usr/standalone/boot");
     netboot_make_resolv(ft, "/private/etc/resolv.conf");
     netboot_patch_hosts(ft, "/private/etc/hosts");
     netboot_patch_hostconfig(ft, "/private/etc/hostconfig", "/usr/template/client/etc/hostconfig");
