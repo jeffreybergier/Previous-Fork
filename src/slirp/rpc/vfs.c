@@ -551,7 +551,8 @@ int vfs_readlink(const struct path_t* path, struct path_t* result) {
     return EACCES; /* not supported */
 #else
     struct stat sb;
-    ssize_t nbytes, bufsiz;
+    size_t  bufsiz;
+    ssize_t nbytes;
     
     if (lstat(path->host, &sb) == -1)
         return errno;

@@ -79,7 +79,7 @@ void xdr_write_long(struct xdr_t* xdr, uint32_t val) {
     }
 }
 
-int xdr_read_string(struct xdr_t* xdr, char* str, int maxlen) {
+int xdr_read_string(struct xdr_t* xdr, char* str, uint32_t maxlen) {
     uint32_t len;
     if (xdr->size < 4) {
         printf("[XDR] Error: Read string underrun 1\n");
@@ -106,7 +106,7 @@ int xdr_read_string(struct xdr_t* xdr, char* str, int maxlen) {
     return len;
 }
 
-void xdr_write_string(struct xdr_t* xdr, const char* str, int maxlen) {
+void xdr_write_string(struct xdr_t* xdr, const char* str, uint32_t maxlen) {
     uint32_t len;
     if (xdr->capacity - xdr->size < 4) {
         printf("[XDR] Error: Write string overflow 1\n");

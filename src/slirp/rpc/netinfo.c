@@ -557,7 +557,7 @@ void netinfo_delete_nidb(void) {
 
 /* Helpers */
 static uint32_t checksum(char* str) {
-    int i;
+    size_t i;
     uint32_t result = 0;
     for (i = 0; i < strlen(str); ++i)
         result = result * 31 + (int)(str[i]);

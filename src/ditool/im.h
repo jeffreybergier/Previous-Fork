@@ -102,17 +102,17 @@ struct disk_label {
 
 struct im_t {
     FILE*             imf;
-    int64_t           diskOffset;
-    int64_t           blockSize;
+    unsigned          diskOffset;
+    unsigned          blockSize;
     bool              rawOptical;
 
     struct disk_label dl;
     uint32_t          bm[16*BLOCKSZ];
-    int64_t           bm_off;
-    int64_t           bm_size;
+    int               bm_off;
+    int               bm_size;
     uint32_t          bbt[3*BLOCKSZ];
-    int64_t           bbt_off;
-    int64_t           bbt_size;
+    int               bbt_off;
+    int               bbt_size;
     int32_t           spa;
     int16_t           apag;
     struct part_t*    parts;
@@ -124,7 +124,7 @@ struct im_t {
 struct im_t* diskimage_init(const char* path);
 void diskimage_uninit(struct im_t* img);
 bool diskimage_valid(struct im_t* img);
-int diskimage_read(struct im_t* img, int offset, int size, void* data);
+int diskimage_read(struct im_t* img, int64_t offset, int64_t size, void* data);
 void diskimage_print(struct im_t* img);
 
 #endif /* DiskImage_hpp */

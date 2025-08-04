@@ -81,7 +81,7 @@ static void ni_register_add(struct rpc_t* rpc, struct nireg_t* nireg) {
 }
 
 void nibind_init(struct rpc_t* rpc) {
-    int i;
+    size_t i;
     struct nireg_t* nireg;
     
     for (i = 0; i < TBL_SIZE(ni_register_template); i++) {
