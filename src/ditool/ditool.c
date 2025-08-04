@@ -693,7 +693,6 @@ static void clean_dir(const char* path) {
 }
 
 static bool is_case_insensitive(const char* path) {
-    int i;
     char* p;
     char filename[FILENAME_MAX];
     const char* testFile = ".nfsd__CASE__TEST__";

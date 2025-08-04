@@ -96,23 +96,6 @@ static void node_path_to_string(char* dbg, struct ni_node_t* node) {
     }
     vfscat(dbg, "/", DBGMAX);
 }
-
-static void prop_val_to_string(char* dbg, struct ni_prop_t* props, char* key) {
-    struct ni_prop_t* prop;
-    struct ni_val_t* vals;
-    
-    prop = ni_prop_find(props, key);
-    val_to_string(dbg, prop->val);
-    vals = prop->val;
-    
-    while (vals) {
-        vfscat(dbg, vals->val, DBGMAX);
-        if (vals->next) {
-            vfscat(dbg, ",", DBGMAX);
-        }
-        vals = vals->next;
-    }
-}
 #endif
 
 
