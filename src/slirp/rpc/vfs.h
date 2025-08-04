@@ -104,6 +104,8 @@ struct vfs_t {
 int vfscpy(char* dst, const char* src, int size);
 int vfscat(char* dst, const char* src, int size);
 
+int vfs_join(char* path, const char* name, int size);
+
 void vfs_path_canonicalize(char* vfs_path);
 uint32_t vfs_file_id(uint64_t ino);
 

@@ -180,11 +180,7 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
     if (len > MAXNAMELEN) {
         return NFSERR_NAMETOOLONG;
     }
-    len = strlen(path->vfs);
-    if (len > 0 && path->vfs[len-1] != '/' && strlen(vfs_path) > 0) {
-        vfscat(path->vfs, "/", sizeof(path->vfs));
-    }
-    if (vfscat(path->vfs, vfs_path, sizeof(path->vfs)) >= sizeof(path->vfs)) {
+    if (vfs_join(path->vfs, vfs_path, sizeof(path->vfs)) >= sizeof(path->vfs)) {
         return NFSERR_NAMETOOLONG;
     }
     if (vfs_to_host_path(ft->vfs, path) >= sizeof(path->host)) {
@@ -746,11 +742,8 @@ static int proc_readdir(struct rpc_t* rpc) {
             cookie++;
 #ifdef _WIN32
             struct path_t file_path;
-            int len = vfscpy(file_path.vfs, path.vfs, sizeof(file_path.vfs));
-            if (len > 0 && file_path.vfs[len - 1] != '/' && namelen > 0) {
-                vfscat(file_path.vfs, "/", sizeof(file_path.vfs));
-            }
-            vfscat(file_path.vfs, fileinfo->d_name, sizeof(file_path.vfs));
+            vfscpy(file_path.vfs, path.vfs, sizeof(file_path.vfs));
+            vfs_join(file_path.vfs, fileinfo->d_name, sizeof(file_path.vfs));
             vfs_to_host_path(rpc->ft->vfs, &file_path);
             fileid = vfs_file_id(ft_get_fhandle(rpc->ft, &file_path));
 #else

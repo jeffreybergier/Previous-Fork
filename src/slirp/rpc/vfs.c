@@ -95,6 +95,19 @@ int vfscat(char* dst, const char* src, int size) {
     return retval;
 }
 
+int vfs_join(char* path, const char* name, int size) {
+    int pathlen = strlen(path);
+    int namelen = strlen(name);
+    
+    if (pathlen > 0 && namelen > 0) {
+        if (path[pathlen - 1] != '/') {
+            vfscat(path, "/", size);
+        }
+        return vfscat(path, name, size);
+    }
+    return pathlen;
+}
+
 /* ----- VFS and host path */
 void vfs_path_canonicalize(char* vfs_path) {
     char* vfsPath = vfs_path;
