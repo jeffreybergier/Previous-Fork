@@ -686,7 +686,7 @@ static void write_ni_id(struct xdr_t* m_out, struct ni_id_t* ni_id) {
 static void write_ni_namelist(struct xdr_t* m_out, struct ni_val_t* names) {
     xdr_write_long(m_out, ni_val_count(names));
     while (names) {
-        xdr_write_string(m_out, names->val, strlen(names->val));
+        xdr_write_string(m_out, names->val, (uint32_t)strlen(names->val));
         names = names->next;
     }
 }
@@ -694,7 +694,7 @@ static void write_ni_namelist(struct xdr_t* m_out, struct ni_val_t* names) {
 static void write_ni_proplist(struct xdr_t* m_out, struct ni_prop_t* props) {
     xdr_write_long(m_out, ni_prop_count(props));
     while (props) {
-        xdr_write_string(m_out, props->key, strlen(props->key));
+        xdr_write_string(m_out, props->key, (uint32_t)strlen(props->key));
         write_ni_namelist(m_out, ni_prop_get_vals(props, props->key));
         props = props->next;
     }

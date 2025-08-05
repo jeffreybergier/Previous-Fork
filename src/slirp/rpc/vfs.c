@@ -62,7 +62,7 @@
 int vfscpy(char* dst, const char* src, int size) {
     int srclen, retval;
     
-    srclen = strlen(src);
+    srclen = (int)strlen(src);
     retval = srclen;
     
     if (size > 0) {
@@ -78,8 +78,8 @@ int vfscpy(char* dst, const char* src, int size) {
 int vfscat(char* dst, const char* src, int size) {
     int dstlen, srclen, retval;
     
-    dstlen = strlen(dst);
-    srclen = strlen(src);
+    dstlen = (int)strlen(dst);
+    srclen = (int)strlen(src);
     retval = dstlen + srclen;
     
     if (size > 0) {
@@ -96,8 +96,8 @@ int vfscat(char* dst, const char* src, int size) {
 }
 
 int vfs_join(char* path, const char* name, int size) {
-    int pathlen = strlen(path);
-    int namelen = strlen(name);
+    int pathlen = (int)strlen(path);
+    int namelen = (int)strlen(name);
     
     if (pathlen > 0 && namelen > 0) {
         if (path[pathlen - 1] != '/') {
@@ -407,22 +407,22 @@ int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fst
 }
 
 void vfs_stat_to_sattr(const struct stat* stat, struct sattr_t* sattr) {
-    sattr->mode = stat->st_mode;
-    sattr->uid  = stat->st_uid;
-    sattr->gid  = stat->st_gid;
-    sattr->size = stat->st_size;
+    sattr->mode       = (uint32_t)stat->st_mode;
+    sattr->uid        = (uint32_t)stat->st_uid;
+    sattr->gid        = (uint32_t)stat->st_gid;
+    sattr->size       = (uint32_t)stat->st_size;
 #ifdef _WIN32
-    sattr->atime.sec  = stat->st_atime;
+    sattr->atime.sec  = (uint32_t)stat->st_atime;
     sattr->atime.usec = 0;
-    sattr->mtime.sec  = stat->st_mtime;
+    sattr->mtime.sec  = (uint32_t)stat->st_mtime;
     sattr->mtime.usec = 0;
 #else
-    sattr->atime.sec  = stat->st_atimespec.tv_sec;
-    sattr->atime.usec = stat->st_atimespec.tv_nsec / 1000;
-    sattr->mtime.sec  = stat->st_mtimespec.tv_sec;
-    sattr->mtime.usec = stat->st_mtimespec.tv_nsec / 1000;
+    sattr->atime.sec  = (uint32_t)stat->st_atimespec.tv_sec;
+    sattr->atime.usec = (uint32_t)stat->st_atimespec.tv_nsec / 1000;
+    sattr->mtime.sec  = (uint32_t)stat->st_mtimespec.tv_sec;
+    sattr->mtime.usec = (uint32_t)stat->st_mtimespec.tv_nsec / 1000;
 #endif
-    sattr->rdev = stat->st_rdev;
+    sattr->rdev       = (uint32_t)stat->st_rdev;
 }
 
 static int get_error(int result) {
@@ -586,7 +586,7 @@ int vfs_read(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t
     int retval;
     struct file_t* file = file_open(path, "rb");
     if (file_is_open(file)) {
-        *len = file_read(file, offset, data, *len);
+        *len = (uint32_t)file_read(file, offset, data, *len);
         retval = 1;
     } else {
         retval = -1;

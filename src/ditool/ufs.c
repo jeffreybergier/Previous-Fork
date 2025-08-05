@@ -125,11 +125,11 @@ char* ufs_readlink(struct ufs_t* ufs, struct icommon* inode) {
     if (inode->ic_Mun.ic_Msymlink[0])
         return inode->ic_Mun.ic_Msymlink;
     else {
-        size_t size = ntohl(inode->ic_size);
-        char*  buffer = (char*)malloc(size+1); /* FIXME: missing free */
-        ufs_readFile(ufs, inode, 0, (uint32_t)size, (uint8_t*)buffer);
+        uint32_t size = ntohl(inode->ic_size);
+        uint8_t* buffer = (uint8_t*)malloc(size+1); /* FIXME: missing free */
+        ufs_readFile(ufs, inode, 0, size, buffer);
         buffer[size] = '\0';
-        return buffer;
+        return (char*)buffer;
     }
 }
 

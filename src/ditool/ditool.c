@@ -566,7 +566,7 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                     if (ft && vfs_access(&dirEntPath, F_OK) != 0) {
                         struct file_t* file = file_open(&dirEntPath, "wb");
                         if (file_is_open(file)) {
-                            size_t size = ntohl(inode.ic_size);
+                            uint32_t size = ntohl(inode.ic_size);
                             uint8_t* buffer = (uint8_t*)malloc(size);
                             ufs_readFile(ufs, &inode, 0, size, buffer);
                             if (file_write(file, 0, buffer, size) != size) {
