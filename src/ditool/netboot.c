@@ -35,7 +35,7 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, 
     } else {
         struct file_t* file = file_open(&file_path, "rb");
         if (file_is_open(file)) {
-            size_t filesize;
+            long filesize;
             fseek(file->file, 0, SEEK_END);
             filesize = ftell(file->file);
             if (filesize < 0) {
@@ -47,8 +47,8 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, 
                 *maxsize = filesize + extra;
                 buf = calloc(1, *maxsize);
                 if (filesize > 0) {
-                    size_t readsize = file_read(file, 0, buf, filesize);
-                    if (readsize != filesize || (extra && filesize != strlen(buf))) {
+                    long readsize = file_read(file, 0, buf, filesize);
+                    if (readsize != filesize || (extra && filesize != (long)strlen(buf))) {
                         const char* errstr = (readsize != filesize) ? strerror(errno) : "invalid data";
                         printf("       ! cannot read '%s' (%s)\n", file_path.host, errstr);
                         free(buf);
