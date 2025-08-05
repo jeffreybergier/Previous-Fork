@@ -112,7 +112,7 @@ void xdr_write_string(struct xdr_t* xdr, const char* str, uint32_t maxlen) {
         printf("[XDR] Error: Write string overflow 1\n");
         return;
     }
-    len = strlen(str);
+    len = (uint32_t)strlen(str);
     xdr_write_long(xdr, len);
     if (xdr->capacity - xdr->size < len) {
         printf("[XDR] Error: Write string overflow 2\n");

@@ -43,8 +43,8 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, 
             } else if (filesize > (1024 * 1024)) {
                 printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
             } else {
-                *size = filesize;
-                *maxsize = filesize + extra;
+                *size = (int)filesize;
+                *maxsize = (int)filesize + extra;
                 buf = calloc(1, *maxsize);
                 if (filesize > 0) {
                     long readsize = file_read(file, 0, buf, filesize);
@@ -84,8 +84,8 @@ static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, 
 }
 
 static int add_line(char* data, int maxsize, const char* line) {
-    int len    = strlen(line);
-    int size   = strlen(data);
+    int len    = (int)strlen(line);
+    int size   = (int)strlen(data);
     int before = size;
     if (size > 0 && size + 1 < maxsize && data[size - 1] != '\n') {
         vfscpy(data + size, "\n", maxsize);

@@ -138,7 +138,7 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
         fseeko(im->imf, block * im->blockSize + im->diskOffset, SEEK_SET);
         bytesRead = fread(buffer, 1, im->blockSize, im->imf);
         if (im->rawOptical) {
-            int bmIndex = block / im->spa;
+            int bmIndex = (int)(block / im->spa);
             int bmShift = (bmIndex & 0xF) << 1;
             int bmValue = (ntohl(im->bm[bmIndex>>4]) >> bmShift) & 3;
             switch (bmValue) {

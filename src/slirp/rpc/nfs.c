@@ -721,13 +721,13 @@ static int proc_readdir(struct rpc_t* rpc) {
     if (status == NFS_OK && handle) {
         struct dirent* fileinfo;
         uint32_t fileid;
-        size_t namelen;
+        uint32_t namelen;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
             if (--skip >= 0) continue;
             /* We assume that d_name is null-terminated */
-            if ((namelen = strlen(fileinfo->d_name)) > MAXNAMELEN) {
+            if ((namelen = (uint32_t)strlen(fileinfo->d_name)) > MAXNAMELEN) {
                 rpc_log(rpc, "file name too long: %s", fileinfo->d_name);
                 cookie++;
                 continue;
