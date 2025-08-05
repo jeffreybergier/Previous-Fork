@@ -57,14 +57,14 @@ struct im_t* diskimage_init(const char* path) {
         if (strncmp(im->dl.dl_version, "NeXT", 4)) {
             im->spa = 1;
         } else {
-            im->spa = (int32_t)ntohl(im->dl.dl_dt.d_nsectors) / 2;
+            im->spa = ntohl(im->dl.dl_dt.d_nsectors) >> 1;
         }
         if (im->spa < 1) {
             printf("Bad number of sectors per alternate\n");
             im->spa = 1;
         }
         
-        im->apag = (int16_t)ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
+        im->apag = ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
         if (im->apag < 1) {
             printf("Bad number of alternates per alternate group\n");
             im->apag = 1;
@@ -102,6 +102,7 @@ struct im_t* diskimage_init(const char* path) {
             printf("%d sectors per alternate group at offset %d\n", ntohs(im->dl.dl_dt.d_ag_alts), ntohs(im->dl.dl_dt.d_ag_off));
             printf("%d alternates per alternate group with %d sectors per alternate\n", im->apag, im->spa);
         }
+        printf("\n");
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
     if (im->sectorSize != 0x400) {
