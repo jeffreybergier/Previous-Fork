@@ -134,33 +134,7 @@ static char* ip_addr_str(char* buf, int maxsize, uint32_t addr) {
 }
 
 
-static void netboot_link_kernel(struct vfs_t* ft, const char* to, const char* from) {
-    int err = 0;
-    struct path_t path_to;
-    struct path_t path_from;
-    
-    printf("     - linking '%s' -> '%s'\n", to, from);
-    
-    vfscpy(path_from.vfs, from, sizeof(path_from.vfs));
-    vfscpy(path_to.vfs, to, sizeof(path_to.vfs));
-    vfs_to_host_path(ft, &path_to);
-    
-    if (vfs_access(&path_to, F_OK) == 0) {
-        err = vfs_remove(&path_to);
-        printf("       - replacing '%s'\n", to);
-        if (err) {
-            printf("       ! cannot remove '%s' (%s)\n", path_to.host, strerror(err));
-        }
-    }
-    if (err == 0) {
-        err = vfs_link(&path_from, &path_to, 1);
-        if (err) {
-            printf("       ! cannot create '%s' (%s)\n", path_to.host, strerror(err));
-        }
-    }
-}
-
-static void netboot_copy_boot(struct vfs_t* ft, const char* to, const char* from) {
+static void netboot_link_file(struct vfs_t* ft, const char* to, const char* from) {
     int err = 0;
     struct path_t path_to;
     struct path_t path_from;
@@ -264,8 +238,8 @@ static void netboot_make_fstab(struct vfs_t* ft, const char* file) {
 void prepare_netboot(const char* path) {
     struct vfs_t* ft = vfs_init(path, "/");
     
-    netboot_link_kernel(ft, "/private/tftpboot/mach", "../../sdmach");
-    netboot_copy_boot(ft, "/private/tftpboot/boot", "/usr/standalone/boot");
+    netboot_link_file(ft, "/private/tftpboot/mach", "/sdmach");
+    netboot_link_file(ft, "/private/tftpboot/boot", "/usr/standalone/boot");
     netboot_make_resolv(ft, "/private/etc/resolv.conf");
     netboot_patch_hosts(ft, "/private/etc/hosts");
     netboot_patch_hostconfig(ft, "/private/etc/hostconfig", "/usr/template/client/etc/hostconfig");
