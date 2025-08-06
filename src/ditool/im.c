@@ -112,10 +112,10 @@ struct im_t* diskimage_init(const char* path) {
     
     /* Add partitions */
     im->parts = NULL;
-    for (int p = 0, i = 0; p < NPART; p++) {
+    for (int p = 0; p < NPART; p++) {
         if (ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0 || ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0xffff)
             continue;
-        partition_init(p, i++, im, &im->dl, &im->dl.dl_dt.d_partitions[p]);
+        partition_init(p, im, &im->dl, &im->dl.dl_dt.d_partitions[p]);
     }
     return im;
 }

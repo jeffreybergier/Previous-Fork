@@ -16,18 +16,18 @@
 #include "ufs.h"
 
 
-void partition_init(int partNo, int partIdx, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition) {
+void partition_init(int part_num, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition) {
     struct part_t** parts = &im->parts;
     while (*parts) {
         parts = &(*parts)->next;
     }
     *parts = (struct part_t*)malloc(sizeof(struct part_t));
-    (*parts)->partNo = partNo;
-    (*parts)->partIdx = partIdx;
-    (*parts)->im = im;
-    (*parts)->dl = dl;
-    (*parts)->part = partition;
-    (*parts)->next = NULL;
+    (*parts)->number = part_num;
+    (*parts)->letter = 'a' + part_num;
+    (*parts)->im     = im;
+    (*parts)->dl     = dl;
+    (*parts)->part   = partition;
+    (*parts)->next   = NULL;
 }
 
 void partition_uninit(struct part_t* parts) {
@@ -84,7 +84,7 @@ void partition_print(struct part_t* part) {
     uint64_t size = ntohl(part->part->p_size);
     size *= part->im->sectorSize;
     size >>= 20;
-    printf("  Partition #%d: %.*s %"PRIu64" MBytes\n", part->partIdx, MAXFSTLEN - 1, &part->part->p_type[1], size);
+    printf("  Partition %c: %.*s %"PRIu64" MBytes\n", part->letter, MAXFSTLEN - 1, &part->part->p_type[1], size);
     ufs = ufs_init(part);
     if (ufs) {
         ufs_print(ufs);
