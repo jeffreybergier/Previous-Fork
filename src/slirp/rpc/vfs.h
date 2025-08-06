@@ -101,16 +101,16 @@ struct vfs_t {
     uint32_t gid;
 };
 
-int vfscpy(char* dst, const char* src, int size);
-int vfscat(char* dst, const char* src, int size);
+size_t vfscpy(char* dst, const char* src, size_t size);
+size_t vfscat(char* dst, const char* src, size_t size);
 
-int vfs_join(char* path, const char* name, int size);
+size_t vfs_join(char* path, const char* name, size_t size);
+
+size_t vfs_to_host_path(struct vfs_t* vfs, struct path_t* path);
+size_t vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path);
 
 void vfs_path_canonicalize(char* vfs_path);
 uint32_t vfs_file_id(uint64_t ino);
-
-int vfs_to_host_path(struct vfs_t* vfs, struct path_t* path);
-int vfs_to_vfs_path(struct vfs_t* vfs, struct path_t* path);
 
 uint32_t vfs_get_parent_gid(struct vfs_t* vfs, const struct path_t* path);
 int vfs_get_fstat(struct vfs_t* vfs, const struct path_t* path, struct stat* fstat);
@@ -137,7 +137,7 @@ int vfs_statfs(const struct path_t* path, struct statvfs* fsstat);
 int vfs_access(const struct path_t* path, int mode);
 
 void vfs_set_process_uid_gid(struct vfs_t* vfs, uint32_t uid, uint32_t gid);
-void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, int maxlen);
+void vfs_get_basepath_alias(struct vfs_t* vfs, char* path, size_t maxlen);
 
 struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias);
 struct vfs_t* vfs_uninit(struct vfs_t* vfs);

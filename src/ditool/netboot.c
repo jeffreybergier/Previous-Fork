@@ -21,7 +21,7 @@
 #define MAX_LINE_SIZE 128
 #define GET_EXTRA(n,s) (2+(n)*((s)+1))
 
-static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, int* maxsize, int extra, int silent) {
+static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* size, size_t* maxsize, size_t extra, int silent) {
     void* buf = NULL;
     struct path_t file_path;
     int err;
@@ -43,13 +43,13 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, 
             } else if (filesize > (1024 * 1024)) {
                 printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
             } else {
-                *size = (int)filesize;
-                *maxsize = (int)filesize + extra;
+                *size = (size_t)filesize;
+                *maxsize = (size_t)filesize + extra;
                 buf = calloc(1, *maxsize);
                 if (filesize > 0) {
-                    long readsize = file_read(file, 0, buf, filesize);
-                    if (readsize != filesize || (extra && filesize != (long)strlen(buf))) {
-                        const char* errstr = (readsize != filesize) ? strerror(errno) : "invalid data";
+                    size_t readsize = file_read(file, 0, buf, filesize);
+                    if (readsize != (size_t)filesize || (extra && readsize != strlen(buf))) {
+                        const char* errstr = (readsize != (size_t)filesize) ? strerror(errno) : "invalid data";
                         printf("       ! cannot read '%s' (%s)\n", file_path.host, errstr);
                         free(buf);
                         buf = NULL;
@@ -64,7 +64,7 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, int* size, 
     return buf;
 }
 
-static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, int size) {
+static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, size_t size) {
     struct path_t file_path;
     struct file_t* file;
     
@@ -73,7 +73,7 @@ static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, 
 
     file = file_open(&file_path, "wb");
     if (file_is_open(file)) {
-        if (file_write(file, 0, buf, size) != (size_t)size) {
+        if (file_write(file, 0, buf, size) != size) {
             printf("       ! cannot write '%s' (%s)\n", file_path.host, strerror(errno));
         }
         file_close(&file_path, file);
@@ -83,10 +83,10 @@ static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, 
     free(buf);
 }
 
-static int add_line(char* data, int maxsize, const char* line) {
-    int len    = (int)strlen(line);
-    int size   = (int)strlen(data);
-    int before = size;
+static size_t add_line(char* data, size_t maxsize, const char* line) {
+    size_t len    = strlen(line);
+    size_t size   = strlen(data);
+    size_t before = size;
     if (size > 0 && size + 1 < maxsize && data[size - 1] != '\n') {
         vfscpy(data + size, "\n", maxsize);
         size += 1;
@@ -103,10 +103,10 @@ static int add_line(char* data, int maxsize, const char* line) {
     return size - before;
 }
 
-static int remove_line(char* data, const char* line) {
+static size_t remove_line(char* data, const char* line) {
     char* start;
     char* stop;
-    int size = 0;
+    size_t size = 0;
     while ((start = strstr(data, line))) {
         if (start > data && *(start - 1) != '\n') {
             data = strchr(start, '\n');
@@ -128,7 +128,7 @@ static int remove_line(char* data, const char* line) {
     return size;
 }
 
-static char* ip_addr_str(char* buf, int maxsize, uint32_t addr) {
+static char* ip_addr_str(char* buf, size_t maxsize, uint32_t addr) {
     snprintf(buf, maxsize, "%d.%d.%d.%d", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF);
     return buf;
 }
@@ -158,8 +158,8 @@ static void netboot_make_resolv(struct vfs_t* ft, const char* file) {
     void* data;
     char ip_addr[32];
     char line[MAX_LINE_SIZE];
-    int size    = 0;
-    int maxsize = GET_EXTRA(2, sizeof(line));
+    size_t size    = 0;
+    size_t maxsize = GET_EXTRA(2, sizeof(line));
     
     printf("     - writing '%s'\n", file);
     
@@ -176,9 +176,9 @@ static void netboot_patch_hosts(struct vfs_t* ft, const char* file) {
     void* data;
     char ip_addr[32];
     char line[MAX_LINE_SIZE];
-    int size    = 0;
-    int maxsize = 0;
-    int extra   = GET_EXTRA(2, sizeof(line));
+    size_t size    = 0;
+    size_t maxsize = 0;
+    size_t extra   = GET_EXTRA(2, sizeof(line));
     
     printf("     - patching '%s'\n", file);
     
@@ -196,9 +196,9 @@ static void netboot_patch_hosts(struct vfs_t* ft, const char* file) {
 
 static void netboot_patch_hostconfig(struct vfs_t* ft, const char* file, const char* template) {
     void* data;
-    int size    = 0;
-    int maxsize = 0;
-    int extra   = GET_EXTRA(2, MAX_LINE_SIZE);
+    size_t size    = 0;
+    size_t maxsize = 0;
+    size_t extra   = GET_EXTRA(2, MAX_LINE_SIZE);
     
     printf("     - patching '%s'\n", file);
     
@@ -220,8 +220,8 @@ static void netboot_patch_hostconfig(struct vfs_t* ft, const char* file, const c
 static void netboot_make_fstab(struct vfs_t* ft, const char* file) {
     void* data;
     char line[MAX_LINE_SIZE];
-    int size    = 0;
-    int maxsize = GET_EXTRA(2, sizeof(line));
+    size_t size    = 0;
+    size_t maxsize = GET_EXTRA(2, sizeof(line));
     
     printf("     - writing '%s'\n", file);
     

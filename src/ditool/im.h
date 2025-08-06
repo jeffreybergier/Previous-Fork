@@ -102,8 +102,8 @@ struct disk_label {
 
 struct im_t {
     FILE*             imf;
-    unsigned          diskOffset;
-    unsigned          blockSize;
+    size_t            diskOffset;
+    size_t            blockSize;
     bool              rawOptical;
 
     struct disk_label dl;

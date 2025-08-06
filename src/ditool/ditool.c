@@ -289,9 +289,9 @@ static void set_attrs(struct icommon* inode, uint32_t rdev, struct path_t* dirEn
     times[1].tv_usec = 0;
 #else
     times[0].tv_sec  = fstat.st_atimespec.tv_sec;
-    times[0].tv_usec = fstat.st_atimespec.tv_nsec / 1000;
+    times[0].tv_usec = (int32_t)(fstat.st_atimespec.tv_nsec / 1000);
     times[1].tv_sec  = fstat.st_mtimespec.tv_sec;
-    times[1].tv_usec = fstat.st_mtimespec.tv_nsec / 1000;
+    times[1].tv_usec = (int32_t)(fstat.st_mtimespec.tv_nsec / 1000);
 #endif
     
     if (vfs_chmod(dirEntPath, fstat.st_mode & ~IFMT))
@@ -658,10 +658,9 @@ static int ditool_remove(const char* fpath, const struct stat* sb, int typeflag,
     remove(fpath);
 #else
     char zzPath[FILENAME_MAX];
-    int len, ret;
+    int ret;
     vfscpy(zzPath, fpath, FILENAME_MAX - 1);
-    len = strlen(zzPath);
-    zzPath[len + 1] = '\0';
+    zzPath[strlen(zzPath) + 1] = '\0';
     SHFILEOPSTRUCT file_op = {NULL, FO_DELETE, zzPath, "",
         FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT,
         false, 0, ""};
