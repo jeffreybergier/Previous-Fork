@@ -96,15 +96,26 @@ size_t vfscat(char* dst, const char* src, size_t size) {
 }
 
 size_t vfs_join(char* path, const char* name, size_t size) {
-    size_t pathlen = strlen(path);
+    int needsep;
+    size_t pathlen, namelen, retval;
     
-    if (pathlen > 0 && name[0]) {
-        if (path[pathlen - 1] != '/') {
-            vfscat(path, "/", size);
+    pathlen = strlen(path);
+    namelen = strlen(name);
+    needsep = pathlen && namelen && path[pathlen - 1] != '/';
+    retval  = pathlen + namelen + needsep;
+
+    if (size > pathlen + needsep + 1) {
+        if (needsep) {
+            path[pathlen] = '/';
+            pathlen += needsep;
         }
-        return vfscat(path, name, size);
+        if (namelen >= size - pathlen) {
+            namelen = size - pathlen - 1;
+        }
+        memcpy(path + pathlen, name, namelen);
+        path[pathlen + namelen] = '\0';
     }
-    return pathlen;
+    return retval;
 }
 
 /* ----- VFS and host path */

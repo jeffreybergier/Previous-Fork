@@ -510,13 +510,11 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                         struct path_t link;
                         vfs_readlink(&dirEntPath, &link);
                         if (strcasecmp(link.vfs, dirEnt->d_name) == 0) {
-                            char tmp[FILENAME_MAX];
+                            struct path_t tmp;
                             printf("Existing file '%s' is link pointing to variant, removing link\n", dirEntPath.vfs);
                             vfs_remove(&dirEntPath);
-                            vfscpy(tmp, path, sizeof(tmp));
-                            vfscat(tmp, "/", sizeof(tmp));
-                            vfscat(tmp, link.vfs, sizeof(tmp));
-                            skip_add(skip, tmp);
+                            make_path(path, link.vfs, &tmp, NULL);
+                            skip_add(skip, tmp.vfs);
                         }
                     } else
 #endif
