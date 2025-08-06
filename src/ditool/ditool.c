@@ -221,13 +221,23 @@ static bool has_option(const char** args, int num_args, const char* opt) {
     return false;
 }
 
+static int get_valid_partnum(const char* num) {
+    if (num) {
+        char c = num[0];
+        if (c >= '0' && c < '0' + NPART) return c - '0';
+        if (c >= 'a' && c < 'a' + NPART) return c - 'a';
+        if (c >= 'A' && c < 'A' + NPART) return c - 'A';
+    }
+    return -1;
+}
+
 static void print_help(void) {
     printf("usage : ditool -im <disk_image_file> [options]\n");
     printf("Options:\n");
     printf("  -h          Print this help.\n");
     printf("  -im <file>  Raw disk image file to read from.\n");
     printf("  -lsp        List partitions in disk image.\n");
-    printf("  -p          Partition number to work on.\n");
+    printf("  -p <letter> Partition to work on. letter=a|b|c|...\n");
     printf("  -ls         List files in disk image.\n");
     printf("  -lst <type> List files in disk image of type. type=FILE|DIR|SLINK|HLINK|FIFO|CHAR|BLOCK|SOCK\n");
     printf("  -out <path> Copy files from disk image to <path>.\n");
@@ -615,7 +625,7 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
             ft = vfs_init(outPath, ufs_mountPoint(ufs));
         }
         if (ft) {
-            printf("---- copying '%s' partition %d to '%s'\n", im->path, part->partIdx, ft->base_path.host);
+            printf("---- copying '%s' partition %c to '%s'\n", im->path, part->letter, ft->base_path.host);
             process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
             printf("---- setting file attributes for NFSD\n");
             set_attrs_inode(ufs, ROOTINO, "", ft);
@@ -626,7 +636,7 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
             verify_attr_recr(ufs, skip, ROOTINO, "", ft);
             ft = vfs_uninit(ft);
         } else {
-            printf("---- listing '%s' partition %d\n", im->path, part->partIdx);
+            printf("---- listing '%s' partition %c\n", im->path, part->letter);
             process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
         }
         ufs_uninit(ufs);
@@ -735,7 +745,7 @@ int main(int argc, const char* argv[]) {
         
         if (listFiles || outPath) {
             struct part_t* parts = im->parts;
-            int part = partNum ? atoi(partNum) : -1;
+            int part = get_valid_partnum(partNum);
             
             if (outPath) {
                 if (is_case_insensitive(outPath)) {
@@ -757,7 +767,7 @@ int main(int argc, const char* argv[]) {
             }
             
             while (parts) {
-                if (part < 0 || part == parts->partIdx) {
+                if (part < 0 || part == parts->number) {
                     dump_part(im, parts, outPath, listFiles, listType);
                 }
                 parts = parts->next;
