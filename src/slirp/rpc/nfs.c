@@ -180,7 +180,7 @@ static int read_path(struct ft_t* ft, struct xdr_t* m_in, struct path_t* path, i
     if (len > MAXNAMELEN) {
         return NFSERR_NAMETOOLONG;
     }
-    if (vfs_join(path->vfs, vfs_path, sizeof(path->vfs)) >= (int)sizeof(path->vfs)) {
+    if (vfs_join(path->vfs, vfs_path, sizeof(path->vfs)) >= sizeof(path->vfs)) {
         return NFSERR_NAMETOOLONG;
     }
     if (vfs_to_host_path(ft->vfs, path) >= (int)sizeof(path->host)) {
@@ -721,13 +721,13 @@ static int proc_readdir(struct rpc_t* rpc) {
     if (status == NFS_OK && handle) {
         struct dirent* fileinfo;
         uint32_t fileid;
-        uint32_t namelen;
+        size_t namelen;
         int skip = cookie;
         int eof  = 1;
         while ((fileinfo = readdir(handle))) {
             if (--skip >= 0) continue;
             /* We assume that d_name is null-terminated */
-            if ((namelen = (uint32_t)strlen(fileinfo->d_name)) > MAXNAMELEN) {
+            if ((namelen = strlen(fileinfo->d_name)) > MAXNAMELEN) {
                 rpc_log(rpc, "file name too long: %s", fileinfo->d_name);
                 cookie++;
                 continue;
@@ -751,7 +751,7 @@ static int proc_readdir(struct rpc_t* rpc) {
 #endif
             xdr_write_long(m_out, 1); /* valid entry follows */
             xdr_write_long(m_out, fileid);
-            xdr_write_string(m_out, fileinfo->d_name, namelen);
+            xdr_write_string(m_out, fileinfo->d_name, (uint32_t)namelen);
             xdr_write_long(m_out, cookie);
         }
         xdr_write_long(m_out, 0);  /* no valid entry follows */

@@ -144,8 +144,9 @@ static int ufs_readBlock(struct ufs_t* ufs, uint32_t dBlk) {
 }
 
 int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint32_t len, uint8_t* data) {
-    uint32_t fBlk;
+    int err;
     int32_t  dBlk;
+    uint32_t fBlk;
     uint32_t sOff;
     uint32_t tLen;
     
@@ -159,14 +160,14 @@ int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint3
         return ERR_BMAP;
     
     if (sOff + len < ufs->fsBSize) {
-        int err = ufs_readBlock(ufs, dBlk);
+        err = ufs_readBlock(ufs, dBlk);
         if (err)
             return err;
         memcpy(data, ufs->blockCache[BCACHE_SIZE] + sOff, len);
         return ERR_NO;
     } else {
         tLen = ufs->fsBSize - sOff;
-        int err = ufs_readBlock(ufs, dBlk);
+        err = ufs_readBlock(ufs, dBlk);
         if (err)
             return err;
         memcpy(data, ufs->blockCache[BCACHE_SIZE] + sOff, tLen);
@@ -179,7 +180,7 @@ int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint3
     while (len >= tLen) {
         if ((dBlk = ufs_bmap(ufs, inode, fBlk)) < 0)
             return dBlk;
-        int err = partition_readSectors(ufs->part, dBlk, ufs->fsFrag, data);
+        err = partition_readSectors(ufs->part, dBlk, ufs->fsFrag, data);
         if (err)
             return err;
         data += tLen;
@@ -190,7 +191,7 @@ int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint3
     if (len > 0) {
         if ((dBlk = ufs_bmap(ufs, inode, fBlk)) < 0)
             return dBlk;
-        int err = ufs_readBlock(ufs, dBlk);
+        err = ufs_readBlock(ufs, dBlk);
         if (err)
             return err;
         memcpy(data, ufs->blockCache[BCACHE_SIZE], len);

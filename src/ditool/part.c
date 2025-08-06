@@ -40,15 +40,15 @@ void partition_uninit(struct part_t* parts) {
 }
 
 int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, uint8_t* dst) {
-    size_t size;
     int result;
+    int64_t size, usable, limit, offset;
     const struct disktab* dt = &part->im->dl.dl_dt;
-    int64_t      usable      = ntohs(dt->d_ag_size) - ntohs(dt->d_ag_alts);
     
+    limit   = 0;
+    offset  = 0;
+    usable  = ntohs(dt->d_ag_size) - ntohs(dt->d_ag_alts);
     sector += ntohl(part->part->p_base);
     
-    int64_t limit  = 0;
-    int64_t offset = 0;
     do {
         if (usable) {
             offset = sector % usable;
