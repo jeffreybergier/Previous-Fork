@@ -36,7 +36,7 @@
 
 /* MARK: Subscribe to notifications */
 
-+(void)load;
++(void)load
 {
 	[[NSNotificationCenter defaultCenter] addObserver:self
 											 selector:@selector(applicationDidFinishLaunching:)
@@ -49,7 +49,7 @@
 }
 
 /* MARK: Menu Shortcut Customizing */
-+(void)applicationDidFinishLaunching:(NSNotification*)aNotification;
++(void)applicationDidFinishLaunching:(NSNotification*)aNotification
 {
 	NSInteger processd = 0;
 	NSInteger modified = 0;
@@ -101,7 +101,7 @@
 }
 
 /* MARK: Window Zoom Button Disabling */
-+(void)windowDidBecomeKey:(NSNotification*)aNotification;
++(void)windowDidBecomeKey:(NSNotification*)aNotification
 {
 	NSWindow *window = [aNotification object];
 	if ([window collectionBehavior] & NSWindowCollectionBehaviorFullScreenNone) { return; }
@@ -125,7 +125,7 @@
 
 -(BOOL)PREV_setKeyEquivalentModifierMask:(NSEventModifierFlags)desiredMask
 						  ifExpectedMask:(NSEventModifierFlags)expectedMask
-						  andExpectedKey:(NSString*)expectedKey;
+						  andExpectedKey:(NSString*)expectedKey
 {
 	if ([[self keyEquivalent] isEqualToString:expectedKey]
 		&& [self keyEquivalentModifierMask] == expectedMask)
@@ -136,7 +136,7 @@
 	return NO;
 }
 
--(BOOL)PREV_removeFromMenu;
+-(BOOL)PREV_removeFromMenu
 {
 	[[self menu] removeItem:self];
 	return YES;
@@ -146,7 +146,7 @@
 
 @implementation NSMenu (Previous)
 
--(NSArray*)PREV_itemArrayWithSubitems;
+-(NSArray*)PREV_itemArrayWithSubitems
 {
 	NSMutableArray *output = [[NSMutableArray new] autorelease];
 	for (NSMenuItem *item in [self itemArray]) {
