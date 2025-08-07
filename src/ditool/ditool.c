@@ -232,16 +232,16 @@ static int get_valid_partnum(const char* num) {
 }
 
 static void print_help(void) {
-    printf("usage : ditool -im <disk_image_file> [options]\n");
-    printf("Options:\n");
+    printf("usage: ditool -im <disk_image_file> [options]\n");
+    printf("options:\n");
     printf("  -h          Print this help.\n");
     printf("  -im <file>  Raw disk image file to read from.\n");
     printf("  -lsp        List partitions in disk image.\n");
-    printf("  -p <letter> Partition to work on. letter=a|b|c|...\n");
+    printf("  -p <letter> Partition {a|b|c|...} to work on.\n");
     printf("  -ls         List files in disk image.\n");
-    printf("  -lst <type> List files in disk image of type. type=FILE|DIR|SLINK|HLINK|FIFO|CHAR|BLOCK|SOCK\n");
+    printf("  -lst <type> List files of type {FILE|DIR|SLINK|HLINK|FIFO|CHAR|BLOCK|SOCK}.\n");
     printf("  -out <path> Copy files from disk image to <path>.\n");
-    printf("  -clean      Clean output directory before copying.\n");
+    printf("  -clean      Delete all files in output directory before copying.\n");
     printf("  -netboot    Prepare files in output directory for netboot.\n");
 }
 
