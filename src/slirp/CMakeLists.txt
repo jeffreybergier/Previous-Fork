@@ -16,9 +16,9 @@ endif(HAVE_UNISTD_H)
 add_definitions(-DHAVE_STRERROR)
 
 # Supress some warnings for SLIRP
-if(CMAKE_COMPILER_IS_GNUCC)
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare -Wno-strict-overflow")
-endif(CMAKE_COMPILER_IS_GNUCC)
+endif()
 
 include_directories(${SDL2_INCLUDE_DIRS})
 
