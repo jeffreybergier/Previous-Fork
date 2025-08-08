@@ -137,6 +137,7 @@ static int ni_val_count(struct ni_val_t* vals) {
     return result;
 }
 
+#if 0 /* unused */
 static int ni_val_remove(struct ni_val_t** vals, char* val) {
     struct ni_val_t* next;
     
@@ -153,6 +154,7 @@ static int ni_val_remove(struct ni_val_t** vals, char* val) {
     }
     return 0;
 }
+#endif
 
 static void ni_val_delete(struct ni_val_t** vals) {
     struct ni_val_t* next;
@@ -207,6 +209,7 @@ static int ni_prop_count(struct ni_prop_t* props) {
     return result;
 }
 
+#if 0 /* unused */
 static int ni_prop_remove(struct ni_prop_t** props, const char* key) {
     struct ni_prop_t* next;
     
@@ -224,6 +227,7 @@ static int ni_prop_remove(struct ni_prop_t** props, const char* key) {
     }
     return 0;
 }
+#endif
 
 static void ni_prop_delete(struct ni_prop_t** props) {
     struct ni_prop_t* next;
@@ -372,23 +376,6 @@ static int ni_node_count(struct ni_node_t* node) {
 
 
 /* NetInfo database */
-static char* ip_addr_str(char* result, uint32_t addr, size_t count, int size) {
-    switch (count) {
-        case 3:
-            snprintf(result, size, "%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF);
-            break;
-            
-        case 4:
-            snprintf(result, size, "%d.%d.%d.%d", (addr>>24)&0xFF, (addr>>16)&0xFF, (addr>>8)&0xFF, addr&0xFF);
-            break;
-            
-        default:
-            result[0] = '\0';
-            break;
-    }
-    return result;
-}
-
 static struct ni_node_t* ni_find_from_key_val(struct ni_node_t* node, const char* key, const char* val) {
     struct ni_prop_t* props = NULL;
     struct ni_val_t*  vals  = NULL;
@@ -429,7 +416,7 @@ void netinfo_add_host(const char* name, uint32_t ip_addr) {
     node = ni_find_from_key_val(network->root->children, "name", "machines");
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", name);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, ip_addr, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "ip_address", rpc_ip_str(ip_str, ip_addr, 4, sizeof(ip_str)));
     ni_node_add_prop(child, "serves", "./network");
     ni_node_add_prop(child, "serves", "../network");
     
@@ -498,7 +485,7 @@ void netinfo_build_nidb(void) {
     /* Create root network:/ */
     network->root = ni_node_create(&network->id_map, NULL);
     ni_node_add_prop(network->root, "master", NAME_NFSD"/network");
-    ni_node_add_prop(network->root, "trusted_networks", ip_addr_str(ip_str, CTL_NET, 3, sizeof(ip_str)));
+    ni_node_add_prop(network->root, "trusted_networks", rpc_ip_str(ip_str, CTL_NET, 3, sizeof(ip_str)));
     
     /* Add child network:/machines */
     node = ni_node_add_child(network, network->root);
@@ -507,12 +494,12 @@ void netinfo_build_nidb(void) {
     /* Add child network:/machines/host */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", hostname);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_ALIAS, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "ip_address", rpc_ip_str(ip_str, CTL_NET|CTL_ALIAS, 4, sizeof(ip_str)));
     
     /* Add child network:/machines/previous */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", NAME_HOST);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_HOST, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "ip_address", rpc_ip_str(ip_str, CTL_NET|CTL_HOST, 4, sizeof(ip_str)));
     ni_node_add_prop(child, "serves", NAME_HOST"/local");
     ni_node_add_prop(child, "netgroups", NULL);
     ni_node_add_prop(child, "system_type", system_type);
@@ -520,7 +507,7 @@ void netinfo_build_nidb(void) {
     /* Add child network:/machines/dns */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", NAME_DNS);
-    ni_node_add_prop(child, "ip_address", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "ip_address", rpc_ip_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
     
     /* Create network:/mounts */
     node = ni_node_add_child(network, network->root);
@@ -533,7 +520,7 @@ void netinfo_build_nidb(void) {
     /* Add child network:/locations/resolver */
     child = ni_node_add_child(network, node);
     ni_node_add_prop(child, "name", "resolver");
-    ni_node_add_prop(child, "nameserver", ip_addr_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
+    ni_node_add_prop(child, "nameserver", rpc_ip_str(ip_str, CTL_NET|CTL_DNS, 4, sizeof(ip_str)));
     ni_node_add_prop(child, "domain", domain);
     ni_node_add_prop(child, "search", domain);
     

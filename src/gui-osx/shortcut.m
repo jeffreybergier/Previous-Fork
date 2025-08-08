@@ -97,6 +97,9 @@
 #if PRINT_DEBUG_LOG
 	NSLog(@"%@: Processed Main Menu: %ld total -> %ld processed -> %ld modified",
 		  self, [menuItems count], processd, modified);
+#else
+	(void)processd;
+	(void)modified;
 #endif
 }
 

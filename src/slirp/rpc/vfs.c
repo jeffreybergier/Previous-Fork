@@ -478,6 +478,7 @@ void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
     const char* fname = vfs_get_filename(path->vfs);
     
     assert(strcmp(fname, ".") && strcmp(fname, ".."));
+    (void)fname; /* may be unused */
     
     serialize(sattr, buffer);
 #if HAVE_SYS_XATTR_H
