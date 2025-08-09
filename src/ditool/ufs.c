@@ -39,14 +39,14 @@ struct ufs_t* ufs_init(struct part_t* part) {
                     ufs->cacheBlockNo[i] = BLOCK_INVALID;
                 }
             } else {
-                printf("file system magic or block size mismatch\n");
+                printf("No valid file system found (%X).\n", ntohl(superblock->fs_magic));
             }
         } else {
-            printf("cannot read super block\n");
+            printf("Can't read super block.\n");
         }
         free(sectors);
     } else {
-        printf("partition type %.*s not supported\n", MAXFSTLEN - 1, &part->part->p_type[1]);
+        printf("Partition type %.*s not supported.\n", MAXFSTLEN - 1, &part->part->p_type[1]);
     }
     
     return ufs;
@@ -71,7 +71,7 @@ int ufs_readInode(struct ufs_t* ufs, struct icommon* inode, uint32_t ino) {
         err = ERR_FAIL;
     }
     if (err) {
-        printf("Can't read inode %d\n", ino);
+        printf("Can't read inode %d.\n", ino);
         return err;
     }
     

@@ -13,18 +13,18 @@
 #include "im.h"
 
 enum Error {
-    ERR_NO   = 0,
+    ERR_NO   =  0,
     ERR_EOF  = -1,
     ERR_FAIL = -2,
-    ERR_BMAP = -2,
+    ERR_BMAP = -3
 };
 
 struct part_t {
-    int                      number;
-    char                     letter;
-    struct im_t*             im;
-    struct disk_partition*   part;
-    struct part_t*           next;
+    int                    number;
+    char                   letter;
+    struct im_t*           im;
+    struct disk_partition* part;
+    struct part_t*         next;
 };
 
 void partition_init(int part_num, struct im_t* im, struct disk_partition* partition);

@@ -17,7 +17,7 @@
 #include "part.h"
 
 
-struct im_t* diskimage_init(const char* path, bool nolabel) {
+struct im_t* diskimage_init(const char* path) {
     struct im_t* im = (struct im_t*)malloc(sizeof(struct im_t));
     
     im->imf = fopen(path, "rb");
@@ -49,19 +49,15 @@ struct im_t* diskimage_init(const char* path, bool nolabel) {
         if (strncmp(im->dl.dl_version, "NeXT", 4) &&
             strncmp(im->dl.dl_version, "dlV2", 4) &&
             strncmp(im->dl.dl_version, "dlV3", 4)) {
-            if (nolabel) {
-                printf("No disk label found. Partition data of type 4.3BSD is assumed.\n");
-                memset(&im->dl, 0, sizeof(im->dl));
-                im->diskOffset = 0;
-                im->blockSize  = BLOCKSZ;
-                im->rawOptical = false;
-                im->sectorSize = 0x400;
-                im->parts      = NULL;
-                partition_init(0, im, NULL);
-                return im;
-            }
-            printf("Unknown version: %.4s\n", im->dl.dl_version);
-            exit(1);
+            printf("No valid disk label found (%.4s). Partition data of type 4.3BSD is assumed.\n", im->dl.dl_version);
+            memset(&im->dl, 0, sizeof(im->dl));
+            im->diskOffset = 0;
+            im->blockSize  = BLOCKSZ;
+            im->rawOptical = false;
+            im->sectorSize = 0x400;
+            im->parts      = NULL;
+            partition_init(0, im, NULL);
+            return im;
         }
         printf("Magneto-optical disk detected\n");
         
@@ -114,9 +110,6 @@ struct im_t* diskimage_init(const char* path, bool nolabel) {
             printf("%d alternates per alternate group with %d sectors per alternate\n", im->apag, im->spa);
         }
         printf("\n");
-    }
-    if (nolabel) {
-        printf("Disk label found. Ignoring no label option.\n");
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
     if (im->sectorSize != 0x400) {
@@ -199,16 +192,16 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
                     break;
             }
         }
-        memcpy(dataPtr, buffer + blockOff, rdSize);
-        blockOff = 0;
-        size    -= rdSize;
-        dataPtr += rdSize;
-        block++;
         if (bytesRead != im->blockSize) {
             result = ferror(im->imf) ? ERR_FAIL : ERR_EOF;
             printf("Can't read %"PRId64" bytes at offset %"PRId64"\n", size, offset);
             break;
         }
+        memcpy(dataPtr, buffer + blockOff, rdSize);
+        blockOff = 0;
+        size    -= rdSize;
+        dataPtr += rdSize;
+        block++;
     }
     free(buffer);
     
