@@ -113,7 +113,7 @@ struct im_t* diskimage_init(const char* path) {
         printf("\n");
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
-    if (im->sectorSize != 0x400) {
+    if (im->sectorSize < 0x400 || im->sectorSize > 0x2000) {
         printf("Unsupported sector size: %"PRIu64"\n", im->sectorSize);
         exit(1);
     }
