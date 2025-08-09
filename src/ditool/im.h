@@ -121,7 +121,7 @@ struct im_t {
     char*             error;
 };
 
-struct im_t* diskimage_init(const char* path);
+struct im_t* diskimage_init(const char* path, bool nolabel);
 void diskimage_uninit(struct im_t* img);
 bool diskimage_valid(struct im_t* img);
 int diskimage_read(struct im_t* img, int64_t offset, int64_t size, void* data);
