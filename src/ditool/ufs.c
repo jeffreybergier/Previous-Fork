@@ -24,7 +24,7 @@ struct ufs_t* ufs_init(struct part_t* part) {
             struct ufs_super_block* superblock = (struct ufs_super_block*)sectors;
             if (ntohl(superblock->fs_magic) == FS_MAGIC &&
                 ntohl(superblock->fs_bsize) == 0x2000 &&
-                ntohl(superblock->fs_fsize) == 0x400
+                ntohl(superblock->fs_fsize) == part->im->sectorSize
                 ) {
                 ufs = (struct ufs_t*)malloc(sizeof(struct ufs_t));
                 memcpy(&ufs->superBlock, superblock, sizeof(ufs->superBlock));

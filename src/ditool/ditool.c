@@ -625,7 +625,7 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
     
     if (ufs) {
         if (outPath) {
-            ft = vfs_init(outPath, ufs_mountPoint(ufs));
+            ft = vfs_init(outPath, "/");
         }
         if (ft) {
             printf("---- copying '%s' partition %c to '%s'\n", im->path, part->letter, ft->base_path.host);
