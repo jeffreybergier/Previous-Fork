@@ -236,7 +236,6 @@ static void print_help(void) {
     printf("options:\n");
     printf("  -h          Print this help.\n");
     printf("  -im <file>  Raw disk image file to read from.\n");
-    printf("  -nolabel    Accept partition data without disk label.\n");
     printf("  -lsp        List partitions in disk image.\n");
     printf("  -p <letter> Partition {a|b|c|...} to work on.\n");
     printf("  -ls         List files in disk image.\n");
@@ -424,7 +423,7 @@ static void verify_attr_recr(struct ufs_t* ufs, struct skip_t* skip, uint32_t in
 #endif
             }
             if ((uint32_t)fstat.st_rdev != rdev && !ignore)
-                printf("rdev mismatch (act/exp) %d != %d %s\n", fstat.st_rdev, rdev, dirEntPath.vfs);
+                printf("rdev mismatch (act/exp) %d != %d %s\n", (int)fstat.st_rdev, rdev, dirEntPath.vfs);
         }
     }
     
@@ -724,7 +723,6 @@ int main(int argc, const char* argv[]) {
     }
     
     const char* imageFile = get_option(argv, argc, "-im");
-    bool        noLabel   = has_option(argv, argc, "-nolabel");
     bool        listParts = has_option(argv, argc, "-lsp");
     const char* partNum   = get_option(argv, argc, "-p");
     bool        listFiles = has_option(argv, argc, "-ls");
@@ -734,7 +732,7 @@ int main(int argc, const char* argv[]) {
     bool        netboot   = has_option(argv, argc, "-netboot");
     
     if (imageFile) {
-        struct im_t* im = diskimage_init(imageFile, noLabel);
+        struct im_t* im = diskimage_init(imageFile);
         if (!diskimage_valid(im)) {
             printf("Can't read '%s' (%s).\n", imageFile, im->error);
             diskimage_uninit(im);
