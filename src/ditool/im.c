@@ -20,17 +20,19 @@
 struct im_t* diskimage_init(const char* path) {
     struct im_t* im = (struct im_t*)malloc(sizeof(struct im_t));
     
-    im->imf = fopen(path, "rb");
-    im->error = NULL;
+    im->imf        = fopen(path, "rb");
+    im->error      = NULL;
+    im->parts      = NULL;
     im->diskOffset = 0;
-    im->blockSize = BLOCKSZ;
+    im->blockSize  = BLOCKSZ;
     im->rawOptical = false;
     im->sectorSize = 0;
-    im->path = path;
+    im->path       = path;
     if (im->imf == NULL) {
         im->error = strerror(errno);
         return im;
     }
+    memset(&im->dl, 0, sizeof(im->dl));
     
     diskimage_read(im, 0, sizeof(im->dl), &im->dl);
     if (strncmp(im->dl.dl_version, "NeXT", 4) &&
@@ -55,7 +57,6 @@ struct im_t* diskimage_init(const char* path) {
             im->blockSize  = BLOCKSZ;
             im->rawOptical = false;
             im->sectorSize = 0x400;
-            im->parts      = NULL;
             partition_init(0, im, NULL);
             return im;
         }
@@ -118,7 +119,6 @@ struct im_t* diskimage_init(const char* path) {
     }
     
     /* Add partitions */
-    im->parts = NULL;
     for (int p = 0; p < NPART; p++) {
         if (ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0 || ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0xffff)
             continue;

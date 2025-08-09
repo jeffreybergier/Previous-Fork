@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <ctype.h>
 #include <fcntl.h>
+#define __USE_XOPEN_EXTENDED 1 /* required for Linux */
 #include <ftw.h>
 
 #include "config.h"
