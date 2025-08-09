@@ -16,7 +16,7 @@
 #include "ufs.h"
 
 
-void partition_init(int part_num, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition) {
+void partition_init(int part_num, struct im_t* im, struct disk_partition* partition) {
     struct part_t** parts = &im->parts;
     while (*parts) {
         parts = &(*parts)->next;
@@ -25,7 +25,6 @@ void partition_init(int part_num, struct im_t* im, const struct disk_label* dl, 
     (*parts)->number = part_num;
     (*parts)->letter = 'a' + part_num;
     (*parts)->im     = im;
-    (*parts)->dl     = dl;
     (*parts)->part   = partition;
     (*parts)->next   = NULL;
 }
@@ -47,7 +46,7 @@ int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, 
     limit   = 0;
     offset  = 0;
     usable  = ntohs(dt->d_ag_size) - ntohs(dt->d_ag_alts);
-    sector += ntohl(part->part->p_base);
+    sector += part->part ? ntohl(part->part->p_base) : 0;
     
     do {
         if (usable) {
@@ -81,10 +80,12 @@ int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, 
 
 void partition_print(struct part_t* part) {
     struct ufs_t* ufs;
-    uint64_t size = ntohl(part->part->p_size);
-    size *= part->im->sectorSize;
-    size >>= 20;
-    printf("  Partition %c: %.*s %"PRIu64" MBytes\n", part->letter, MAXFSTLEN - 1, &part->part->p_type[1], size);
+    if (part->part) {
+        uint64_t size = ntohl(part->part->p_size);
+        size *= part->im->sectorSize;
+        size >>= 20;
+        printf("  Partition %c: %.*s %"PRIu64" MBytes\n", part->letter, MAXFSTLEN - 1, &part->part->p_type[1], size);
+    }
     ufs = ufs_init(part);
     if (ufs) {
         ufs_print(ufs);

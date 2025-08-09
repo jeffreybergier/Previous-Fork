@@ -23,12 +23,11 @@ struct part_t {
     int                      number;
     char                     letter;
     struct im_t*             im;
-    const struct disk_label* dl;
     struct disk_partition*   part;
     struct part_t*           next;
 };
 
-void partition_init(int part_num, struct im_t* im, const struct disk_label* dl, struct disk_partition* partition);
+void partition_init(int part_num, struct im_t* im, struct disk_partition* partition);
 void partition_uninit(struct part_t* part);
 int  partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, uint8_t* dst);
 void partition_print(struct part_t* part);

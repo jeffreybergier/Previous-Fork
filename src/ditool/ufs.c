@@ -18,7 +18,7 @@ const uint32_t BLOCK_INVALID = ~0;
 struct ufs_t* ufs_init(struct part_t* part) {
     struct ufs_t* ufs = NULL;
     
-    if (strncmp(&part->part->p_type[1], "4.3BSD", 6) == 0) {
+    if (part->part == NULL || strncmp(&part->part->p_type[1], "4.3BSD", 6) == 0) {
         uint8_t* sectors = (uint8_t*)malloc(8 * part->im->sectorSize);
         if (partition_readSectors(part, 8, 8, sectors) == 0) {
             struct ufs_super_block* superblock = (struct ufs_super_block*)sectors;

@@ -236,6 +236,7 @@ static void print_help(void) {
     printf("options:\n");
     printf("  -h          Print this help.\n");
     printf("  -im <file>  Raw disk image file to read from.\n");
+    printf("  -nolabel    Accept partition data without disk label.\n");
     printf("  -lsp        List partitions in disk image.\n");
     printf("  -p <letter> Partition {a|b|c|...} to work on.\n");
     printf("  -ls         List files in disk image.\n");
@@ -600,6 +601,8 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                     break;
                 default:
                     printf("WARNING: unknown format (%d) '%s'\n", ntohs(inode.ic_mode) & IFMT, dirEntPath.vfs);
+                    printf("ERROR: Suspecting corrupted image. Stopping.\n");
+                    exit(2);
                     break;
             }
             
@@ -721,6 +724,7 @@ int main(int argc, const char* argv[]) {
     }
     
     const char* imageFile = get_option(argv, argc, "-im");
+    bool        noLabel   = has_option(argv, argc, "-nolabel");
     bool        listParts = has_option(argv, argc, "-lsp");
     const char* partNum   = get_option(argv, argc, "-p");
     bool        listFiles = has_option(argv, argc, "-ls");
@@ -730,7 +734,7 @@ int main(int argc, const char* argv[]) {
     bool        netboot   = has_option(argv, argc, "-netboot");
     
     if (imageFile) {
-        struct im_t* im = diskimage_init(imageFile);
+        struct im_t* im = diskimage_init(imageFile, noLabel);
         if (!diskimage_valid(im)) {
             printf("Can't read '%s' (%s).\n", imageFile, im->error);
             diskimage_uninit(im);

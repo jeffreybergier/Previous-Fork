@@ -17,7 +17,7 @@
 #include "part.h"
 
 
-struct im_t* diskimage_init(const char* path) {
+struct im_t* diskimage_init(const char* path, bool nolabel) {
     struct im_t* im = (struct im_t*)malloc(sizeof(struct im_t));
     
     im->imf = fopen(path, "rb");
@@ -49,6 +49,17 @@ struct im_t* diskimage_init(const char* path) {
         if (strncmp(im->dl.dl_version, "NeXT", 4) &&
             strncmp(im->dl.dl_version, "dlV2", 4) &&
             strncmp(im->dl.dl_version, "dlV3", 4)) {
+            if (nolabel) {
+                printf("No disk label found. Partition data of type 4.3BSD is assumed.\n");
+                memset(&im->dl, 0, sizeof(im->dl));
+                im->diskOffset = 0;
+                im->blockSize  = BLOCKSZ;
+                im->rawOptical = false;
+                im->sectorSize = 0x400;
+                im->parts      = NULL;
+                partition_init(0, im, NULL);
+                return im;
+            }
             printf("Unknown version: %.4s\n", im->dl.dl_version);
             exit(1);
         }
@@ -104,6 +115,9 @@ struct im_t* diskimage_init(const char* path) {
         }
         printf("\n");
     }
+    if (nolabel) {
+        printf("Disk label found. Ignoring no label option.\n");
+    }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
     if (im->sectorSize != 0x400) {
         printf("Unsupported sector size: %"PRIu64"\n", im->sectorSize);
@@ -115,7 +129,7 @@ struct im_t* diskimage_init(const char* path) {
     for (int p = 0; p < NPART; p++) {
         if (ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0 || ntohs(im->dl.dl_dt.d_partitions[p].p_bsize) == 0xffff)
             continue;
-        partition_init(p, im, &im->dl, &im->dl.dl_dt.d_partitions[p]);
+        partition_init(p, im, &im->dl.dl_dt.d_partitions[p]);
     }
     return im;
 }
@@ -206,14 +220,18 @@ bool diskimage_valid(struct im_t* im) {
 }
 
 void diskimage_print(struct im_t* im) {
-    uint64_t size = im->sectorSize;
     struct part_t* part = im->parts;
-    size *= ntohl(im->dl.dl_dt.d_ntracks);
-    size *= ntohl(im->dl.dl_dt.d_nsectors);
-    size *= ntohl(im->dl.dl_dt.d_ncylinders);
-    size >>= 20;
-    printf("Disk '%.*s' '%.*s' '%.*s' %"PRIu64" MBytes\n", MAXDNMLEN, im->dl.dl_dt.d_name, MAXLBLLEN, im->dl.dl_label, MAXTYPLEN, im->dl.dl_dt.d_type, size);
-    printf("  Sector size: %"PRIu64" Bytes\n\n", im->sectorSize);
+    if (im->dl.dl_version[0]) {
+        uint64_t size = im->sectorSize;
+        size *= ntohl(im->dl.dl_dt.d_ntracks);
+        size *= ntohl(im->dl.dl_dt.d_nsectors);
+        size *= ntohl(im->dl.dl_dt.d_ncylinders);
+        size >>= 20;
+        printf("Disk '%.*s' '%.*s' %"PRIu64" MBytes\n", MAXDNMLEN, im->dl.dl_dt.d_name, MAXTYPLEN, im->dl.dl_dt.d_type, size);
+        printf("  Version:     '%.*s'\n", 4, im->dl.dl_version);
+        printf("  Label:       '%.*s'\n", MAXLBLLEN, im->dl.dl_label);
+        printf("  Sector size: %"PRIu64" Bytes\n\n", im->sectorSize);
+    }
     while (part) {
         partition_print(part);
         part = part->next;
