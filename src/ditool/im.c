@@ -17,6 +17,10 @@
 #include "part.h"
 
 
+static bool label_valid(const char* v) {
+    return strncmp(v, "dlV3", 4) == 0 || strncmp(v, "dlV2", 4) == 0 || strncmp(v, "NeXT", 4) == 0;
+}
+
 struct im_t* diskimage_init(const char* path) {
     struct im_t* im = (struct im_t*)malloc(sizeof(struct im_t));
     
@@ -34,88 +38,107 @@ struct im_t* diskimage_init(const char* path) {
     }
     memset(&im->dl, 0, sizeof(im->dl));
     
-    diskimage_read(im, 0, sizeof(im->dl), &im->dl);
-    if (strncmp(im->dl.dl_version, "NeXT", 4) &&
-        strncmp(im->dl.dl_version, "dlV2", 4) &&
-        strncmp(im->dl.dl_version, "dlV3", 4)) {
-        im->diskOffset = MO_BLOCK0;
-        im->blockSize  = MO_BLOCKSZ;
-        im->rawOptical = true;
+    if (diskimage_read(im, 0, sizeof(im->dl), &im->dl)) {
+        im->error = "Reading disk label failed";
+        return im;
+    }
+    if (label_valid(im->dl.dl_version) == false) {
+        im->diskOffset = 46;
         
-        memset(im->bbt, 0, sizeof(im->bbt));
-        memset(im->bm, 0, sizeof(im->bm));
-        im->bbt_size = 0;
-        im->spa      = 1;
-        
-        diskimage_read(im, 0, sizeof(im->dl), &im->dl);
-        if (strncmp(im->dl.dl_version, "NeXT", 4) &&
-            strncmp(im->dl.dl_version, "dlV2", 4) &&
-            strncmp(im->dl.dl_version, "dlV3", 4)) {
-            printf("No valid disk label found (%.4s). Partition data of type 4.3BSD is assumed.\n", im->dl.dl_version);
-            memset(&im->dl, 0, sizeof(im->dl));
-            im->diskOffset = 0;
-            im->blockSize  = BLOCKSZ;
-            im->rawOptical = false;
-            im->sectorSize = 0x400;
-            partition_init(0, im, NULL);
+        if (diskimage_read(im, 0, sizeof(im->dl), &im->dl)) {
+            im->error = "Reading disk label failed";
             return im;
         }
-        printf("Magneto-optical disk detected\n");
-        
-        if (strncmp(im->dl.dl_version, "NeXT", 4)) {
-            im->spa = 1;
-        } else {
-            im->spa = ntohl(im->dl.dl_dt.d_nsectors) >> 1;
-        }
-        if (im->spa < 1) {
-            printf("Bad number of sectors per alternate\n");
-            im->spa = 1;
-        }
-        
-        im->apag = ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
-        if (im->apag < 1) {
-            printf("Bad number of alternates per alternate group\n");
-            im->apag = 1;
-        }
-        
-        if (strncmp(im->dl.dl_version, "dlV3", 4)) {
-            im->bbt_off  = 558;
-            im->bbt_size = 1670;
-        } else {
-            im->bbt_off  = 4*BLOCKSZ;
-            im->bbt_size = 3*BLOCKSZ;
-        }
-        diskimage_read(im, im->bbt_off, im->bbt_size * sizeof(uint32_t), im->bbt);
-        
-        im->bm_off  = 16*BLOCKSZ;
-        im->bm_size = 16*BLOCKSZ;
-        diskimage_read(im, im->bm_off, im->bm_size * sizeof(uint32_t), im->bm);
-        
-        int bad = 0;
-        for (int i = 0; i < im->bbt_size; i++) {
-            if (im->bbt[i] == 0xFFFFFFFF) {
-                im->bbt_size = i;
-                break;
+        if (label_valid(im->dl.dl_version) == false) {
+            im->diskOffset = MO_BLOCK0;
+            im->blockSize  = MO_BLOCKSZ;
+            im->rawOptical = true;
+            
+            memset(im->bbt, 0, sizeof(im->bbt));
+            memset(im->bm, 0, sizeof(im->bm));
+            im->bbt_size = 0;
+            im->spa      = 1;
+            
+            diskimage_read(im, 0, sizeof(im->dl), &im->dl);
+            if (label_valid(im->dl.dl_version) == false) {
+                printf("No valid disk label found (%.4s).\n", im->dl.dl_version);
+                memset(&im->dl, 0, sizeof(im->dl));
+                im->diskOffset = 0;
+                im->blockSize  = BLOCKSZ;
+                im->rawOptical = false;
+                im->sectorSize = 0x400;
+                printf("Partition data of type 4.3BSD with %"PRIu64" Byte sectors is assumed.\n\n", im->sectorSize);
+                partition_init(0, im, NULL);
+                return im;
+            } else {
+                int bad = 0;
+                
+                printf("Magneto-optical disk detected\n");
+                
+                if (strncmp(im->dl.dl_version, "NeXT", 4)) {
+                    im->spa = 1;
+                } else {
+                    im->spa = ntohl(im->dl.dl_dt.d_nsectors) >> 1;
+                }
+                if (im->spa < 1) {
+                    printf("Bad number of sectors per alternate\n");
+                    im->spa = 1;
+                }
+                
+                im->apag = ntohs(im->dl.dl_dt.d_ag_alts) / im->spa;
+                if (im->apag < 1) {
+                    printf("Bad number of alternates per alternate group\n");
+                    im->apag = 1;
+                }
+                
+                if (strncmp(im->dl.dl_version, "dlV3", 4)) {
+                    im->bbt_off  = 558;
+                    im->bbt_size = 1670;
+                } else {
+                    im->bbt_off  = 4*BLOCKSZ;
+                    im->bbt_size = 3*BLOCKSZ;
+                }
+                if (diskimage_read(im, im->bbt_off, im->bbt_size * sizeof(uint32_t), im->bbt)) {
+                    im->error = "Reading bad block table failed";
+                    return im;
+                }
+                
+                im->bm_off  = 16*BLOCKSZ;
+                im->bm_size = 16*BLOCKSZ;
+                if (diskimage_read(im, im->bm_off, im->bm_size * sizeof(uint32_t), im->bm)) {
+                    im->error = "Reading bitmap failed";
+                    return im;
+                }
+                
+                for (int i = 0; i < im->bbt_size; i++) {
+                    if (im->bbt[i] == 0xFFFFFFFF) {
+                        im->bbt_size = i;
+                        break;
+                    }
+                    if (im->bbt[i] > 0) {
+                        bad++;
+                    }
+                }
+                if (bad > 0) {
+                    bad *= im->spa;
+                    printf("Disk has %d bad blocks\n", bad);
+                    printf("Label: %.4s\n", im->dl.dl_version);
+                    printf("%d entries in bad block table\n", im->bbt_size);
+                    printf("%d alternate groups of %d sectors each\n", ntohs(im->dl.dl_dt.d_ngroups), ntohs(im->dl.dl_dt.d_ag_size));
+                    printf("%d sectors per alternate group at offset %d\n", ntohs(im->dl.dl_dt.d_ag_alts), ntohs(im->dl.dl_dt.d_ag_off));
+                    printf("%d alternates per alternate group with %d sectors per alternate\n", im->apag, im->spa);
+                }
+                printf("\n");
             }
-            if (im->bbt[i] > 0) {
-                bad++;
-            }
+        } else {
+            printf("DiskCopyII image detected. Skipping header.\n\n");
         }
-        if (bad > 0) {
-            bad *= im->spa;
-            printf("Disk has %d bad blocks\n", bad);
-            printf("Label: %.4s\n", im->dl.dl_version);
-            printf("%d entries in bad block table\n", im->bbt_size);
-            printf("%d alternate groups of %d sectors each\n", ntohs(im->dl.dl_dt.d_ngroups), ntohs(im->dl.dl_dt.d_ag_size));
-            printf("%d sectors per alternate group at offset %d\n", ntohs(im->dl.dl_dt.d_ag_alts), ntohs(im->dl.dl_dt.d_ag_off));
-            printf("%d alternates per alternate group with %d sectors per alternate\n", im->apag, im->spa);
-        }
-        printf("\n");
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
     if (im->sectorSize < 0x400 || im->sectorSize > 0x2000) {
-        printf("Unsupported sector size: %"PRIu64"\n", im->sectorSize);
-        exit(1);
+        printf("Sector size: %"PRIu64"\n", im->sectorSize);
+        im->error = "Unsupported sector size";
+        return im;
     }
     
     /* Add partitions */
@@ -174,8 +197,9 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
                             reserve += ntohs(im->dl.dl_dt.d_front);
                             
                             printf("Mapping bad block %"PRId64" to %"PRId64"\n", block, reserve);
-                            diskimage_read(im, reserve * BLOCKSZ, BLOCKSZ, buffer);
-                            mappedBlock = true;
+                            if (diskimage_read(im, reserve * BLOCKSZ, BLOCKSZ, buffer) == ERR_NO) {
+                                mappedBlock = true;
+                            }
                             break;
                         }
                     }
@@ -194,7 +218,7 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
         }
         if (bytesRead != im->blockSize) {
             result = ferror(im->imf) ? ERR_FAIL : ERR_EOF;
-            printf("Can't read %"PRId64" bytes at offset %"PRId64"\n", size, offset);
+            printf("Can't read %"PRId64" bytes at offset %"PRId64".\n", size, offset);
             break;
         }
         memcpy(dataPtr, buffer + blockOff, rdSize);

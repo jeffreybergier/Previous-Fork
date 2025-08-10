@@ -118,7 +118,7 @@ struct im_t {
     struct part_t*    parts;
     uint64_t          sectorSize;
     const char*       path;
-    char*             error;
+    const char*       error;
 };
 
 struct im_t* diskimage_init(const char* path);
