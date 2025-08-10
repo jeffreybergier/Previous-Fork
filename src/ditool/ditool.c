@@ -485,7 +485,8 @@ static bool do_print(const char* type, const char* listType, bool doPrint, bool 
     return doPrint;
 }
 
-static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft, bool listFiles, const char* listType) {
+static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, struct skip_t** skip, uint32_t ino, const char* path, struct vfs_t* ft, bool listFiles, const char* listType) {
+    int status = ERR_NO;
     struct dirlist_t* dirlist = ufs_list(ufs, ino);
     struct dirlist_t* entry = dirlist;
     
@@ -563,7 +564,7 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                         if (doPrint) printf("%s\n", dirEntPath.vfs);
                         doPrint = false;
                         if (ft) vfs_mkdir(&dirEntPath);
-                        process_inodes_recr(ufs, inode2path, skip, ntohl(dirEnt->d_inonum), dirEntPath.vfs, ft, listFiles, listType);
+                        status = process_inodes_recr(ufs, inode2path, skip, ntohl(dirEnt->d_inonum), dirEntPath.vfs, ft, listFiles, listType);
                     }
                     break;
                 case IFBLK:       /* block special */
@@ -577,10 +578,11 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                         if (file_is_open(file)) {
                             uint32_t size = ntohl(inode.ic_size);
                             uint8_t* buffer = (uint8_t*)malloc(size);
-                            ufs_readFile(ufs, &inode, 0, size, buffer);
-                            if (file_write(file, 0, buffer, size) != size) {
-                                printf("Error while writing '%s'\n", dirEntPath.vfs);
-                                exit(1);
+                            if (ufs_readFile(ufs, &inode, 0, size, buffer) == ERR_NO) {
+                                if (file_write(file, 0, buffer, size) != size) {
+                                    printf("Error while writing '%s'. Stopping.\n", dirEntPath.vfs);
+                                    status = ERR_FAIL;
+                                }
                             }
                             file_close(&dirEntPath, file);
                             free(buffer);
@@ -600,11 +602,14 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
                     if (ft) vfs_touch(&dirEntPath);
                     break;
                 default:
-                    printf("WARNING: unknown format (%d) '%s'\n", ntohs(inode.ic_mode) & IFMT, dirEntPath.vfs);
-                    printf("ERROR: Suspecting corrupted image. Stopping.\n");
-                    exit(2);
+                    printf("Unknown format (0%06o) for '%s'.\n", ntohs(inode.ic_mode) & IFMT, dirEntPath.vfs);
+                    printf("Suspecting corrupted image. Stopping.\n");
+                    status = ERR_FAIL;
                     break;
             }
+            
+            if (status)
+                break;
             
             if (doPrint)
                 printf("%s\n", dirEntPath.vfs);
@@ -612,6 +617,8 @@ static void process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, st
     }
     
     dirlist_delete(dirlist);
+    
+    return status;
 }
 
 static void dump_part(struct im_t* im, struct part_t* part, const char* outPath, bool listFiles, const char* listType) {
@@ -629,14 +636,15 @@ static void dump_part(struct im_t* im, struct part_t* part, const char* outPath,
         }
         if (ft) {
             printf("---- copying '%s' partition %c to '%s'\n", im->path, part->letter, ft->base_path.host);
-            process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType);
-            printf("---- setting file attributes for NFSD\n");
-            set_attrs_inode(ufs, ROOTINO, "", ft);
-            set_attrs_recr(ufs, skip, ROOTINO, "", ft);
-            printf("---- verifying inode structure\n");
-            verify_inodes_recr(ufs, inode2inode, skip, ROOTINO, "", ft);
-            printf("---- verifying file attributes and sizes\n");
-            verify_attr_recr(ufs, skip, ROOTINO, "", ft);
+            if (process_inodes_recr(ufs, inode2path, &skip, ROOTINO, "", ft, listFiles, listType) == ERR_NO) {
+                printf("---- setting file attributes for NFSD\n");
+                set_attrs_inode(ufs, ROOTINO, "", ft);
+                set_attrs_recr(ufs, skip, ROOTINO, "", ft);
+                printf("---- verifying inode structure\n");
+                verify_inodes_recr(ufs, inode2inode, skip, ROOTINO, "", ft);
+                printf("---- verifying file attributes and sizes\n");
+                verify_attr_recr(ufs, skip, ROOTINO, "", ft);
+            }
             ft = vfs_uninit(ft);
         } else {
             printf("---- listing '%s' partition %c\n", im->path, part->letter);

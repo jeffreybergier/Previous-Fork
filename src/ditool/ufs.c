@@ -39,7 +39,7 @@ struct ufs_t* ufs_init(struct part_t* part) {
                     ufs->cacheBlockNo[i] = BLOCK_INVALID;
                 }
             } else {
-                printf("No valid file system found (%X).\n", ntohl(superblock->fs_magic));
+                printf("No valid file system found (%X).\n", (uint32_t)ntohl(superblock->fs_magic));
             }
         } else {
             printf("Can't read super block.\n");
