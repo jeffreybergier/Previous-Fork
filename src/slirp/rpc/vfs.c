@@ -463,6 +463,7 @@ int vfs_stat(const struct path_t* path, struct stat* fstat) {
 #endif
 }
 
+#if HAVE_SYS_XATTR_H
 const char* NFSD_ATTRS = ".nfsd_fattrs";
 
 static void deserialize(const char* buffer, struct sattr_t* sattr) {
@@ -472,8 +473,10 @@ static void deserialize(const char* buffer, struct sattr_t* sattr) {
 static void serialize(const struct sattr_t* sattr, char* buffer) {
     snprintf(buffer, 128, "0%o:%d:%d:%d", sattr->mode, sattr->uid, sattr->gid, sattr->rdev);
 }
+#endif
 
 void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr) {
+#if HAVE_SYS_XATTR_H
     char buffer[128];
     const char* fname = vfs_get_filename(path->vfs);
     
@@ -481,7 +484,6 @@ void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
     (void)fname; /* may be unused */
     
     serialize(sattr, buffer);
-#if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
     if (lsetxattr(path->host, NFSD_ATTRS, buffer, strlen(buffer), 0) != 0)
 #else
@@ -492,9 +494,9 @@ void vfs_set_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
 }
 
 void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t* sattr) {
+#if HAVE_SYS_XATTR_H
     char buffer[128];
     memset(buffer, 0, sizeof(buffer));
-#if HAVE_SYS_XATTR_H
 #if HAVE_LXETXATTR
     if (lgetxattr(path->host, NFSD_ATTRS, buffer, sizeof(buffer)) == 0)
 #else
@@ -518,6 +520,7 @@ void vfs_get_sattr(struct vfs_t* vfs, const struct path_t* path, struct sattr_t*
 }
 
 /* ----- file handle */
+#ifndef _WIN32
 static uint64_t rotl(uint64_t x, int n) {
     return (x << n) | (x >> (64 - n));
 }
@@ -528,6 +531,7 @@ static uint64_t make_file_handle(struct stat* fstat) {
     if (result == 0) result = ~result;
     return result;
 }
+#endif
 
 uint64_t vfs_get_fhandle(const struct path_t* path) {
     struct stat fstat;
