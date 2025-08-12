@@ -41,15 +41,14 @@ void partition_uninit(struct part_t* parts) {
 int partition_readSectors(struct part_t* part, uint32_t sector, uint32_t count, uint8_t* dst) {
     int result;
     int64_t size, usable, limit, offset;
+    bool optical = part->im->rawOptical;
     const struct disktab* dt = &part->im->dl.dl_dt;
     
-    limit   = 0;
-    offset  = 0;
     usable  = ntohs(dt->d_ag_size) - ntohs(dt->d_ag_alts);
     sector += part->part ? ntohl(part->part->p_base) : 0;
     
     do {
-        if (usable) {
+        if (usable && optical) {
             offset = sector % usable;
             if (offset >= ntohs(dt->d_ag_off))
                 offset += ntohs(dt->d_ag_alts);
