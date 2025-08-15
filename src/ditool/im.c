@@ -15,7 +15,11 @@
 #include "rs.h"
 #include "im.h"
 #include "part.h"
+#include "ufs.h"
 
+
+#define SECTOR_SIZE_MIN (1 << 10) /* 1024 */
+#define SECTOR_SIZE_MAX (1 << 13) /* 8192 */
 
 static bool label_valid(const char* v) {
     return strncmp(v, "dlV3", 4) == 0 || strncmp(v, "dlV2", 4) == 0 || strncmp(v, "NeXT", 4) == 0;
@@ -61,14 +65,25 @@ struct im_t* diskimage_init(const char* path) {
             
             diskimage_read(im, 0, sizeof(im->dl), &im->dl);
             if (label_valid(im->dl.dl_version) == false) {
+                struct ufs_t* ufs = NULL;
                 printf("No valid disk label found.\n");
                 memset(&im->dl, 0, sizeof(im->dl));
+                partition_init(0, im, NULL);
                 im->diskOffset = 0;
                 im->blockSize  = BLOCKSZ;
                 im->rawOptical = false;
-                im->sectorSize = 0x400;
-                printf("Partition data of type 4.3BSD with %"PRIu64" Byte sectors is assumed.\n\n", im->sectorSize);
-                partition_init(0, im, NULL);
+                im->sectorSize = SECTOR_SIZE_MIN;
+                do {
+                    printf("Looking for partition data. Trying %"PRIu64" Byte sectors.\n", im->sectorSize);
+                    if ((ufs = ufs_init(im->parts))) {
+                        printf("Found partition data of type 4.3BSD with %"PRIu64" Byte sectors.\n\n", im->sectorSize);
+                        ufs_uninit(ufs);
+                        return im;
+                    }
+                    im->sectorSize <<= 1;
+                } while (im->sectorSize <= SECTOR_SIZE_MAX);
+                
+                im->error = "No valid file system";
                 return im;
             } else {
                 int bad = 0;
@@ -135,7 +150,7 @@ struct im_t* diskimage_init(const char* path) {
         }
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
-    if (im->sectorSize < 0x400 || im->sectorSize > 0x2000 || (im->rawOptical && im->sectorSize != 0x400)) {
+    if (im->sectorSize < SECTOR_SIZE_MIN || im->sectorSize > SECTOR_SIZE_MAX || (im->rawOptical && im->sectorSize != 0x400)) {
         printf("Sector size: %"PRIu64"\n", im->sectorSize);
         im->error = "Unsupported sector size";
         return im;
