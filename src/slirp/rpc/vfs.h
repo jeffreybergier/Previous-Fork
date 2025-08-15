@@ -81,19 +81,6 @@ struct path_t {
     char host[FILENAME_MAX];
 };
 
-struct file_t {
-    struct stat fstat;
-    int restore_stat;
-    FILE* file;
-};
-
-struct file_t* file_open(const struct path_t* path, const char* mode);
-void file_close(const struct path_t* path, struct file_t* file);
-size_t file_read(struct file_t* file, size_t fileOffset, void* dst, size_t count);
-size_t file_write(struct file_t* file, size_t fileOffset, void* src, size_t count);
-int file_is_open(struct file_t* file);
-
-
 struct vfs_t {
     struct path_t base_path;
     
@@ -126,7 +113,7 @@ uint64_t vfs_get_fhandle(const struct path_t* path);
 int vfs_readlink(const struct path_t* path, struct path_t* result);
 int vfs_read(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t* len);
 int vfs_write(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t len);
-int vfs_touch(const struct path_t* path);
+int vfs_create(const struct path_t* path, uint8_t* data, uint32_t len);
 int vfs_remove(const struct path_t* path);
 int vfs_rename(const struct path_t* path_from, const struct path_t* path_to);
 int vfs_link(const struct path_t* path_from, const struct path_t* path_to, int soft);

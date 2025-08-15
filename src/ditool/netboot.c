@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/stat.h>
 
 #include "config.h"
 #include "netboot.h"
@@ -22,9 +22,9 @@
 #define GET_EXTRA(n,s) (2+(n)*((s)+1))
 
 static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* size, size_t* maxsize, size_t extra, int silent) {
-    void* buf = NULL;
     struct path_t file_path;
     int err;
+    void* buf = NULL;
     
     vfscpy(file_path.vfs, path, sizeof(file_path.vfs));
     vfs_to_host_path(ft, &file_path);
@@ -33,32 +33,29 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* siz
     if (err) {
         if (!silent) printf("       ! cannot access '%s' (%s)\n", file_path.host, strerror(err));
     } else {
-        struct file_t* file = file_open(&file_path, "rb");
-        if (file_is_open(file)) {
-            long filesize;
-            fseek(file->file, 0, SEEK_END);
-            filesize = ftell(file->file);
-            if (filesize < 0) {
-                printf("       ! cannot get size of '%s' (%s)\n", file_path.host, strerror(errno));
-            } else if (filesize > (1024 * 1024)) {
+        struct stat fstat;
+        err = vfs_stat(&file_path, &fstat);
+        if (err) {
+            printf("       ! cannot stat '%s' (%s)\n", file_path.host, strerror(err));
+        } else {
+            size_t filesize = (size_t)fstat.st_size;
+            if (filesize > (1024 * 1024)) {
                 printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
             } else {
-                *size = (size_t)filesize;
-                *maxsize = (size_t)filesize + extra;
+                *size = filesize;
+                *maxsize = filesize + extra;
                 buf = calloc(1, *maxsize);
                 if (filesize > 0) {
-                    size_t readsize = file_read(file, 0, buf, filesize);
-                    if (readsize != (size_t)filesize || (extra && readsize != strlen(buf))) {
-                        const char* errstr = (readsize != (size_t)filesize) ? strerror(errno) : "invalid data";
+                    uint32_t readsize = (uint32_t)filesize;
+                    err = vfs_read(&file_path, 0, buf, &readsize);
+                    if (err || (size_t)readsize != filesize || (extra && strlen(buf) != filesize)) {
+                        const char* errstr = err ? strerror(err) : ((size_t)readsize != filesize ? "Short read" : "Invalid data");
                         printf("       ! cannot read '%s' (%s)\n", file_path.host, errstr);
                         free(buf);
                         buf = NULL;
                     }
                 }
             }
-            file_close(&file_path, file);
-        } else {
-            printf("       ! cannot open '%s' (%s)\n", file_path.host, strerror(errno));
         }
     }
     return buf;
@@ -66,19 +63,14 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* siz
 
 static void write_buffer_to_file(struct vfs_t* ft, const char* path, void* buf, size_t size) {
     struct path_t file_path;
-    struct file_t* file;
+    int err;
     
     vfscpy(file_path.vfs, path, sizeof(file_path.vfs));
     vfs_to_host_path(ft, &file_path);
-
-    file = file_open(&file_path, "wb");
-    if (file_is_open(file)) {
-        if (file_write(file, 0, buf, size) != size) {
-            printf("       ! cannot write '%s' (%s)\n", file_path.host, strerror(errno));
-        }
-        file_close(&file_path, file);
-    } else {
-        printf("       ! cannot open '%s' (%s)\n", file_path.host, strerror(errno));
+    
+    err = vfs_create(&file_path, buf, (uint32_t)size);
+    if (err) {
+        printf("       ! cannot write '%s' (%s)\n", file_path.host, strerror(err));
     }
     free(buf);
 }
