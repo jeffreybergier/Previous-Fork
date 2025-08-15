@@ -441,9 +441,8 @@ static int proc_read(struct rpc_t* rpc) {
         skip = (1 + 17 + 1) * 4; /* status + fattr + count */
         if (xdr_write_check(m_out, skip + count) < 0) {
             count = 0;
-        } else if (vfs_read(&path, offset, data + skip, &count) < 0) {
-            status = nfs_err(errno);
-            count = 0;
+        } else {
+            status = nfs_err(vfs_read(&path, offset, data + skip, &count));
         }
     }
     xdr_write_long(m_out, status);
@@ -488,9 +487,7 @@ static int proc_write(struct rpc_t* rpc) {
     if (status == NFS_OK) {
         ft_get_sattr(rpc->ft, &path, &sattr);
         if ((sattr.mode & S_IFMT) == S_IFREG) {
-            if (vfs_write(&path, offset, data, len) < 0) {
-                status = nfs_err(errno);
-            }
+            status = nfs_err(vfs_write(&path, offset, data, len));
         } else {
             status = NFSERR_ISDIR;
         }
@@ -531,9 +528,7 @@ static int proc_create(struct rpc_t* rpc) {
         
         /* if file does not exist or must be truncated (sattr.size == 0) */
         if (vfs_access(&path, F_OK) != 0 || sattr.size == 0) {
-            if (vfs_touch(&path) < 0) {
-                status = nfs_err(errno);
-            }
+            status = nfs_err(vfs_create(&path, NULL, 0));
         }
     }
     

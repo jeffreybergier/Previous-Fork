@@ -214,11 +214,6 @@ void vfs_path_canonicalize(char* vfs_path) {
     assert(strstr(vfsPath, "/../") == NULL);
 }
 
-static const char* vfs_get_filename(const char* vfs_path) {
-    char* sep = strrchr(vfs_path, '/');
-    return sep ? (sep + 1) : vfs_path;
-}
-
 static void vfs_get_parent_path(const char* vfs_path, char* parent_path) {
     char* sep;
     strcpy(parent_path, vfs_path);
@@ -319,7 +314,13 @@ static int host_path_is_directory(const char* host_path) {
 
 
 /*----- file io */
-struct file_t* file_open(const struct path_t* path, const char* mode) {
+struct file_t {
+    struct stat fstat;
+    int restore_stat;
+    FILE* file;
+};
+
+static struct file_t* file_open(const struct path_t* path, const char* mode) {
     struct file_t* file = (struct file_t*)malloc(sizeof(struct file_t));
     
     file->restore_stat = 0;
@@ -333,7 +334,7 @@ struct file_t* file_open(const struct path_t* path, const char* mode) {
     return file;
 }
 
-void file_close(const struct path_t* path, struct file_t* file) {
+static void file_close(const struct path_t* path, struct file_t* file) {
     if (file->restore_stat) {
         vfs_chmod(path, file->fstat.st_mode);
         struct timeval times[2];
@@ -354,18 +355,20 @@ void file_close(const struct path_t* path, struct file_t* file) {
     free(file);
 }
 
-size_t file_read(struct file_t* file, size_t fileOffset, void* dst, size_t count) {
-    fseek(file->file, fileOffset, SEEK_SET);
+static int file_is_open(struct file_t* file) {
+    return file->file == NULL ? errno : 0;
+}
+
+static int file_seek(struct file_t* file, long offset) {
+    return fseek(file->file, offset, SEEK_SET) < 0 ? errno : 0;
+}
+
+static size_t file_read(struct file_t* file, void* dst, size_t count) {
     return fread(dst, sizeof(uint8_t), count, file->file);
 }
 
-size_t file_write(struct file_t* file, size_t fileOffset, void* src, size_t count) {
-    fseek(file->file, fileOffset, SEEK_SET);
+static size_t file_write(struct file_t* file, void* src, size_t count) {
     return fwrite(src, sizeof(uint8_t), count, file->file);
-}
-
-int file_is_open(struct file_t* file) {
-    return file->file != NULL;
 }
 
 /*----- file attributes */
@@ -472,6 +475,11 @@ static void deserialize(const char* buffer, struct sattr_t* sattr) {
 
 static void serialize(const struct sattr_t* sattr, char* buffer) {
     snprintf(buffer, 128, "0%o:%d:%d:%d", sattr->mode, sattr->uid, sattr->gid, sattr->rdev);
+}
+
+static const char* vfs_get_filename(const char* vfs_path) {
+    char* sep = strrchr(vfs_path, '/');
+    return sep ? (sep + 1) : vfs_path;
 }
 #endif
 
@@ -598,41 +606,42 @@ int vfs_readlink(const struct path_t* path, struct path_t* result) {
 }
 
 int vfs_read(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t* len) {
-    int retval;
+    int err = 0;
     struct file_t* file = file_open(path, "rb");
-    if (file_is_open(file)) {
-        *len = (uint32_t)file_read(file, offset, data, *len);
-        retval = 1;
-    } else {
-        retval = -1;
+    err = file_is_open(file);
+    if (err == 0) {
+        err = file_seek(file, offset);
+        if (err == 0) {
+            *len = (uint32_t)file_read(file, data, *len);
+        }
     }
     file_close(path, file);
-    return retval;
+    return err;
 }
 
 int vfs_write(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_t len) {
-    int retval;
+    int err;
     struct file_t* file = file_open(path, "r+b");
-    if (file_is_open(file)) {
-        file_write(file, offset, data, len);
-        retval = 1;
-    } else {
-        retval = -1;
+    err = file_is_open(file);
+    if (err == 0) {
+        err = file_seek(file, offset);
+        if (err == 0) {
+            file_write(file, data, len);
+        }
     }
     file_close(path, file);
-    return retval;
+    return err;
 }
 
-int vfs_touch(const struct path_t* path) {
+int vfs_create(const struct path_t* path, uint8_t* data, uint32_t len) {
+    int err = 0;
     struct file_t* file = file_open(path, "wb");
-    int retval = 0;
-    if (file_is_open(file)) {
-        retval = 1;
-    } else {
-        retval = -1;
+    err = file_is_open(file);
+    if (data && err == 0) {
+        file_write(file, data, len);
     }
     file_close(path, file);
-    return retval;
+    return err;
 }
 
 int vfs_remove(const struct path_t* path) {

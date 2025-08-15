@@ -501,40 +501,41 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
         
         if (ufs_readInode(ufs, &inode, ntohl(dirEnt->d_inonum)) == ERR_NO) {
             char* found_path;
+            int err = 0;
             bool doPrint = listFiles;
             bool forcePrint = false;
             
             if (!(ignore_name(dirEnt->d_name)) || strcmp(dirEntPath.vfs, "/") == 0) {
-                if (ft && vfs_access(&dirEntPath, F_OK) == 0) {
-                    struct stat fstat;
-                    
+                struct stat fstat;
+
+                if (ft && vfs_stat(&dirEntPath, &fstat) == 0) {
                     if ((ntohs(inode.ic_mode) & IFMT) == IFLNK) {
                         char* link = ufs_readlink(ufs, &inode);
                         if (strcasecmp(link, dirEnt->d_name) == 0) {
-                            printf("New file '%s' is link pointing to variant, skipping\n", dirEntPath.vfs);
+                            printf("New file '%s' is link pointing to variant, skipping.\n", dirEntPath.vfs);
                             skip_add(skip, dirEntPath.vfs);
                             continue;
                         }
                     }
 #ifndef _WIN32
-                    vfs_stat(&dirEntPath, &fstat);
                     if (S_ISLNK(fstat.st_mode)) {
                         struct path_t link;
                         vfs_readlink(&dirEntPath, &link);
+                        vfs_to_vfs_path(ft, &link);
                         if (strcasecmp(link.vfs, dirEnt->d_name) == 0) {
                             struct path_t tmp;
-                            printf("Existing file '%s' is link pointing to variant, removing link\n", dirEntPath.vfs);
+                            printf("Existing file '%s' is link pointing to variant, removing link.\n", dirEntPath.vfs);
                             vfs_remove(&dirEntPath);
                             make_path(path, link.vfs, &tmp, NULL);
                             skip_add(skip, tmp.vfs);
                         }
-                    } else
+                    }
 #endif
-                        if (strcmp(dirEntPath.vfs, "/")) {
-                            printf("WARNING: file '%s' (%s) already exists, skipping.\n", dirEntPath.vfs, dirEntPath.host);
-                            skip_add(skip, dirEntPath.vfs);
-                            continue;
-                        }
+                    if (vfs_stat(&dirEntPath, &fstat) == 0 && strcmp(dirEntPath.vfs, "/")) {
+                        printf("WARNING: file '%s' (%s) already exists, skipping.\n", dirEntPath.vfs, dirEntPath.host);
+                        skip_add(skip, dirEntPath.vfs);
+                        continue;
+                    }
                 }
                 
                 found_path = i2p_find(inode2path, ntohl(dirEnt->d_inonum));
@@ -543,7 +544,7 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
                     make_path(found_path, NULL, &path_from, ft);
                     if ((doPrint = do_print("HLINK", listType, doPrint, forcePrint))) printf("[HLINK] %s <- ", found_path);
                     forcePrint = doPrint;
-                    if (ft) vfs_link(&path_from, &dirEntPath, 0);
+                    if (ft) err = vfs_link(&path_from, &dirEntPath, 0);
                 } else {
                     i2p_add(inode2path, ntohl(dirEnt->d_inonum), dirEntPath.vfs);
                 }            
@@ -552,41 +553,34 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
             switch (ntohs(inode.ic_mode) & IFMT) {
                 case IFIFO:       /* named pipe (fifo) */
                     if ((doPrint = do_print("FIFO", listType, doPrint, forcePrint))) printf("[FIFO]  ");
-                    if (ft) vfs_touch(&dirEntPath);
+                    if (ft) err = vfs_create(&dirEntPath, NULL, 0);
                     break;
                 case IFCHR:       /* character special */
                     if ((doPrint = do_print("CHAR", listType, doPrint, forcePrint))) printf("[CHAR]  ");
-                    if (ft) vfs_touch(&dirEntPath);
+                    if (ft) err = vfs_create(&dirEntPath, NULL, 0);
                     break;
                 case IFDIR:       /* directory */
                     if ((doPrint = do_print("DIR", listType, doPrint, forcePrint))) printf("[DIR]   ");
                     if (!(ignore_name(dirEnt->d_name))) {
                         if (doPrint) printf("%s\n", dirEntPath.vfs);
                         doPrint = false;
-                        if (ft) vfs_mkdir(&dirEntPath);
+                        if (ft) err = vfs_mkdir(&dirEntPath);
                         status = process_inodes_recr(ufs, inode2path, skip, ntohl(dirEnt->d_inonum), dirEntPath.vfs, ft, listFiles, listType);
                     }
                     break;
                 case IFBLK:       /* block special */
                     if ((doPrint = do_print("BLOCK", listType, doPrint, forcePrint))) printf("[BLOCK] ");
-                    if (ft) vfs_touch(&dirEntPath);
+                    if (ft) err = vfs_create(&dirEntPath, NULL, 0);
                     break;
                 case IFREG:       /* regular */
                     if ((doPrint = do_print("FILE", listType, doPrint, forcePrint))) printf("[FILE]  ");
                     if (ft && vfs_access(&dirEntPath, F_OK) != 0) {
-                        struct file_t* file = file_open(&dirEntPath, "wb");
-                        if (file_is_open(file)) {
-                            uint32_t size = ntohl(inode.ic_size);
-                            uint8_t* buffer = (uint8_t*)malloc(size);
-                            if (ufs_readFile(ufs, &inode, 0, size, buffer) == ERR_NO) {
-                                if (file_write(file, 0, buffer, size) != size) {
-                                    printf("Error while writing '%s'. Stopping.\n", dirEntPath.vfs);
-                                    status = ERR_FAIL;
-                                }
-                            }
-                            file_close(&dirEntPath, file);
-                            free(buffer);
+                        uint32_t size = ntohl(inode.ic_size);
+                        uint8_t* buffer = (uint8_t*)malloc(size);
+                        if (ufs_readFile(ufs, &inode, 0, size, buffer) == ERR_NO) {
+                            err = vfs_create(&dirEntPath, buffer, size);
                         }
+                        free(buffer);
                     }
                     break;
                 case IFLNK: {     /* symbolic link */
@@ -594,12 +588,12 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
                     struct path_t path_from;
                     vfscpy(path_from.vfs, link, sizeof(path_from.vfs));
                     if ((doPrint = do_print("SLINK", listType, doPrint, forcePrint))) printf("[SLINK] %s <- ", link);
-                    if (ft) vfs_link(&path_from, &dirEntPath, 1);
+                    if (ft) err = vfs_link(&path_from, &dirEntPath, 1);
                     break;
                 }
                 case IFSOCK:      /* socket */
                     if ((doPrint = do_print("SOCK", listType, doPrint, forcePrint))) printf("[SOCK]  ");
-                    if (ft) vfs_touch(&dirEntPath);
+                    if (ft) err = vfs_create(&dirEntPath, NULL, 0);
                     break;
                 default:
                     printf("Unknown format (0%06o) for '%s'.\n", ntohs(inode.ic_mode) & IFMT, dirEntPath.vfs);
@@ -613,6 +607,9 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
             
             if (doPrint)
                 printf("%s\n", dirEntPath.vfs);
+            
+            if (err)
+                printf("Can't create '%s' (%s).\n", dirEntPath.vfs, strerror(err));
         }
     }
     
