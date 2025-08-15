@@ -608,8 +608,10 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
             if (doPrint)
                 printf("%s\n", dirEntPath.vfs);
             
-            if (err)
+            if (err) {
                 printf("Can't create '%s' (%s).\n", dirEntPath.vfs, strerror(err));
+                skip_add(skip, dirEntPath.vfs);
+            }
         }
     }
     

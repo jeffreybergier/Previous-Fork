@@ -61,7 +61,7 @@ struct im_t* diskimage_init(const char* path) {
             
             diskimage_read(im, 0, sizeof(im->dl), &im->dl);
             if (label_valid(im->dl.dl_version) == false) {
-                printf("No valid disk label found (%.4s).\n", im->dl.dl_version);
+                printf("No valid disk label found.\n");
                 memset(&im->dl, 0, sizeof(im->dl));
                 im->diskOffset = 0;
                 im->blockSize  = BLOCKSZ;
@@ -135,7 +135,7 @@ struct im_t* diskimage_init(const char* path) {
         }
     }
     im->sectorSize = ntohl(im->dl.dl_dt.d_secsize);
-    if (im->sectorSize < 0x400 || im->sectorSize > 0x2000) {
+    if (im->sectorSize < 0x400 || im->sectorSize > 0x2000 || (im->rawOptical && im->sectorSize != 0x400)) {
         printf("Sector size: %"PRIu64"\n", im->sectorSize);
         im->error = "Unsupported sector size";
         return im;
@@ -218,7 +218,8 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
         }
         if (bytesRead != im->blockSize) {
             result = ferror(im->imf) ? ERR_FAIL : ERR_EOF;
-            printf("Can't read %"PRId64" bytes at offset %"PRId64".\n", size, offset);
+            const char* errstr = (result == ERR_EOF) ? "End of file" : "Read error";
+            printf("Can't read %"PRId64" bytes at offset %"PRId64" (%s).\n", size, offset, errstr);
             break;
         }
         memcpy(dataPtr, buffer + blockOff, rdSize);

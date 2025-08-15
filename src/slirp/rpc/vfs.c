@@ -626,7 +626,7 @@ int vfs_write(const struct path_t* path, uint32_t offset, uint8_t* data, uint32_
     if (err == 0) {
         err = file_seek(file, offset);
         if (err == 0) {
-            file_write(file, data, len);
+            err = (file_write(file, data, len) < len) ? ENOSPC : 0;
         }
     }
     file_close(path, file);
@@ -638,7 +638,7 @@ int vfs_create(const struct path_t* path, uint8_t* data, uint32_t len) {
     struct file_t* file = file_open(path, "wb");
     err = file_is_open(file);
     if (data && err == 0) {
-        file_write(file, data, len);
+        err = (file_write(file, data, len) < len) ? ENOSPC : 0;
     }
     file_close(path, file);
     return err;
