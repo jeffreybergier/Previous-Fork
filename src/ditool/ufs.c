@@ -200,10 +200,13 @@ int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint3
     return ERR_NO;
 }
 
-static void dirlist_add(struct dirlist_t** dirs, struct direct* direct) {
+static void dirlist_add(struct dirlist_t** dirs, struct direct* direct, uint32_t maxlen) {
     uint16_t len = ntohs(direct->d_reclen);
     if (len > sizeof(struct direct)) {
         len = sizeof(struct direct);
+    }
+    if (len > maxlen) {
+        len = maxlen;
     }
     
     while (*dirs) {
@@ -238,7 +241,7 @@ struct dirlist_t* ufs_list(struct ufs_t* ufs, uint32_t ino) {
                     dirEnt = (struct direct*)&directory[start];
                     if (ntohl(dirEnt->d_inonum) == 0 || ntohs(dirEnt->d_reclen) == 0)
                         break;
-                    dirlist_add(&result, dirEnt);
+                    dirlist_add(&result, dirEnt, size - start);
                 }
             }
             free(directory);

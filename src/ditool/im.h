@@ -91,9 +91,13 @@ struct disk_label {
 #pragma pack(pop)
 
 
-#define BLOCKSZ    1024
-#define MO_BLOCKSZ 1296
-#define MO_BLOCK0  (53*16*MO_BLOCKSZ)
+#define SECTOR_SIZE_MO   1024
+#define SECTOR_SIZE_ECC  1296
+#define SECTOR_SIZE_MIN  SECTOR_SIZE_MO
+#define SECTOR_SIZE_MAX  8192
+
+#define DISK_OFFSET_DCII 46
+#define DISK_OFFSET_MO   (53*16*SECTOR_SIZE_ECC)
 
 #define BM_UNTESTED 0
 #define BM_BAD      1
@@ -103,20 +107,20 @@ struct disk_label {
 struct im_t {
     FILE*             imf;
     size_t            diskOffset;
-    size_t            blockSize;
+    size_t            readSize;
     bool              rawOptical;
 
     struct disk_label dl;
-    uint32_t          bm[16*BLOCKSZ];
+    uint32_t          bm[16*SECTOR_SIZE_MO];
     int               bm_off;
     int               bm_size;
-    uint32_t          bbt[3*BLOCKSZ];
+    uint32_t          bbt[3*SECTOR_SIZE_MO];
     int               bbt_off;
     int               bbt_size;
     int32_t           spa;
     int16_t           apag;
     struct part_t*    parts;
-    uint64_t          sectorSize;
+    int64_t           sectorSize;
     const char*       path;
     const char*       error;
 };
