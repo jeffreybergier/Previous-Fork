@@ -232,10 +232,21 @@ static int get_valid_partnum(const char* num) {
     return -1;
 }
 
-static void print_help(void) {
+static void print_version(void) {
+    printf("ditool - disk image tool, version 2.0\n");
+}
+
+static void print_help(bool intro) {
+    if (intro) {
+        print_version();
+        printf("This is a utility for working with NeXT-formatted disk images. This program is\n");
+        printf("useful for extracting files from a disk image into a directory. It can prepare\n");
+        printf("the directory for netboot with the NeXT Computer emulator 'Previous'.\n\n");
+    }
     printf("usage: ditool -im <disk_image_file> [options]\n");
     printf("options:\n");
-    printf("  -h          Print this help.\n");
+    printf("  -h          Print this help and a short introduction.\n");
+    printf("  -v          Print version number.\n");
     printf("  -im <file>  Raw disk image file to read from.\n");
     printf("  -lsp        List partitions in disk image.\n");
     printf("  -p <letter> Partition {a|b|c|...} to work on.\n");
@@ -726,7 +737,11 @@ static bool is_case_insensitive(const char* path) {
 
 int main(int argc, const char* argv[]) {
     if (has_option(argv, argc, "-h") || has_option(argv, argc, "--help")) {
-        print_help();
+        print_help(true);
+        return 0;
+    }
+    if (has_option(argv, argc, "-v") || has_option(argv, argc, "--version")) {
+        print_version();
         return 0;
     }
     
@@ -787,7 +802,7 @@ int main(int argc, const char* argv[]) {
         
     } else if (!(netboot)) {
         printf("Missing image file.\n");
-        print_help();
+        print_help(false);
         return 1;
     }
     
@@ -797,7 +812,7 @@ int main(int argc, const char* argv[]) {
             prepare_netboot(outPath);
         } else {
             printf("Missing output path.\n");
-            print_help();
+            print_help(false);
             return 1;
         }
     }
