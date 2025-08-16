@@ -245,6 +245,9 @@ int diskimage_read(struct im_t* im, int64_t offset, int64_t size, void* data) {
                 default:
                     break;
             }
+            if (result != ERR_NO) {
+                break;
+            }
         }
         readSize = size < (im->sectorSize - sectorOff) ? size : (im->sectorSize - sectorOff);
         memcpy(dataPos, buffer + sectorOff, readSize);
