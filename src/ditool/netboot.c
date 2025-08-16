@@ -23,36 +23,31 @@
 static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* size, size_t* maxsize, size_t extra, int silent) {
     struct path_t file_path;
     int err;
+    struct stat fstat;
     void* buf = NULL;
     
     vfscpy(file_path.vfs, path, sizeof(file_path.vfs));
     vfs_to_host_path(ft, &file_path);
     
-    err = vfs_access(&file_path, F_OK | R_OK);
+    err = vfs_stat(&file_path, &fstat);
     if (err) {
         if (!silent) printf("       ! cannot access '%s' (%s)\n", file_path.host, strerror(err));
     } else {
-        struct stat fstat;
-        err = vfs_stat(&file_path, &fstat);
-        if (err) {
-            printf("       ! cannot stat '%s' (%s)\n", file_path.host, strerror(err));
+        size_t filesize = (size_t)fstat.st_size;
+        if (filesize > (1024 * 1024)) {
+            printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
         } else {
-            size_t filesize = (size_t)fstat.st_size;
-            if (filesize > (1024 * 1024)) {
-                printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
-            } else {
-                *size = filesize;
-                *maxsize = filesize + extra;
-                buf = calloc(1, *maxsize);
-                if (filesize > 0) {
-                    uint32_t readsize = (uint32_t)filesize;
-                    err = vfs_read(&file_path, 0, buf, &readsize);
-                    if (err || (size_t)readsize != filesize || (extra && strlen(buf) != filesize)) {
-                        const char* errstr = err ? strerror(err) : ((size_t)readsize != filesize ? "Short read" : "Invalid data");
-                        printf("       ! cannot read '%s' (%s)\n", file_path.host, errstr);
-                        free(buf);
-                        buf = NULL;
-                    }
+            *size = filesize;
+            *maxsize = filesize + extra;
+            buf = calloc(1, *maxsize);
+            if (filesize > 0) {
+                uint32_t readsize = (uint32_t)filesize;
+                err = vfs_read(&file_path, 0, buf, &readsize);
+                if (err || (size_t)readsize != filesize || (extra && strlen(buf) != filesize)) {
+                    const char* errstr = err ? strerror(err) : ((size_t)readsize != filesize ? "Short read" : "Invalid data");
+                    printf("       ! cannot read '%s' (%s)\n", file_path.host, errstr);
+                    free(buf);
+                    buf = NULL;
                 }
             }
         }
@@ -155,12 +150,13 @@ static void netboot_make_resolv(struct vfs_t* ft, const char* file) {
     printf("     - writing '%s'\n", file);
     
     data = calloc(1, maxsize);
-    
-    snprintf(line, sizeof(line), "domain %s", NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
-    size += add_line(data, maxsize, line);
-    snprintf(line, sizeof(line), "nameserver %s", ip_addr_str(ip_addr, sizeof(ip_addr), CTL_NET | CTL_DNS));
-    size += add_line(data, maxsize, line);
-    write_buffer_to_file(ft, file, data, size);
+    if (data) {
+        snprintf(line, sizeof(line), "domain %s", NAME_DOMAIN[0] == '.' ? &NAME_DOMAIN[1] : &NAME_DOMAIN[0]);
+        size += add_line(data, maxsize, line);
+        snprintf(line, sizeof(line), "nameserver %s", ip_addr_str(ip_addr, sizeof(ip_addr), CTL_NET | CTL_DNS));
+        size += add_line(data, maxsize, line);
+        write_buffer_to_file(ft, file, data, size);
+    }
 }
 
 static void netboot_patch_hosts(struct vfs_t* ft, const char* file) {
@@ -208,21 +204,31 @@ static void netboot_patch_hostconfig(struct vfs_t* ft, const char* file, const c
     }
 }
 
-static void netboot_make_fstab(struct vfs_t* ft, const char* file) {
+static void netboot_patch_fstab(struct vfs_t* ft, const char* file, const char* template) {
     void* data;
     char line[MAX_LINE_SIZE];
     size_t size    = 0;
-    size_t maxsize = GET_EXTRA(2, sizeof(line));
+    size_t maxsize = 0;
+    size_t extra   = GET_EXTRA(2, sizeof(line));
     
-    printf("     - writing '%s'\n", file);
+    printf("     - patching '%s'\n", file);
     
-    data = calloc(1, maxsize);
-    
-    snprintf(line, sizeof(line), "%s:/ / nfs rw,noauto 0 0", NAME_NFSD);
-    size += add_line(data, maxsize, line);
-    snprintf(line, sizeof(line), "%s:/private /private nfs rw,noauto 0 0", NAME_NFSD);
-    size += add_line(data, maxsize, line);
-    write_buffer_to_file(ft, file, data, size);
+    data = read_file_to_buffer(ft, template, &size, &maxsize, extra, 1);
+    if (data) {
+        printf("       - using template '%s'\n", template);
+        size -= remove_line(data, "SERVER");
+        size -= remove_line(data, "/dev");
+    } else {
+        maxsize = extra;
+        data = calloc(1, maxsize);
+    }
+    if (data) {
+        snprintf(line, sizeof(line), "%s:/ / nfs rw,noauto 0 0", NAME_NFSD);
+        size += add_line(data, maxsize, line);
+        snprintf(line, sizeof(line), "%s:/private /private nfs rw,noauto 0 0", NAME_NFSD);
+        size += add_line(data, maxsize, line);
+        write_buffer_to_file(ft, file, data, size);
+    }
 }
 
 
@@ -234,7 +240,7 @@ void prepare_netboot(const char* path) {
     netboot_make_resolv(ft, "/private/etc/resolv.conf");
     netboot_patch_hosts(ft, "/private/etc/hosts");
     netboot_patch_hostconfig(ft, "/private/etc/hostconfig", "/usr/template/client/etc/hostconfig");
-    netboot_make_fstab(ft, "/private/etc/fstab");
+    netboot_patch_fstab(ft, "/private/etc/fstab", "/usr/template/client/etc/fstab.client");
     
     vfs_uninit(ft);
 }

@@ -452,6 +452,10 @@ Previous v3.9:
   > Fixes bug that could cause a crash when calling the READDIR procedure.
   > Fixes bug that caused certain file mode bits to be unreadable through NFS.
 
+Previous v4.0 (unreleased):
+  > Adds support for reading partition data without disk label using ditool.
+  > Improves reliability and error handling of ditool.
+
 
  7) Running Previous
  -------------------
