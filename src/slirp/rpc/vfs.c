@@ -707,13 +707,17 @@ int vfs_access(const struct path_t* path, int mode) {
 struct vfs_t* vfs_init(const char* host_path, const char* vfs_path_alias) {
     struct vfs_t* vfs = NULL;
     if (host_path && vfs_path_alias && strlen(host_path) && strlen(vfs_path_alias)) {
-        if (strcmp(host_path + strlen(host_path) - strlen(HOST_SEPARATOR), HOST_SEPARATOR)) {
-            vfs = (struct vfs_t*)malloc(sizeof(struct vfs_t));
-            if (vfs) {
-                vfscpy(vfs->base_path.vfs, vfs_path_alias, sizeof(vfs->base_path.vfs));
-                vfscpy(vfs->base_path.host, host_path, sizeof(vfs->base_path.host));
-                vfs->uid = 20;
-                vfs->gid = 20;
+        vfs = (struct vfs_t*)malloc(sizeof(struct vfs_t));
+        if (vfs) {
+            char* p;
+            vfscpy(vfs->base_path.vfs, vfs_path_alias, sizeof(vfs->base_path.vfs));
+            vfscpy(vfs->base_path.host, host_path, sizeof(vfs->base_path.host));
+            vfs->uid = 20;
+            vfs->gid = 20;
+            /* Make sure there is no trailing separator in host path */
+            p = vfs->base_path.host + strlen(vfs->base_path.host) - strlen(HOST_SEPARATOR);
+            if (strcmp(p, HOST_SEPARATOR) == 0 && p != vfs->base_path.host) {
+                p[0] = '\0';
             }
         }
     }
