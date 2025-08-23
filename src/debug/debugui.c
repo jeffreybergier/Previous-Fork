@@ -44,6 +44,9 @@ const char DebugUI_fileid[] = "Hatari debugui.c";
 #include "profile.h"
 #include "symbols.h"
 #include "vars.h"
+#ifdef WIN32
+#include "../gui-win/opencon.h"
+#endif
 
 FILE *debugOutput;
 
@@ -811,12 +814,12 @@ static char *DebugUI_GetCommand(char *input)
 	fprintf(stderr, "> ");
 	if (!input)
 	{
-		input = malloc(256);
+		input = malloc(MAX_DEBUG_CMD_LEN);
 		if (!input)
 			return NULL;
 	}
 	input[0] = '\0';
-	if (fgets(input, 256, stdin) == NULL)
+	if (fgets(input, MAX_DEBUG_CMD_LEN, stdin) == NULL)
 	{
 		free(input);
 		return NULL;
@@ -1101,6 +1104,10 @@ void DebugUI(debug_reason_t reason)
 
 	if (welcome)
 	{
+#ifdef WIN32
+		/* in case user forgot -W option */
+		Win_ForceCon();
+#endif
 		fputs(welcome, stderr);
 		welcome = NULL;
 	}
@@ -1158,10 +1165,10 @@ void DebugUI(debug_reason_t reason)
  */
 bool DebugUI_ParseFile(const char *path, bool reinit, bool verbose)
 {
-	int recurse;
 	static int recursing;
+	int recurse, offset, len;
 	char *olddir, *dir, *cmd, *expanded, *slash;
-	char input[256];
+	char input[MAX_DEBUG_CMD_LEN];
 	FILE *fp;
 
 	if (verbose)
@@ -1201,15 +1208,40 @@ bool DebugUI_ParseFile(const char *path, bool reinit, bool verbose)
 	recurse = recursing;
 	recursing = true;
 
-	while (fgets(input, sizeof(input), fp) != NULL)
+	offset = 0;
+	while (fgets(input+offset, sizeof(input)-offset, fp) != NULL)
 	{
+		/* trim (potentially appended) line */
+		cmd = Str_Trim(input+offset);
+		/* ignore empty lines */
+		if (!offset && !*cmd)
+			continue;
+
+		/* line ends in '\\'? */
+		len = strlen(cmd);
+		if (cmd[len-1] == '\\')
+		{
+			/* => continued line */
+			const char *next;
+
+			/* comment lines are not added to input */
+			if (*cmd == '#')
+				continue;
+
+			/* add next line from '\' char onwards */
+			next = strrchr(input+offset, '\\');
+			offset += next - input - offset;
+			continue;
+		}
+		offset = 0;
+
 		/* ignore empty and comment lines */
 		cmd = Str_Trim(input);
 		if (!*cmd || *cmd == '#')
 			continue;
 
 		/* returns new string if input needed expanding! */
-		expanded = DebugUI_EvaluateExpressions(input);
+		expanded = DebugUI_EvaluateExpressions(cmd);
 		if (!expanded)
 			continue;
 
