@@ -359,30 +359,30 @@ Libraries summary :
 -------------------
 ")
 
-message("  - sdl :\tusing SDL3 ${SDL3_VERSION}")
+message("  - sdl :        using SDL3 ${SDL3_VERSION}")
 
 if(PNG_FOUND)
-  message( "  - png :\tfound, allows to print to files using png" )
+  message( "  - png :     found, allows to print to files using png" )
 else()
-  message( "  - png :\tnot found, install it to print to files using png" )
+  message( "  - png :     not found, install it to print to files using png" )
 endif(PNG_FOUND)
 
 if(PCAP_FOUND)
-  message( "  - pcap :\tfound, allows networking without NAT" )
+  message( "  - pcap :    found, allows networking without NAT" )
 else()
-  message( "  - pcap :\tnot found, install it to use networking without NAT" )
+  message( "  - pcap :    not found, install it to use networking without NAT" )
 endif(PCAP_FOUND)
 
 if(HAVE_SYS_XATTR_H)
-  message( "  - xattr.h :\tfound, allows netbooting from a folder" )
+  message( "  - xattr.h : found, allows netbooting from a folder" )
 else()
-  message( "  - xattr.h :\tnot found, no netboot possible" )
+  message( "  - xattr.h : not found, no netboot possible" )
 endif(HAVE_SYS_XATTR_H)
 
 if (HAVE_HOST_LFS)
-  message( "  - off_t :\t${SIZEOF_OFF_T} byte, allows image files of 2 GiB and more" )
+  message( "  - off_t :   ${SIZEOF_OFF_T} byte, allows image files of 2 GiB and more" )
 else()
-  message( "  - off_t :\t${SIZEOF_OFF_T} byte, image files must be smaller than 2 GiB" )
+  message( "  - off_t :   ${SIZEOF_OFF_T} byte, image files must be smaller than 2 GiB" )
 endif(HAVE_HOST_LFS)
 
 
