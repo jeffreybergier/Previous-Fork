@@ -39,9 +39,14 @@ struct im_t* diskimage_init(const char* path) {
     }
     memset(&im->dl, 0, sizeof(im->dl));
     
-    if (diskimage_read(im, 0, sizeof(im->dl), &im->dl)) {
-        im->error = "Reading disk label failed";
-        return im;
+    for (int i = 0; i < 4; i++) {
+        if (diskimage_read(im, i * 8192, sizeof(im->dl), &im->dl)) {
+            im->error = "Reading disk label failed";
+            return im;
+        }
+        if (label_valid(im->dl.dl_version)) {
+            break;
+        }
     }
     if (label_valid(im->dl.dl_version) == false) {
         im->diskOffset = DISK_OFFSET_DCII;
