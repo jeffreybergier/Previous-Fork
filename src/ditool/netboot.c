@@ -35,7 +35,7 @@ static void* read_file_to_buffer(struct vfs_t* ft, const char* path, size_t* siz
     } else {
         size_t filesize = (size_t)fstat.st_size;
         if (filesize > (1024 * 1024)) {
-            printf("       ! strange size of '%s' (%ld Byte)\n", file_path.host, filesize);
+            printf("       ! strange size of '%s' (%llu Byte)\n", file_path.host, (long long unsigned)filesize);
         } else {
             *size = filesize;
             *maxsize = filesize + extra;
