@@ -359,7 +359,7 @@ Libraries summary :
 -------------------
 ")
 
-message("  - sdl :        using SDL2 ${SDL2_VERSION}")
+message( "  - sdl :     using SDL2 ${SDL2_VERSION}")
 
 if(PNG_FOUND)
   message( "  - png :     found, allows to print to files using png" )
