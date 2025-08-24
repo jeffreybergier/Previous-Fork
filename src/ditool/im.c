@@ -39,12 +39,13 @@ struct im_t* diskimage_init(const char* path) {
     }
     memset(&im->dl, 0, sizeof(im->dl));
     
-    for (int i = 0; i < 4; i++) {
-        if (diskimage_read(im, i * 8192, sizeof(im->dl), &im->dl)) {
+    for (int i = 0; i < NLABELS; i++) {
+        if (diskimage_read(im, i * 15 * 512, sizeof(im->dl), &im->dl)) {
             im->error = "Reading disk label failed";
             return im;
         }
         if (label_valid(im->dl.dl_version)) {
+            if (i) printf("Found spare disk label at offset %d.\n\n", i * 15 * 512);
             break;
         }
     }
@@ -60,8 +61,9 @@ struct im_t* diskimage_init(const char* path) {
             im->diskOffset = DISK_OFFSET_MO;
             im->readSize   = SECTOR_SIZE_ECC;
             
-            memset(im->bbt, 0, sizeof(im->bbt));
+            memset(im->bb.bad_blk, 0, sizeof(im->bb.bad_blk));
             memset(im->bm, 0, sizeof(im->bm));
+            im->bbt      = im->dl.dl_un.dl_bad;
             im->bbt_size = 0;
             im->spa      = 1;
             
@@ -109,15 +111,17 @@ struct im_t* diskimage_init(const char* path) {
                 }
                 
                 if (strncmp(im->dl.dl_version, "dlV3", 4)) {
-                    im->bbt_off  = 558;
-                    im->bbt_size = 1670;
+                    im->bbt      = im->dl.dl_un.dl_bad;
+                    im->bbt_off  = sizeof(struct disk_label) - sizeof(dl_un_t) - sizeof(uint16_t); /* 558 */;
+                    im->bbt_size = NBAD;
                 } else {
-                    im->bbt_off  = 4 * SECTOR_SIZE_MO;
-                    im->bbt_size = 3 * SECTOR_SIZE_MO;
-                }
-                if (diskimage_read(im, im->bbt_off, im->bbt_size * sizeof(uint32_t), im->bbt)) {
-                    im->error = "Reading bad block table failed";
-                    return im;
+                    im->bbt      = im->bb.bad_blk;
+                    im->bbt_off  = BAD_BLK_OFF * SECTOR_SIZE_MO;
+                    im->bbt_size = NBAD_BLK;
+                    if (diskimage_read(im, im->bbt_off, im->bbt_size * sizeof(uint32_t), im->bbt)) {
+                        im->error = "Reading bad block table failed";
+                        return im;
+                    }
                 }
                 
                 im->bm_off  = 16 * SECTOR_SIZE_MO;
@@ -128,11 +132,11 @@ struct im_t* diskimage_init(const char* path) {
                 }
                 
                 for (int i = 0; i < im->bbt_size; i++) {
-                    if (im->bbt[i] == 0xFFFFFFFF) {
+                    if (ntohl(im->bbt[i]) == 0xffffffff) {
                         im->bbt_size = i;
                         break;
                     }
-                    if (im->bbt[i] > 0) {
+                    if (ntohl(im->bbt[i]) > 0) {
                         bad++;
                     }
                 }

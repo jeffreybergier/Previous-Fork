@@ -76,6 +76,14 @@ struct    disktab {
     struct  disk_partition d_partitions[NPART];
 };
 
+#define    NLABELS        4           /* # of labels on a disk */
+
+typedef union {
+    uint16_t dl_v3_checksum;
+#define    NBAD     1670              /* sized to make label ~= 8KB */
+    int32_t  dl_bad[NBAD];            /* block number that is bad */
+} dl_un_t;
+
 struct disk_label {
     char                    dl_version[4];            /* label version number */
     int32_t                 dl_label_blkno;           /* block # where this label is */
@@ -86,6 +94,14 @@ struct disk_label {
 #define    DL_UNINIT    0x80000000                    /* label is uninitialized */
     uint32_t                dl_tag;                   /* volume tag */
     struct    disktab       dl_dt;                    /* common info in disktab */
+    dl_un_t                 dl_un;
+    uint16_t                dl_checksum;              /* ones complement checksum */
+};
+
+#define    BAD_BLK_OFF    4           /* offset of bad blk tbl from label */
+struct bad_block {                    /* bad block table, sized to be 12KB */
+#define        NBAD_BLK    (12 * 1024 / sizeof (int32_t))
+    int32_t    bad_blk[NBAD_BLK];
 };
 
 #pragma pack(pop)
@@ -111,10 +127,11 @@ struct im_t {
     bool              rawOptical;
 
     struct disk_label dl;
+    struct bad_block  bb;
     uint32_t          bm[16*SECTOR_SIZE_MO];
     int               bm_off;
     int               bm_size;
-    uint32_t          bbt[3*SECTOR_SIZE_MO];
+    int32_t*          bbt;
     int               bbt_off;
     int               bbt_size;
     int32_t           spa;
