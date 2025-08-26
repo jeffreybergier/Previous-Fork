@@ -68,9 +68,11 @@ const char *Paths_GetHatariHome(void)
 }
 
 /**
- * Return pointer to screenshot directory string
+ * Return pointer to default screenshot directory string.
+ * Hatari code should use Configuration_GetScreenShotDir()
+ * instead (which calls this).
  */
-const char *Paths_GetScreenShotDir(void)
+const char *Paths_GetDefaultScreenShotDir(void)
 {
 	return sScreenShotDir;
 }
