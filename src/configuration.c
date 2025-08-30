@@ -619,8 +619,8 @@ void Configuration_Apply(bool bReset)
 	/* Make sure NBIC is only used on Cubes and ADB only on Turbo */
 	Configuration_CheckPeripheralSettings();
 
-	/* Make sure we start with statusbar enabled (required for proper screen init) */
-	ConfigureParams.Screen.bShowStatusbar = true;
+	/* Make sure the overlay drive LED is disabled for Previous */
+	ConfigureParams.Screen.bShowDriveLed = false;
 
 	/* Clean file and directory names */
 	File_MakeAbsoluteName(ConfigureParams.Rom.szRom030FileName);

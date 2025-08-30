@@ -263,7 +263,7 @@ void Screen_Init(void) {
 	bInFullScreen = false;
 
 	/* Statusbar */
-	Statusbar_SetHeight(width, height);
+	Statusbar_SetHeight(width, height, true);
 	statusBar.x = 0;
 	statusBar.y = height;
 	statusBar.w = width;
@@ -363,6 +363,9 @@ void Screen_Init(void) {
 	Main_ShowCursor(false);
 	Main_SetMouseGrab(bGrabMouse);
 
+	if (!ConfigureParams.Screen.bShowStatusbar) {
+		Screen_StatusbarChanged();
+	}
 	if (ConfigureParams.Screen.bFullScreen) {
 		Screen_EnterFullScreen();
 	}
@@ -526,7 +529,7 @@ void Screen_StatusbarChanged(void) {
 	}
 
 	/* Get new heigt for our window */
-	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
+	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, false);
 
 	if (bInFullScreen) {
 		saveWindowBounds.h = (height * saveWindowBounds.w) / width;

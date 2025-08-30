@@ -454,6 +454,7 @@ Previous v3.9:
 
 Previous v4.0 (unreleased):
   > Adds support for reading partition data without disk label using ditool.
+  > Adds support for hiding the status bar from the start.
   > Improves reliability and error handling of ditool.
 
 
