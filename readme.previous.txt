@@ -514,7 +514,7 @@ versions of BuildDisk.
  8) Contributors
  ---------------
 
-Previous was written by Andreas Grabher, Simon Schubiger and Gilles Fetis.
+Previous was written by Andreas Grabher, Simon Schubiger and Gilles Fétis.
 
 Many thanks go to the members of the NeXT International Forums for their help. 
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
