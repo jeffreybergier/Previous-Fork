@@ -19,8 +19,8 @@ struct ufs_t* ufs_init(struct part_t* part) {
     struct ufs_t* ufs = NULL;
     
     if (part->part == NULL || strncmp(&part->part->p_type[1], "4.3BSD", 6) == 0) {
-        uint8_t* sectors = (uint8_t*)malloc(8 * part->im->sectorSize);
-        if (partition_readSectors(part, 8, 8, sectors) == 0) {
+        uint8_t* sectors = (uint8_t*)malloc(SBSIZE);
+        if (partition_readSectors(part, 8, SBSIZE / part->im->sectorSize, sectors) == 0) {
             struct ufs_super_block* superblock = (struct ufs_super_block*)sectors;
             if (ntohl(superblock->fs_magic) == FS_MAGIC &&
                 ntohl(superblock->fs_bsize) == 0x2000 &&
@@ -121,12 +121,13 @@ static int32_t ufs_bmap(struct ufs_t* ufs, struct icommon* inode, uint32_t fBlk)
     else return ntohl(inode->ic_db[fBlk]);
 }
 
-char* ufs_readlink(struct ufs_t* ufs, struct icommon* inode) {
-    if (inode->ic_Mun.ic_Msymlink[0])
+char* ufs_readlink(struct ufs_t* ufs, struct icommon* inode, int* needfree) {
+    if (ntohl(inode->ic_flags) & IC_FASTLINK)
         return inode->ic_Mun.ic_Msymlink;
     else {
         uint32_t size = ntohl(inode->ic_size);
-        uint8_t* buffer = (uint8_t*)malloc(size+1); /* FIXME: missing free */
+        uint8_t* buffer = (uint8_t*)malloc(size+1);
+        *needfree = 1;
         ufs_readFile(ufs, inode, 0, size, buffer);
         buffer[size] = '\0';
         return (char*)buffer;

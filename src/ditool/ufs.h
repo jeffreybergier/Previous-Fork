@@ -45,7 +45,7 @@ void dirlist_delete(struct dirlist_t* dirs);
 struct ufs_t* ufs_init(struct part_t* part);
 void ufs_uninit(struct ufs_t* ufs);
 int ufs_readInode(struct ufs_t* ufs, struct icommon* inode, uint32_t ino);
-char* ufs_readlink(struct ufs_t* ufs, struct icommon* inode);
+char* ufs_readlink(struct ufs_t* ufs, struct icommon* inode, int* needfree);
 int ufs_readFile(struct ufs_t* ufs, struct icommon* inode, uint32_t start, uint32_t len, uint8_t* data);
 struct dirlist_t* ufs_list(struct ufs_t* ufs, uint32_t ino);
 char* ufs_mountPoint(struct ufs_t* ufs);
