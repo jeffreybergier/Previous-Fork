@@ -16,8 +16,8 @@
 #include <ftw.h>
 
 #include "config.h"
-#include "netboot.h"
 #include "ufs.h"
+#include "netboot.h"
 #include "rpc/vfs.h"
 
 #ifndef _WIN32
@@ -233,7 +233,7 @@ static int get_valid_partnum(const char* num) {
 }
 
 static void print_version(void) {
-    printf("ditool - disk image tool, version 2.0\n");
+    printf("ditool (Previous) 2.0\n");
 }
 
 static void print_help(bool intro) {
@@ -521,8 +521,11 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
 
                 if (ft && vfs_stat(&dirEntPath, &fstat) == 0) {
                     if ((ntohs(inode.ic_mode) & IFMT) == IFLNK) {
-                        char* link = ufs_readlink(ufs, &inode);
-                        if (strcasecmp(link, dirEnt->d_name) == 0) {
+                        int needfree = 0;
+                        char* link = ufs_readlink(ufs, &inode, &needfree);
+                        int result = strcasecmp(link, dirEnt->d_name);
+                        if (needfree) free(link);
+                        if (result == 0) {
                             printf("New file '%s' is link pointing to variant, skipping.\n", dirEntPath.vfs);
                             skip_add(skip, dirEntPath.vfs);
                             continue;
@@ -595,10 +598,12 @@ static int process_inodes_recr(struct ufs_t* ufs, struct i2p_t** inode2path, str
                     }
                     break;
                 case IFLNK: {     /* symbolic link */
-                    char* link = ufs_readlink(ufs, &inode);
                     struct path_t path_from;
+                    int needfree = 0;
+                    char* link = ufs_readlink(ufs, &inode, &needfree);
                     vfscpy(path_from.vfs, link, sizeof(path_from.vfs));
-                    if ((doPrint = do_print("SLINK", listType, doPrint, forcePrint))) printf("[SLINK] %s <- ", link);
+                    if (needfree) free(link);
+                    if ((doPrint = do_print("SLINK", listType, doPrint, forcePrint))) printf("[SLINK] %s <- ", path_from.vfs);
                     if (ft) err = vfs_link(&path_from, &dirEntPath, 1);
                     break;
                 }
