@@ -455,6 +455,7 @@ Previous v3.9:
 Previous v4.0 (unreleased):
   > Adds support for reading partition data without disk label using ditool.
   > Adds support for hiding the status bar from the start.
+  > Improves accuracy of SCSI CD-ROM drive by changing to 2048 byte blocks.
   > Improves reliability and error handling of ditool.
 
 
