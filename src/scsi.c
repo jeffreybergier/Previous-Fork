@@ -263,11 +263,11 @@ static void SCSI_GuessGeometry(SCSI_DEVTYPE type, uint32_t sectors, uint32_t *nc
 }
 
 #define SCSI_SEEK_TIME_HD       20000  /* 20 ms max seek time */
-#define SCSI_SECTOR_TIME_HD     350    /* 1.4 MB/sec */
+#define SCSI_SECTOR_TIME_HD     700    /* 1.4 MB/sec */
 #define SCSI_SEEK_TIME_FD       200000 /* 200 ms max seek time */
-#define SCSI_SECTOR_TIME_FD     5500   /* 90 kB/sec */
+#define SCSI_SECTOR_TIME_FD     11000  /* 90 kB/sec */
 #define SCSI_SEEK_TIME_CD       500000 /* 500 ms max seek time */
-#define SCSI_SECTOR_TIME_CD     3250   /* 150 kB/sec */
+#define SCSI_SECTOR_TIME_CD     6500   /* 150 kB/sec */
 
 static int64_t SCSI_GetTime(uint8_t target) {
     int64_t seektime, sectortime;
@@ -295,8 +295,8 @@ static int64_t SCSI_GetTime(uint8_t target) {
     } else {
         seekoffset = SCSIdisk[target].lba - SCSIdisk[target].lastlba;
     }
-    disksize = SCSIdisk[target].size / SCSIdisk[target].blocksize;
     
+    disksize = SCSIdisk[target].size / SCSIdisk[target].blocksize;
     if (disksize < 1) { /* Make sure no zero divide occurs */
         disksize = 1;
     }
@@ -311,9 +311,10 @@ static int64_t SCSI_GetTime(uint8_t target) {
     if (sectors < 1) {
         sectors = 1;
     }
-    
     sectortime *= sectors;
-
+    sectortime *= 1024;
+    sectortime /= SCSIdisk[target].blocksize;
+    
     return seektime + sectortime;
 }
 
@@ -1085,7 +1086,7 @@ void SCSI_Insert(uint8_t i) {
     SCSIdisk[i].sense.code = SCSIdisk[i].sense.key = SCSIdisk[i].sense.info = 0;
     SCSIdisk[i].sense.valid = false;
     SCSIdisk[i].lba = SCSIdisk[i].lastlba = SCSIdisk[i].blockcounter = 0;
-    SCSIdisk[i].blocksize = SCSI_BLOCKSIZE;
+    SCSIdisk[i].blocksize = (SCSIdisk[i].devtype == SD_CD) ? SCSI_CD_BLOCK : SCSI_BLOCKSIZE;
     SCSIdisk[i].known = -1;
     
     SCSIdisk[i].shadow = NULL;
