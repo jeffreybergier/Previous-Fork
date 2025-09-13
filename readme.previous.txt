@@ -517,7 +517,9 @@ versions of BuildDisk.
 
 Previous was written by Andreas Grabher, Simon Schubiger and Gilles Fétis.
 
-Many thanks go to the members of the NeXT International Forums for their help. 
+Many thanks go to the members of the NeXT International Forums and the members
+of the NeXTcommunity for their help and motivation. 
+
 Special thanks go to Gavin Thomas Nicol, Piotr Twarecki, Toni Wilen, Michael 
 Bosshard, Thomas Huth, Olivier Galibert, Jason Eckhardt, Jason Stevens, Daniel 
 L'Hommedieu, Tomaz Slivnik, Vaughan Kaufman, Peter Leonard, Brent Spillner, 
@@ -530,5 +532,5 @@ This emulator would not exist without their help.
  9) Contact
  ----------
 
-If you want to contact the authors of Previous, please have a look at the NeXT 
-International Forums (http://www.nextcomputers.org/forums).
+If you want to contact the authors of Previous you can visit the NeXTcommunity 
+at http://nextcommunity.net/forums.
