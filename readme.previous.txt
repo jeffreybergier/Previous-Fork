@@ -455,6 +455,7 @@ Previous v3.9:
 Previous v4.0 (unreleased):
   > Adds support for reading partition data without disk label using ditool.
   > Adds support for hiding the status bar from the start.
+  > Adds option to hide the title bar, resulting in a borderless window.
   > Improves accuracy of SCSI CD-ROM drive by changing to 2048 byte blocks.
   > Improves reliability and error handling of ditool.
 
@@ -496,6 +497,7 @@ R: Records all sound output to an AIFF file and stops recording when pressed
    again. The file is saved inside the directory specified for printer output.
 F: Toggles between fullscreen and windowed mode (same as F11).
 B: Hides the statusbar and shows it when pressed again.
+T: Hides the titlebar and shows it when pressed again.
 S: Disables sound output and re-enables it when pressed again.
 Q: Requests to quit Previous. All unsaved changes will be lost.
 

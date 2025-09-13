@@ -71,6 +71,7 @@ static const struct Config_Tag configs_Screen[] =
 	{ "nMonitorNum", Int_Tag, &ConfigureParams.Screen.nMonitorNum },
 	{ "bFullScreen", Bool_Tag, &ConfigureParams.Screen.bFullScreen },
 	{ "bShowStatusbar", Bool_Tag, &ConfigureParams.Screen.bShowStatusbar },
+	{ "bShowTitlebar", Bool_Tag, &ConfigureParams.Screen.bShowTitlebar },
 	{ "bShowDriveLed", Bool_Tag, &ConfigureParams.Screen.bShowDriveLed },
 	{ NULL , Error_Tag, NULL }
 };
@@ -113,6 +114,7 @@ static const struct Config_Tag configs_ShortCutWithMod[] =
 	{ "kQuit",        Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_QUIT] },
 	{ "kDimension",   Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_DIMENSION] },
 	{ "kStatusbar",   Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_STATUSBAR] },
+	{ "kTitlebar",    Key_Tag, &ConfigureParams.Shortcut.withModifier[SHORTCUT_TITLEBAR] },
 	{ NULL , Error_Tag, NULL }
 };
 
@@ -132,6 +134,7 @@ static const struct Config_Tag configs_ShortCutWithoutMod[] =
 	{ "kQuit",        Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_QUIT] },
 	{ "kDimension",   Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_DIMENSION] },
 	{ "kStatusbar",   Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_STATUSBAR] },
+	{ "kTitlebar",    Key_Tag, &ConfigureParams.Shortcut.withoutModifier[SHORTCUT_TITLEBAR] },
 	{ NULL , Error_Tag, NULL }
 };
 
@@ -484,6 +487,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_QUIT]          = SDLK_Q;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_DIMENSION]     = SDLK_N;
 	ConfigureParams.Shortcut.withModifier[SHORTCUT_STATUSBAR]     = SDLK_B;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_TITLEBAR]      = SDLK_T;
 
 	/* Set defaults for Memory */
 	memset(ConfigureParams.Memory.nMemoryBankSize, 16, 
@@ -502,6 +506,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Screen.nMonitorType = MONITOR_TYPE_CPU;
 	ConfigureParams.Screen.nMonitorNum = 0;
 	ConfigureParams.Screen.bShowStatusbar = true;
+	ConfigureParams.Screen.bShowTitlebar = true;
 	ConfigureParams.Screen.bShowDriveLed = false;
 
 	/* Set defaults for Sound */
