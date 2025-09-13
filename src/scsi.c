@@ -312,8 +312,8 @@ static int64_t SCSI_GetTime(uint8_t target) {
         sectors = 1;
     }
     sectortime *= sectors;
-    sectortime *= 1024;
-    sectortime /= SCSIdisk[target].blocksize;
+    sectortime *= SCSIdisk[target].blocksize;
+    sectortime /= 1024;
     
     return seektime + sectortime;
 }

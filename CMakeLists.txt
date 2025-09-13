@@ -143,6 +143,10 @@ check_large_file()
 # CPP Definitions:
 # ################
 
+# We still want to have assert() in RelWithDebInfo builds:
+string(REPLACE " -DNDEBUG" ""
+       CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+
 # Test for large file support:
 execute_process(COMMAND getconf LFS_CFLAGS
                 OUTPUT_VARIABLE DETECTED_LFS_CFLAGS
@@ -216,6 +220,8 @@ if(ENABLE_ASAN)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
 	# enable AddressSanitizer with global variable tracking
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-common")
+	# Previous: link AddressSanitizer, this replaces enable_testing()
+	link_libraries("-fsanitize=address")
 endif(ENABLE_ASAN)
 
 # GCC/Clang undefined behavior debugging
