@@ -146,9 +146,16 @@ static void ShortCut_Dimension(void)
 static void ShortCut_StatusBar(void)
 {
 	ConfigureParams.Screen.bShowStatusbar = !ConfigureParams.Screen.bShowStatusbar;
-	ConfigureParams.Screen.bShowDriveLed  = false; /* for now unused in Previous */
-
 	Screen_StatusbarChanged();
+}
+
+/**
+ * Shortcut to show/hide titlebar
+ */
+static void ShortCut_TitleBar(void)
+{
+	ConfigureParams.Screen.bShowTitlebar = !ConfigureParams.Screen.bShowTitlebar;
+	Screen_TitlebarChanged();
 }
 
 
@@ -204,6 +211,9 @@ void ShortCut_ActKey(void)
 		break;
 	 case SHORTCUT_STATUSBAR:
 		ShortCut_StatusBar();
+		break;
+	case SHORTCUT_TITLEBAR:
+		ShortCut_TitleBar();
 		break;
 	 case SHORTCUT_KEYS:
 	 case SHORTCUT_NONE:

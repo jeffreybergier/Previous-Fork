@@ -366,6 +366,9 @@ void Screen_Init(void) {
 	if (!ConfigureParams.Screen.bShowStatusbar) {
 		Screen_StatusbarChanged();
 	}
+	if (!ConfigureParams.Screen.bShowTitlebar) {
+		Screen_TitlebarChanged();
+	}
 	if (ConfigureParams.Screen.bFullScreen) {
 		Screen_EnterFullScreen();
 	}
@@ -512,6 +515,18 @@ void Screen_ModeChanged(void) {
 		nd_sdl_show();
 	} else {
 		nd_sdl_hide();
+	}
+}
+
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Set visibilty of title bar.
+ */
+void Screen_TitlebarChanged(void) {
+	if (sdlscrn && !bInFullScreen) {
+		SDL_SetWindowBordered(sdlWindow, ConfigureParams.Screen.bShowTitlebar);
+		nd_sdl_titlebar(ConfigureParams.Screen.bShowTitlebar);
 	}
 }
 
