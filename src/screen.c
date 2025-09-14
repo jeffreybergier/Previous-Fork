@@ -360,7 +360,6 @@ void Screen_UnInit(void) {
 	doRepaint = false; /* stop repaint thread */
 	SDL_WaitThread(repaintThread, &s);
 #endif
-	nd_sdl_destroy();
 	free(uiBuffer);
 	SDL_DestroySurface(sdlscrn);
 	SDL_DestroyTexture(uiTexture);

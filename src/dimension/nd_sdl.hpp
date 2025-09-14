@@ -49,7 +49,6 @@ extern "C" {
     void nd_sdl_resize(float scale);
     void nd_sdl_show(void);
     void nd_sdl_hide(void);
-    void nd_sdl_destroy(void);
 #ifdef __cplusplus
 }
 #endif
