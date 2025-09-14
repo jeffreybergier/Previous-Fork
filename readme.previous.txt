@@ -458,6 +458,7 @@ Previous v4.0 (unreleased):
   > Adds option to hide the title bar, resulting in a borderless window.
   > Improves accuracy of SCSI CD-ROM drive by changing to 2048 byte blocks.
   > Improves reliability and error handling of ditool.
+  > Fixes bug that could cause a crash when quitting Previous.
 
 
  7) Running Previous

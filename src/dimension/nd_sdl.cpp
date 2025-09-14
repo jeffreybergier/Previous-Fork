@@ -119,7 +119,6 @@ void NDSDL::destroy(void) {
     SDL_DestroyTexture(ndTexture);
     SDL_DestroyRenderer(ndRenderer);
     SDL_DestroyWindow(ndWindow);
-    uninit();
 }
 
 void NDSDL::resize(float scale) {
@@ -172,14 +171,6 @@ void nd_sdl_hide(void) {
     FOR_EACH_SLOT(slot) {
         IF_NEXT_DIMENSION(slot, nd) {
             nd->sdl.uninit();
-        }
-    }
-}
-
-void nd_sdl_destroy(void) {
-    FOR_EACH_SLOT(slot) {
-        IF_NEXT_DIMENSION(slot, nd) {
-            nd->sdl.destroy();
         }
     }
 }
