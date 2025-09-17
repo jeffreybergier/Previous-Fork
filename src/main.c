@@ -218,6 +218,17 @@ void Main_RequestQuit(bool confirm) {
 	}
 }
 
+/*-----------------------------------------------------------------------*/
+/**
+ * Set Previous window title. Use NULL for default
+ */
+static void Main_SetTitle(const char *title) {
+	if (title)
+		SDL_SetWindowTitle(sdlWindow, title);
+	else
+		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
+}
+
 /* ----------------------------------------------------------------------- */
 /**
  * Set mouse pointer to new coordinates and set flag to ignore the mouse event
@@ -788,17 +799,6 @@ static void Main_Loop(void) {
 		Main_EventHandler();
 	}
 #endif
-}
-
-/*-----------------------------------------------------------------------*/
-/**
- * Set Previous window title. Use NULL for default
- */
-void Main_SetTitle(const char *title) {
-	if (title)
-		SDL_SetWindowTitle(sdlWindow, title);
-	else
-		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
 }
 
 /*-----------------------------------------------------------------------*/
