@@ -13,19 +13,18 @@
   */
 const char Memory_fileid[] = "Previous memory.c";
 
-#include "config.h"
+#include "main.h"
 #include "sysdeps.h"
 #include "hatari-glue.h"
 #include "maccess.h"
 #include "memory.h"
 
-#include "main.h"
 #include "rom.h"
-#include "ioMem.h"
 #include "bmap.h"
 #include "tmc.h"
 #include "ncc.h"
 #include "nbic.h"
+#include "ioMem.h"
 #include "reset.h"
 #include "m68000.h"
 #include "configuration.h"
