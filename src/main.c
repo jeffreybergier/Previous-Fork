@@ -131,10 +131,8 @@ bool Main_PauseEmulation(bool visualize) {
 	NextBus_Pause(true);
 
 	if (visualize) {
-		Statusbar_AddMessage("Emulation paused", 100);
-		/* make sure msg gets shown */
-		Statusbar_Update(sdlscrn);
-		
+		Screen_StatusbarMessage("Emulation paused", 100);
+
 		/* Un-grab mouse pointer */
 		Main_SetMouseGrab(false);
 	}

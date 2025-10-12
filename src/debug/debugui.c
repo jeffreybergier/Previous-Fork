@@ -1125,8 +1125,7 @@ void DebugUI(debug_reason_t reason)
 	/* override paused message so that user knows to look into console
 	 * on how to continue in case he invoked the debugger by accident.
 	 */
-	Statusbar_AddMessage("M68K Console Debugger", 100);
-	Statusbar_Update(sdlscrn);
+	Screen_StatusbarMessage("M68K Console Debugger", 100);
 
 	/* disable normal GUI alerts while on console */
 	alertLevel = Log_SetAlertLevel(LOG_FATAL);

@@ -529,6 +529,14 @@ void Screen_TitlebarChanged(void) {
 	}
 }
 
+/**
+ * Wrapper for Statusbar_AddMessage() and Statusbar_Update() in one go.
+ */
+void Screen_StatusbarMessage(const char *msg, uint32_t msecs)
+{
+	Statusbar_AddMessage(msg, msecs);
+	Statusbar_Update(sdlscrn);
+}
 
 /*-----------------------------------------------------------------------*/
 /**

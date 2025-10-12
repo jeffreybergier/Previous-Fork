@@ -94,8 +94,7 @@ static void ShortCut_Debug_I860(void)
 		Screen_ReturnFromFullScreen();
 
 	/* i860 thread silently pauses 68k emulation if necessary */
-	Statusbar_AddMessage("I860 Console Debugger", 100);
-	Statusbar_Update(sdlscrn);
+	Screen_StatusbarMessage("I860 Console Debugger", 100);
 
 	/* Call the debugger */
 	nd_start_debugger();
