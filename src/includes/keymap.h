@@ -11,6 +11,7 @@
 #include <SDL.h>
 
 extern void Keymap_Init(void);
+extern void Keymap_InitShortcutDefaultKeys(void);
 
 extern void Keymap_MouseWheel(const SDL_MouseWheelEvent *sdlwheel);
 extern void Keymap_MouseMove(int dx, int dy);

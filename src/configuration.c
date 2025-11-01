@@ -16,14 +16,11 @@ const char Configuration_fileid[] = "Previous configuration.c";
 #include "configuration.h"
 #include "cfgopts.h"
 #include "file.h"
+#include "keymap.h"
 #include "log.h"
 #include "m68000.h"
 #include "paths.h"
-#include "screen.h"
-#include "video.h"
 #include "68kDisass.h"
-
-#include <SDL.h>
 
 
 CNF_PARAMS ConfigureParams;                 /* List of configuration for the emulator */
@@ -470,24 +467,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Mouse.bEnableMacClick = false;
 
 	/* Set defaults for Shortcuts */
-	ConfigureParams.Shortcut.withoutModifier[SHORTCUT_OPTIONS]    = SDLK_F12;
-	ConfigureParams.Shortcut.withoutModifier[SHORTCUT_FULLSCREEN] = SDLK_F11;
-
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_PAUSE]         = SDLK_p;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_DEBUG_M68K]    = SDLK_d;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_DEBUG_I860]    = SDLK_i;
-
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_OPTIONS]       = SDLK_o;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_FULLSCREEN]    = SDLK_f;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB]     = SDLK_m;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_COLDRESET]     = SDLK_c;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_SCREENSHOT]    = SDLK_g;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_RECORD]        = SDLK_r;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_SOUND]         = SDLK_s;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_QUIT]          = SDLK_q;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_DIMENSION]     = SDLK_n;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_STATUSBAR]     = SDLK_b;
-	ConfigureParams.Shortcut.withModifier[SHORTCUT_TITLEBAR]      = SDLK_t;
+	Keymap_InitShortcutDefaultKeys();
 
 	/* Set defaults for Memory */
 	memset(ConfigureParams.Memory.nMemoryBankSize, 16, 
