@@ -8,12 +8,8 @@
 */
 const char ShortCut_fileid[] = "Hatari shortcut.c";
 
-#include <SDL3/SDL.h>
-
 #include "main.h"
 #include "dialog.h"
-#include "file.h"
-#include "m68000.h"
 #include "dimension.hpp"
 #include "grab.h"
 #include "reset.h"
@@ -22,7 +18,6 @@ const char ShortCut_fileid[] = "Hatari shortcut.c";
 #include "shortcut.h"
 #include "debugui.h"
 #include "sdlgui.h"
-#include "video.h"
 #include "snd.h"
 #include "statusbar.h"
 
@@ -290,14 +285,14 @@ static SHORTCUTKEYIDX ShortCut_CheckKey(int symkey, int *keys)
  * If press is set, store the key array index.
  * Return true if key combo matched to a shortcut
  */
-bool ShortCut_CheckKeys(int modkey, int symkey, bool press)
+bool ShortCut_CheckKeys(int symkey, bool with_mod, bool press)
 {
 	SHORTCUTKEYIDX key;
 
-	if (symkey == SDLK_UNKNOWN)
+	if (symkey == 0)
 		return false;
 
-	if ((modkey&SDL_KMOD_CTRL) && (modkey&SDL_KMOD_ALT))
+	if (with_mod)
 		key = ShortCut_CheckKey(symkey, ConfigureParams.Shortcut.withModifier);
 	else
 		key = ShortCut_CheckKey(symkey, ConfigureParams.Shortcut.withoutModifier);

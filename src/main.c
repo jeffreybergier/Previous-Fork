@@ -476,6 +476,15 @@ void Main_ResetKeys(void) {
 
 /* ----------------------------------------------------------------------- */
 /**
+ * Is a shortcut modifier key pressed?
+ */
+static bool Main_ShortcutMod(int modkey)
+{
+	return (modkey & SDL_KMOD_CTRL) && (modkey & SDL_KMOD_ALT);
+}
+
+/* ----------------------------------------------------------------------- */
+/**
  * Emulator message handler. Called from emulator.
  */
 void Main_EventHandlerInterrupt(void) {
@@ -699,7 +708,7 @@ void Main_EventHandler(void) {
 				if (event.key.repeat) {
 					break;
 				}
-				if (ShortCut_CheckKeys(event.key.mod, event.key.key, true)) {
+				if (ShortCut_CheckKeys(event.key.key, Main_ShortcutMod(event.key.mod), true)) {
 					ShortCut_ActKey();
 					break;
 				}
@@ -711,7 +720,7 @@ void Main_EventHandler(void) {
 				break;
 
 			case SDL_EVENT_KEY_UP:
-				if (ShortCut_CheckKeys(event.key.mod, event.key.key, false)) {
+				if (ShortCut_CheckKeys(event.key.key, Main_ShortcutMod(event.key.mod), false)) {
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
