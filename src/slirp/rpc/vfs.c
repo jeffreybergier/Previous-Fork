@@ -426,6 +426,9 @@ static int get_error(int result) {
 int vfs_chmod(const struct path_t* path, mode_t mode) {
 #ifdef _WIN32
     return 0; /* not supported */
+#elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1070
+    /* not supported on Mac OS 10.6 and below */
+    return get_error(chmod(path->host, mode | S_IWUSR | S_IRUSR));
 #else
     return get_error(fchmodat(AT_FDCWD, path->host, mode | S_IWUSR | S_IRUSR, AT_SYMLINK_NOFOLLOW));
 #endif

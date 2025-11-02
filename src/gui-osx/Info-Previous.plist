@@ -102,7 +102,7 @@
 	<key>Previous</key>
 	<string>SDL Cocoa App</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.13.0</string>
+	<string>10.5.8</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -22,8 +22,8 @@
 
 @interface NSMenuItem (Previous)
 /* Returns YES if the modification was made */
--(BOOL)PREV_setKeyEquivalentModifierMask:(NSEventModifierFlags)desiredMask
-						  ifExpectedMask:(NSEventModifierFlags)expectedMask
+-(BOOL)PREV_setKeyEquivalentModifierMask:(NSUInteger)desiredMask
+						  ifExpectedMask:(NSUInteger)expectedMask
 						  andExpectedKey:(NSString*)expectedKey;
 -(BOOL)PREV_removeFromMenu;
 @end
@@ -58,28 +58,28 @@
 	for (NSMenuItem *item in menuItems) {
 		SEL action = [item action];
 		if (action == @selector(terminate:)) { /* Quit Application */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
-												 ifExpectedMask:NSEventModifierFlagCommand
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask
+												 ifExpectedMask:NSCommandKeyMask
 												 andExpectedKey:@"q"];
 		} else if (action == @selector(hide:)) { /* Hide Application */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
-												 ifExpectedMask:NSEventModifierFlagCommand
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask
+												 ifExpectedMask:NSCommandKeyMask
 												 andExpectedKey:@"h"];
 		} else if (action == @selector(hideOtherApplications:)) { /* Hide Other Applications */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagShift
-												 ifExpectedMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask | NSShiftKeyMask
+												 ifExpectedMask:NSCommandKeyMask | NSAlternateKeyMask
 												 andExpectedKey:@"h"];
 		} else if (action == @selector(performMiniaturize:)) { /* Minimize Window */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
-												 ifExpectedMask:NSEventModifierFlagCommand
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask
+												 ifExpectedMask:NSCommandKeyMask
 												 andExpectedKey:@"m"];
 		} else if (action == @selector(performClose:)) { /* Close Window */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
-												 ifExpectedMask:NSEventModifierFlagCommand
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask
+												 ifExpectedMask:NSCommandKeyMask
 												 andExpectedKey:@"w"];
 		} else if ([[item keyEquivalent] isEqualToString:@","]) { /* Open Application Settings */
-			modified += [item PREV_setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption
-												 ifExpectedMask:NSEventModifierFlagCommand
+			modified += [item PREV_setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask
+												 ifExpectedMask:NSCommandKeyMask
 												 andExpectedKey:@","];
 		} else if (action == @selector(closeAll:)) { /* Close All Windows */
 			modified += [item PREV_removeFromMenu];
@@ -103,6 +103,7 @@
 /* MARK: Window Zoom Button Disabling */
 +(void)windowDidBecomeKey:(NSNotification*)aNotification;
 {
+#if MAC_OS_X_VERSION_MIN_REQUIRED > 1070
 	NSWindow *window = [aNotification object];
 	if ([window collectionBehavior] & NSWindowCollectionBehaviorFullScreenNone) { return; }
 	
@@ -114,6 +115,7 @@
 	[[NSNotificationCenter defaultCenter] removeObserver:self
 													name:NSWindowDidBecomeKeyNotification
 												  object:nil];
+#endif
 #if PRINT_DEBUG_LOG
 	NSLog(@"%@: %@ Disabled Full Screen Button",self, window);
 #endif
@@ -123,8 +125,8 @@
 
 @implementation NSMenuItem (Previous)
 
--(BOOL)PREV_setKeyEquivalentModifierMask:(NSEventModifierFlags)desiredMask
-						  ifExpectedMask:(NSEventModifierFlags)expectedMask
+-(BOOL)PREV_setKeyEquivalentModifierMask:(NSUInteger)desiredMask
+						  ifExpectedMask:(NSUInteger)expectedMask
 						  andExpectedKey:(NSString*)expectedKey;
 {
 	if ([[self keyEquivalent] isEqualToString:expectedKey]

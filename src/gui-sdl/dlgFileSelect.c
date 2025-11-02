@@ -511,6 +511,7 @@ static int get_dtype(const char *name)
  * Case insensitive sorting for directory entry names, so
  * that directory entries are listed first.
  */
+
 static int filesort(const struct dirent **d1, const struct dirent **d2)
 {
 	const char *name1 = (*d1)->d_name;
@@ -540,6 +541,18 @@ static int filesort(const struct dirent **d1, const struct dirent **d2)
 	}
 	return strcasecmp(name1, name2);
 }
+
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1070
+static int filesort_wrapper(const void *a, const void *b)
+{
+    const struct dirent *da = *(const struct dirent **)a;
+    const struct dirent *db = *(const struct dirent **)b;
+    return filesort(&da, &db);
+}
+#define SCANDIR_COMPAR filesort_wrapper
+#else
+#define SCANDIR_COMPAR filesort
+#endif
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -783,7 +796,7 @@ char* SDLGui_FileSelect(const char *title, const char *path_and_name, char **zip
 				/* for get_dtype() */
 				dirpath = path;
 				/* Load directory entries: */
-				entries = scandir(path, &files, NULL, filesort);
+				entries = scandir(path, &files, NULL, SCANDIR_COMPAR);
 			}
 
 			/* Remove hidden files from the list if necessary: */

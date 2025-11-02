@@ -32,6 +32,10 @@
   #include <sys/types.h>
 #endif
 
+#ifndef u_char
+typedef unsigned char u_char;
+#endif
+
 #ifdef _WIN32
 typedef uint8_t u_char;
 #endif

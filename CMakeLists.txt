@@ -7,8 +7,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 if(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Target architectures")
-	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Target minimum macOS version")
+	set(CMAKE_OSX_ARCHITECTURES "ppc" CACHE STRING "Target architectures")
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.5" CACHE STRING "Target minimum macOS version")
 endif(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
 
 project(Previous)

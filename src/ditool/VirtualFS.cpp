@@ -19,6 +19,22 @@
 #include <sys/xattr.h>
 #endif
 
+// --- INSERT MACOS FCHMODAT STUB HERE ---
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 1070
+#ifndef AT_FDCWD
+#define AT_FDCWD  -100
+#endif
+
+#ifndef AT_SYMLINK_NOFOLLOW
+#define AT_SYMLINK_NOFOLLOW 0
+#endif
+
+inline int fchmodat(int, const char *path, mode_t mode, int) {
+    return chmod(path, mode);
+}
+#endif
+// --- END INSERT ---
+
 #ifdef _WIN32
 #include <Windows.h>
 #include <fileapi.h>
