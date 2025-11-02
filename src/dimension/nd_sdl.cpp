@@ -75,7 +75,7 @@ void NDSDL::init(void) {
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
         if (!ndRenderer) {
-            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
+            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_SOFTWARE | vsync_flag);
             if (!ndRenderer) {
                 fprintf(stderr,"[ND] Slot %i: Failed to create accelerated renderer! (%s)\n", slot, SDL_GetError());
                 ndRenderer = SDL_CreateRenderer(ndWindow, -1, vsync_flag);

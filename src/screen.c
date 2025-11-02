@@ -296,7 +296,7 @@ void Screen_Init(void) {
 	}
 	fprintf(stderr, "SDL screen scale: %.3f\n", dpiFactor);
 
-	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_SOFTWARE | vsync_flag);
 	if (!sdlRenderer) {
 		fprintf(stderr, "Failed to create accelerated renderer: %s!\n", SDL_GetError());
 		sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, vsync_flag);
