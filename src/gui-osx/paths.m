@@ -21,7 +21,7 @@
  * the returned pointer.
  */
 char *Paths_GetMacScreenShotDir(void) {
-
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	/* Allocate memory for storing the path string */
 	char *psPath = malloc(FILENAME_MAX);
 	if (!psPath)
@@ -42,6 +42,6 @@ char *Paths_GetMacScreenShotDir(void) {
 		snprintf(psPath, FILENAME_MAX, "%s%c%s",
 			 Paths_GetUserHome(), PATHSEP, "Desktop");
 	}
-
+	[pool drain];
 	return psPath;
 }
