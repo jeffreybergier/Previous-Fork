@@ -49,6 +49,15 @@ other platforms you might need to also install libpcap, readline and zlib.
       setenv SDL2_DIR /path/to/custom/SDL2 ; ./configure
       make
 
+ Making Xcode file for debugging on macOS
+ ----------------------------------------------------
+ 
+ mkdir build
+ cd build
+ cmake -G Xcode .. \
+  -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
+  -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO \
+  -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
 
  Building a distributable application bundle on macOS
  ----------------------------------------------------
