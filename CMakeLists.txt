@@ -106,10 +106,10 @@ endif(ENABLE_OSX_BUNDLE)
 # Check for libraries:
 # ####################
 
-find_package(SDL2)
-if(NOT SDL2_FOUND)
-	message(FATAL_ERROR "SDL2 library not found!")
-endif(NOT SDL2_FOUND)
+find_package(SDL3 REQUIRED COMPONENTS SDL3)
+if(NOT SDL3_FOUND)
+	message(FATAL_ERROR "SDL3 library not found!")
+endif(NOT SDL3_FOUND)
 
 find_package(Math)
 
@@ -155,13 +155,6 @@ if(DETECTED_LFS_CFLAGS)
 	add_definitions(${DETECTED_LFS_CFLAGS})
 	# message(STATUS "Large filesystem flags: ${DETECTED_LFS_CFLAGS}")
 endif(DETECTED_LFS_CFLAGS)
-
-# Additional CFLAGS suggested by the SDL library:
-if(PKG_CONFIG_FOUND)
-	execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --cflags-only-other sdl2
-			OUTPUT_VARIABLE SDL2_OTHER_CFLAGS
-			ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif(PKG_CONFIG_FOUND)
 
 # ###########################
 # Check for optional headers:
@@ -365,7 +358,7 @@ Libraries summary :
 -------------------
 ")
 
-message( "  - sdl :     using SDL2 ${SDL2_VERSION}")
+message( "  - sdl :     using SDL3 ${SDL3_VERSION}")
 
 if(PNG_FOUND)
   message( "  - png :     found, allows to print to files using png" )

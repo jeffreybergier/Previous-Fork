@@ -12,7 +12,7 @@ const char Main_fileid[] = "Previous main.c";
 #include <errno.h>
 #include <signal.h>
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "main.h"
 #include "configuration.h"
@@ -51,8 +51,8 @@ volatile bool bEmulationActive = false;        /* Do not run emulation during in
 static bool   bIgnoreNextMouseMotion = false;  /* Next mouse motion will be ignored (needed after SDL_WarpMouse) */
 
 #ifndef ENABLE_RENDERING_THREAD
-static SDL_Thread* nextThread;
-static SDL_sem*    pauseFlag;
+static SDL_Thread*    nextThread;
+static SDL_Semaphore* pauseFlag;
 #endif
 
 static uint32_t SPECIAL_EVENT;
@@ -123,7 +123,7 @@ bool Main_PauseEmulation(bool visualize) {
 	bEmulationActive = false;
 #ifndef ENABLE_RENDERING_THREAD
 	/* Wait until 68k thread is paused */
-	if (SDL_SemWaitTimeout(pauseFlag, 1000))
+	if (SDL_WaitSemaphoreTimeout(pauseFlag, 1000) == false)
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	host_pause_time(true);
@@ -245,12 +245,12 @@ void Main_WarpMouse(int x, int y) {
 bool Main_ShowCursor(bool show) {
 	bool bOldVisibility;
 
-	bOldVisibility = SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE;
+	bOldVisibility = SDL_CursorVisible();
 	if (bOldVisibility != show) {
 		if (show) {
-			SDL_ShowCursor(SDL_ENABLE);
+			SDL_ShowCursor();
 		} else {
-			SDL_ShowCursor(SDL_DISABLE);
+			SDL_HideCursor();
 		}
 	}
 	return bOldVisibility;
@@ -266,9 +266,9 @@ void Main_SetMouseGrab(bool grab) {
 	if (grab) {
 		if (bEmulationActive) {
 			Main_WarpMouse(sdlscrn->w/2, sdlscrn->h/2); /* Cursor must be inside window */
-			SDL_SetRelativeMouseMode(SDL_TRUE);
-			SDL_SetWindowKeyboardGrab(sdlWindow, SDL_TRUE);
-			SDL_SetWindowMouseGrab(sdlWindow, SDL_TRUE);
+			SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+			SDL_SetWindowKeyboardGrab(sdlWindow, true);
+			SDL_SetWindowMouseGrab(sdlWindow, true);
 			if (ConfigureParams.Mouse.bEnableAutoGrab) {
 				Main_SetTitle("Mouse is locked. Ctrl-click to release.");
 			} else {
@@ -280,9 +280,9 @@ void Main_SetMouseGrab(bool grab) {
 			}
 		}
 	} else {
-		SDL_SetRelativeMouseMode(SDL_FALSE);
-		SDL_SetWindowKeyboardGrab(sdlWindow, SDL_FALSE);
-		SDL_SetWindowMouseGrab(sdlWindow, SDL_FALSE);
+		SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+		SDL_SetWindowKeyboardGrab(sdlWindow, false);
+		SDL_SetWindowMouseGrab(sdlWindow, false);
 		Main_SetTitle(NULL);
 	}
 }
@@ -316,7 +316,7 @@ static void Main_PutEvent(SDL_Event* event) {
 	if (!bEmulationActive)
 		return;
 
-	SDL_AtomicLock(&mainEventLock);
+	SDL_LockSpinlock(&mainEventLock);
 	mainEventNext = mainEventWrite + 1;
 	if (mainEventNext >= MAX_EVENTS) {
 		mainEventNext = 0;
@@ -327,7 +327,7 @@ static void Main_PutEvent(SDL_Event* event) {
 		mainEvent[mainEventWrite] = *event;
 		mainEventWrite = mainEventNext;
 	}
-	SDL_AtomicUnlock(&mainEventLock);
+	SDL_UnlockSpinlock(&mainEventLock);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -337,7 +337,7 @@ static void Main_PutEvent(SDL_Event* event) {
 static bool Main_GetEvent(SDL_Event* event) {
 	bool valid = false;
 
-	SDL_AtomicLock(&mainEventLock);
+	SDL_LockSpinlock(&mainEventLock);
 	if (mainEventWrite != mainEventRead) {
 		mainEventNext = mainEventRead + 1;
 		if (mainEventNext >= MAX_EVENTS) {
@@ -347,7 +347,7 @@ static bool Main_GetEvent(SDL_Event* event) {
 		valid = true;
 		mainEventRead = mainEventNext;
 	}
-	SDL_AtomicUnlock(&mainEventLock);
+	SDL_UnlockSpinlock(&mainEventLock);
 
 	return valid;
 }
@@ -389,54 +389,47 @@ static void Main_HandleMouseMotion(SDL_Event *pEvent) {
 		return;
 	}
 
-	nDeltaX = pEvent->motion.xrel;
-	nDeltaY = pEvent->motion.yrel;
+	fDeltaX = pEvent->motion.xrel;
+	fDeltaY = pEvent->motion.yrel;
 
 	/* Get all mouse event to clean the queue and sum them */
-	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
+	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_MOTION);
 
 	for (i = 0; i < nEvents; i++) {
-		nDeltaX += mouse_event[i].motion.xrel;
-		nDeltaY += mouse_event[i].motion.yrel;
+		fDeltaX += mouse_event[i].motion.xrel;
+		fDeltaY += mouse_event[i].motion.yrel;
 	}
 
-	if (nDeltaX || nDeltaY) {
-		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 0.0)) {
-			/* Initialize float values from integers */
-			fDeltaX = (float)nDeltaX;
-			fDeltaY = (float)nDeltaY;
-
-			/* Exponential adjustmend */
-			if (fExp != 1.0) {
-				fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
-				fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
-			}
-
-			/* Linear adjustment */
-			if (fLin != 1.0) {
-				fDeltaX *= fLin;
-				fDeltaY *= fLin;
-			}
-
-			/* Add residuals */
-			if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
-				fSavedDeltaX += fDeltaX;
-			} else {
-				fSavedDeltaX  = fDeltaX;
-			}
-			if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
-				fSavedDeltaY += fDeltaY;
-			} else {
-				fSavedDeltaY  = fDeltaY;
-			}
-
-			/* Convert to integer and save residuals */
-			nDeltaX = (int)fSavedDeltaX;
-			nDeltaY = (int)fSavedDeltaY;
-			fSavedDeltaX -= (float)nDeltaX;
-			fSavedDeltaY -= (float)nDeltaY;
+	if ((fDeltaX != 0.0) || (fDeltaY != 0.0)) {
+		/* Exponential adjustmend */
+		if (fExp != 1.0) {
+			fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
+			fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
 		}
+
+		/* Linear adjustment */
+		if (fLin != 1.0) {
+			fDeltaX *= fLin;
+			fDeltaY *= fLin;
+		}
+
+		/* Add residuals */
+		if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
+			fSavedDeltaX += fDeltaX;
+		} else {
+			fSavedDeltaX  = fDeltaX;
+		}
+		if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
+			fSavedDeltaY += fDeltaY;
+		} else {
+			fSavedDeltaY  = fDeltaY;
+		}
+
+		/* Convert to integer and save residuals */
+		nDeltaX = (int)fSavedDeltaX;
+		nDeltaY = (int)fSavedDeltaY;
+		fSavedDeltaX -= (float)nDeltaX;
+		fSavedDeltaY -= (float)nDeltaY;
 
 		/* Done */
 #ifdef ENABLE_RENDERING_THREAD
@@ -460,24 +453,24 @@ void Main_ResetKeys(void) {
 	SDL_ResetKeyboard();
 
 	/* Send magic key sequence to avoid stuck keys */
-	event.type                = SDL_KEYDOWN;
-	event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
-	event.key.keysym.sym      = SDLK_LCTRL;
-	event.key.keysym.mod      = KMOD_LCTRL;
+	event.type         = SDL_EVENT_KEY_DOWN;
+	event.key.scancode = SDL_SCANCODE_LCTRL;
+	event.key.key      = SDLK_LCTRL;
+	event.key.mod      = SDL_KMOD_LCTRL;
 	SDL_PushEvent(&event);
 
 	if (ConfigureParams.System.bADB) {
-		event.type                = SDL_KEYUP;
-		event.key.keysym.scancode = SDL_SCANCODE_LCTRL;
-		event.key.keysym.sym      = SDLK_LCTRL;
-		event.key.keysym.mod      = KMOD_LCTRL;
+		event.type         = SDL_EVENT_KEY_UP;
+		event.key.scancode = SDL_SCANCODE_LCTRL;
+		event.key.key      = SDLK_LCTRL;
+		event.key.mod      = SDL_KMOD_LCTRL;
 		SDL_PushEvent(&event);
 	}
 	
-	event.type                = SDL_KEYUP;
-	event.key.keysym.scancode = SDL_SCANCODE_Q;
-	event.key.keysym.sym      = SDLK_q;
-	event.key.keysym.mod      = KMOD_NONE;
+	event.type         = SDL_EVENT_KEY_UP;
+	event.key.scancode = SDL_SCANCODE_Q;
+	event.key.key      = SDLK_Q;
+	event.key.mod      = SDL_KMOD_NONE;
 	SDL_PushEvent(&event);
 }
 
@@ -487,7 +480,7 @@ void Main_ResetKeys(void) {
  */
 static bool Main_ShortcutMod(int modkey)
 {
-	return (modkey & KMOD_CTRL) && (modkey & KMOD_ALT);
+	return (modkey & SDL_KMOD_CTRL) && (modkey & SDL_KMOD_ALT);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -505,7 +498,7 @@ void Main_EventHandlerInterrupt(void) {
 
 #ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
-		SDL_SemPost(pauseFlag);
+		SDL_SignalSemaphore(pauseFlag);
 		do {
 			host_sleep_ms(20);
 		} while(!bEmulationActive);
@@ -534,23 +527,23 @@ void Main_EventHandlerInterrupt(void) {
 #else
 	if (Main_GetEvent(&event)) {
 		switch (event.type) {
-			case SDL_MOUSEMOTION:
+			case SDL_EVENT_MOUSE_MOTION:
 				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
 				break;
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
 				break;
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
 				break;
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 				Keymap_MouseWheel(&event.wheel);
 				break;
-			case SDL_KEYDOWN:
-				Keymap_KeyDown(&event.key.keysym);
+			case SDL_EVENT_KEY_DOWN:
+				Keymap_KeyDown(&event.key);
 				break;
-			case SDL_KEYUP:
-				Keymap_KeyUp(&event.key.keysym);
+			case SDL_EVENT_KEY_UP:
+				Keymap_KeyUp(&event.key);
 				break;
 			default:
 				break;
@@ -572,7 +565,7 @@ void Main_EventHandlerInterrupt(void) {
  * Emulator thread. Start emulation and keep it running.
  */
 static int Main_Thread(void* unused) {
-	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
+	SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_NORMAL);
 
 	while (!bQuitProgram) {
 		/* Start EventHandler */
@@ -597,7 +590,7 @@ static int Main_Thread(void* unused) {
 void Main_EventHandler(void) {
 	bool bContinueProcessing;
 	SDL_Event event;
-	int events;
+	bool events;
 
 	do {
 		bContinueProcessing = false;
@@ -622,33 +615,28 @@ void Main_EventHandler(void) {
 			continue;
 		}
 		switch (event.type) {
-			case SDL_WINDOWEVENT:
-				switch(event.window.event) {
-					case SDL_WINDOWEVENT_CLOSE:
-						SDL_FlushEvent(SDL_QUIT); /* Remove quit event if pending */
-						Main_RequestQuit(true);
-						break;
-					case SDL_WINDOWEVENT_RESIZED:
-						Screen_SizeChanged();
-						break;
-					default:
-						break;
-				}
+			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+				SDL_FlushEvent(SDL_EVENT_QUIT); /* Remove quit event if pending */
+				Main_RequestQuit(true);
 				continue;
 
-			case SDL_QUIT:
+			case SDL_EVENT_WINDOW_RESIZED:
+				Screen_SizeChanged();
+				continue;
+
+			case SDL_EVENT_QUIT:
 				Main_RequestQuit(true);
 				break;
 
-			case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
+			case SDL_EVENT_MOUSE_MOTION:               /* Read/Update internal mouse position */
 				Main_HandleMouseMotion(&event);
 				bContinueProcessing = false;
 				break;
 
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				if (ConfigureParams.Mouse.bEnableMacClick) {
 					if (event.button.button == SDL_BUTTON_LEFT) {
-						if (SDL_GetModState() & KMOD_CTRL) {
+						if (SDL_GetModState() & SDL_KMOD_CTRL) {
 							event.button.button = SDL_BUTTON_RIGHT;
 						}	
 					}
@@ -656,7 +644,7 @@ void Main_EventHandler(void) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					if (ConfigureParams.Mouse.bEnableAutoGrab) {
 						if (bGrabMouse) {
-							if (SDL_GetModState() & KMOD_CTRL) {
+							if (SDL_GetModState() & SDL_KMOD_CTRL) {
 								bGrabMouse = false;
 								Main_SetMouseGrab(bGrabMouse);
 								break;
@@ -683,10 +671,10 @@ void Main_EventHandler(void) {
 				}
 				break;
 
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				if (ConfigureParams.Mouse.bEnableMacClick) {
 					if (event.button.button == SDL_BUTTON_LEFT) {
-						if (SDL_GetModState() & KMOD_CTRL) {
+						if (SDL_GetModState() & SDL_KMOD_CTRL) {
 							event.button.button = SDL_BUTTON_RIGHT;
 						}	
 					}
@@ -708,7 +696,7 @@ void Main_EventHandler(void) {
 				}
 				break;
 
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 #ifdef ENABLE_RENDERING_THREAD
 				Keymap_MouseWheel(&event.wheel);
 #else
@@ -716,27 +704,27 @@ void Main_EventHandler(void) {
 #endif
 				break;
 
-			case SDL_KEYDOWN:
+			case SDL_EVENT_KEY_DOWN:
 				if (event.key.repeat) {
 					break;
 				}
-				if (ShortCut_CheckKeys(event.key.keysym.sym, Main_ShortcutMod(event.key.keysym.mod), true)) {
+				if (ShortCut_CheckKeys(event.key.key, Main_ShortcutMod(event.key.mod), true)) {
 					ShortCut_ActKey();
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
-				Keymap_KeyDown(&event.key.keysym);
+				Keymap_KeyDown(&event.key);
 #else
 				Main_PutEvent(&event);
 #endif
 				break;
 
-			case SDL_KEYUP:
-				if (ShortCut_CheckKeys(event.key.keysym.sym, Main_ShortcutMod(event.key.keysym.mod), false)) {
+			case SDL_EVENT_KEY_UP:
+				if (ShortCut_CheckKeys(event.key.key, Main_ShortcutMod(event.key.mod), false)) {
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
-				Keymap_KeyUp(&event.key.keysym);
+				Keymap_KeyUp(&event.key);
 #else
 				Main_PutEvent(&event);
 #endif
@@ -840,7 +828,7 @@ static bool Main_Init(void) {
 
 	/* Init SDL's video subsystem. Note: Audio subsystem
 	   will be initialized later (failure not fatal). */
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO) == false)
 	{
 		Main_ErrorExit("Could not initialize the SDL library:", SDL_GetError(), -1);
 	}
@@ -1018,11 +1006,9 @@ int main(int argc, char *argv[])
 	Win_OpenCon();
 #endif
 
-#if HAVE_SETENV
 	/* Needed on maemo but useful also with normal X11 window managers for
 	 * window grouping when you have multiple Previous SDL windows open */
-	setenv("SDL_VIDEO_X11_WMCLASS", "previous", 1);
-#endif
+	SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, "com.sourceforge.previous");
 
 	/* Init emulator system */
 	if (Main_Init()) {

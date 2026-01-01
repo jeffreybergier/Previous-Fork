@@ -10,7 +10,7 @@
 #ifndef __ND_SDL_H__
 #define __ND_SDL_H__
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "config.h"
 
@@ -25,7 +25,7 @@ class NDSDL {
 
 #ifdef ENABLE_RENDERING_THREAD
     volatile bool doRepaint;
-    SDL_atomic_t  blitNDFB;
+    SDL_AtomicInt blitNDFB;
     SDL_Thread*   repaintThread;
     static int    repainter(void *_this);
     int           repainter(void);

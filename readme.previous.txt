@@ -36,7 +36,7 @@ this program; if not, see <https://www.gnu.org/licenses/>.
 
 Previous is a NeXT Computer emulator based on the Atari emulator Hatari. It uses 
 the latest m68k emulation core from WinUAE and the i860 emulator from Jason 
-Eckhardt. Previous works on all Systems which are supported by the SDL2 library.
+Eckhardt. Previous works on all Systems which are supported by the SDL3 library.
 
 Previous emulates the following machines:
   NeXT Computer (original 68030 Cube)
@@ -98,7 +98,7 @@ system.
 For using Previous, you need to have installed the following libraries:
 
 Required:
-  > The SDL2 library v2.26.0 or later (http://www.libsdl.org)
+  > The SDL3 library v3.2.0 or later (http://www.libsdl.org)
 
 Optional:
   > The zlib compression library (https://www.zlib.net)

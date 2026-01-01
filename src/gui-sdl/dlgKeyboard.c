@@ -92,7 +92,7 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 	SDL_Delay(200);
 	while (SDL_PollEvent(&sdlEvent))
 	{
-		if (sdlEvent.type == SDL_KEYUP || sdlEvent.type == SDL_KEYDOWN)
+		if (sdlEvent.type == SDL_EVENT_KEY_UP || sdlEvent.type == SDL_EVENT_KEY_DOWN)
 			break;
 	}
 
@@ -102,10 +102,10 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 		SDL_WaitEvent(&sdlEvent);
 		switch (sdlEvent.type)
 		{
-		 case SDL_KEYDOWN:
-			pscs[sc] = sdlEvent.key.keysym.sym;
+		 case SDL_EVENT_KEY_DOWN:
+			pscs[sc] = sdlEvent.key.key;
 			break;
-		 case SDL_MOUSEBUTTONDOWN:
+		 case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			if (sdlEvent.button.button == SDL_BUTTON_RIGHT)
 			{
 				pscs[sc] = 0;
@@ -117,11 +117,11 @@ static void DlgKbd_DefineShortcutKey(int sc, bool withMod)
 				return;
 			}
 			break;
-		 case SDL_QUIT:
+		 case SDL_EVENT_QUIT:
 			bQuitProgram = true;
 			return;
 		}
-	} while (sdlEvent.type != SDL_KEYUP);
+	} while (sdlEvent.type != SDL_EVENT_KEY_UP);
 
 	/* Make sure that no other shortcut key has the same value */
 	for (i = 0; i < SHORTCUT_KEYS; i++)

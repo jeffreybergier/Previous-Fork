@@ -7,7 +7,7 @@
 #ifndef PREV_STATUSBAR_H
 #define PREV_STATUSBAR_H
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 typedef enum {
 	DEVICE_LED_ENET,
