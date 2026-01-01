@@ -120,11 +120,6 @@ else()
 	add_executable(${APP_NAME} ${SOURCES})
 endif(ENABLE_OSX_BUNDLE)
 
-if(SDL3_OTHER_CFLAGS)
-	target_compile_definitions(${APP_NAME} PRIVATE ${SDL3_OTHER_CFLAGS})
-	# message(STATUS "Additional CFLAGS of SDL: ${SDL3_OTHER_CFLAGS}")
-endif(SDL3_OTHER_CFLAGS)
-
 target_link_libraries(${APP_NAME} Debug GuiSdl UaeCpu DSP Dimension Slirp SoftFloat ${SDL3_LIBRARIES})
 
 if(Math_FOUND AND NOT APPLE)

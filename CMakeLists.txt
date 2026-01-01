@@ -156,13 +156,6 @@ if(DETECTED_LFS_CFLAGS)
 	# message(STATUS "Large filesystem flags: ${DETECTED_LFS_CFLAGS}")
 endif(DETECTED_LFS_CFLAGS)
 
-# Additional CFLAGS suggested by the SDL library:
-if(PKG_CONFIG_FOUND)
-	execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --cflags-only-other sdl3
-			OUTPUT_VARIABLE SDL3_OTHER_CFLAGS
-			ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif(PKG_CONFIG_FOUND)
-
 # ###########################
 # Check for optional headers:
 # ###########################

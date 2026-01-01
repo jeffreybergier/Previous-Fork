@@ -534,7 +534,6 @@ const char* Log_SetExceptionDebugMask (const char *FlagsStr)
 	return errstr;
 }
 
-
 #if ENABLE_TRACING
 
 /**

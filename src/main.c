@@ -936,7 +936,7 @@ static void Main_StatusbarSetup(void) {
  * Set signal handlers to catch signals
  */
 static void Main_SetSignalHandlers(void) {
-#ifndef _WIN32
+#ifndef WIN32
 	signal(SIGPIPE, SIG_IGN);
 #endif
 	signal(SIGFPE, SIG_IGN);

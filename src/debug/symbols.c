@@ -107,13 +107,15 @@ const char* Symbols_GetByDspAddress(uint32_t addr, symtype_t type)
 /**
  * Load symbols for last opened program when symbol autoloading is enabled.
  *
+ * When either textAddr or textEnd is zero, basepage values are used instead.
+ *
  * If there's file with same name as the program, but with '.sym'
  * extension, that overrides / is loaded instead of the symbol table
  * in the program.
  *
  * Called when debugger is invoked.
  */
-void Symbols_LoadCurrentProgram(void)
+void Symbols_LoadCurrentProgram(uint32_t textAddr, uint32_t textEnd)
 {
 }
 
