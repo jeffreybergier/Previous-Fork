@@ -115,7 +115,34 @@ const char Keymap_fileid[] = "Previous keymap.c";
 #define NEXTKEY_MOD_RALT        0x40
 
 
+/**
+ * Initialization.
+ */
 void Keymap_Init(void) {}
+
+/**
+ * Set defaults for shortcut keys
+ */
+void Keymap_InitShortcutDefaultKeys(void)
+{
+	ConfigureParams.Shortcut.withoutModifier[SHORTCUT_OPTIONS]    = SDLK_F12;
+	ConfigureParams.Shortcut.withoutModifier[SHORTCUT_FULLSCREEN] = SDLK_F11;
+
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_OPTIONS]       = SDLK_o;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_FULLSCREEN]    = SDLK_f;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_PAUSE]         = SDLK_p;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_DEBUG_M68K]    = SDLK_d;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_DEBUG_I860]    = SDLK_i;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB]     = SDLK_m;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_COLDRESET]     = SDLK_c;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_SCREENSHOT]    = SDLK_g;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_RECORD]        = SDLK_r;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_SOUND]         = SDLK_s;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_QUIT]          = SDLK_q;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_DIMENSION]     = SDLK_n;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_STATUSBAR]     = SDLK_b;
+	ConfigureParams.Shortcut.withModifier[SHORTCUT_TITLEBAR]      = SDLK_t;
+}
 
 /*-----------------------------------------------------------------------*/
 /**

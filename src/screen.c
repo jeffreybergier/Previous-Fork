@@ -263,7 +263,7 @@ void Screen_Init(void) {
 	bInFullScreen = false;
 
 	/* Statusbar */
-	Statusbar_SetHeight(width, height);
+	Statusbar_SetHeight(width, height, true);
 	statusBar.x = 0;
 	statusBar.y = height;
 	statusBar.w = width;
@@ -363,6 +363,12 @@ void Screen_Init(void) {
 	Main_ShowCursor(false);
 	Main_SetMouseGrab(bGrabMouse);
 
+	if (!ConfigureParams.Screen.bShowStatusbar) {
+		Screen_StatusbarChanged();
+	}
+	if (!ConfigureParams.Screen.bShowTitlebar) {
+		Screen_TitlebarChanged();
+	}
 	if (ConfigureParams.Screen.bFullScreen) {
 		Screen_EnterFullScreen();
 	}
@@ -378,7 +384,6 @@ void Screen_UnInit(void) {
 	doRepaint = false; /* stop repaint thread */
 	SDL_WaitThread(repaintThread, &s);
 #endif
-	nd_sdl_destroy();
 	free(uiBuffer);
 	SDL_FreeSurface(sdlscrn);
 	SDL_DestroyTexture(uiTexture);
@@ -515,6 +520,18 @@ void Screen_ModeChanged(void) {
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Set visibilty of title bar.
+ */
+void Screen_TitlebarChanged(void) {
+	if (sdlscrn && !bInFullScreen) {
+		SDL_SetWindowBordered(sdlWindow, ConfigureParams.Screen.bShowTitlebar);
+		nd_sdl_titlebar(ConfigureParams.Screen.bShowTitlebar);
+	}
+}
+
+
+/*-----------------------------------------------------------------------*/
+/**
  * Force things associated with changing statusbar visibility
  */
 void Screen_StatusbarChanged(void) {
@@ -526,7 +543,7 @@ void Screen_StatusbarChanged(void) {
 	}
 
 	/* Get new heigt for our window */
-	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
+	height = NeXT_SCRN_HEIGHT + Statusbar_SetHeight(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, false);
 
 	if (bInFullScreen) {
 		saveWindowBounds.h = (height * saveWindowBounds.w) / width;
@@ -542,6 +559,14 @@ void Screen_StatusbarChanged(void) {
 	SDL_AtomicSet(&blitUI, 1);
 }
 
+/**
+ * Wrapper for Statusbar_AddMessage() and Statusbar_Update() in one go.
+ */
+void Screen_StatusbarMessage(const char *msg, uint32_t msecs)
+{
+	Statusbar_AddMessage(msg, msecs);
+	Statusbar_Update(sdlscrn);
+}
 
 /*-----------------------------------------------------------------------*/
 /**

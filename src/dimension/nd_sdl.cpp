@@ -74,6 +74,7 @@ void NDSDL::init(void) {
     }
     
     if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
+        titlebar(ConfigureParams.Screen.bShowTitlebar);
         if (!ndRenderer) {
             ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
             if (!ndRenderer) {
@@ -118,12 +119,17 @@ void NDSDL::destroy(void) {
     SDL_DestroyTexture(ndTexture);
     SDL_DestroyRenderer(ndRenderer);
     SDL_DestroyWindow(ndWindow);
-    uninit();
 }
 
 void NDSDL::resize(float scale) {
     if (ndWindow) {
         SDL_SetWindowSize(ndWindow, 1120*scale, 832*scale);
+    }
+}
+
+void NDSDL::titlebar(bool show) {
+    if (ndWindow) {
+        SDL_SetWindowBordered(ndWindow, show ? SDL_TRUE : SDL_FALSE);
     }
 }
 
@@ -136,6 +142,14 @@ void nd_sdl_repaint(void) {
     }
 }
 #endif
+
+void nd_sdl_titlebar(bool show) {
+    FOR_EACH_SLOT(slot) {
+        IF_NEXT_DIMENSION(slot, nd) {
+            nd->sdl.titlebar(show);
+        }
+    }
+}
 
 void nd_sdl_resize(float scale) {
     FOR_EACH_SLOT(slot) {
@@ -157,14 +171,6 @@ void nd_sdl_hide(void) {
     FOR_EACH_SLOT(slot) {
         IF_NEXT_DIMENSION(slot, nd) {
             nd->sdl.uninit();
-        }
-    }
-}
-
-void nd_sdl_destroy(void) {
-    FOR_EACH_SLOT(slot) {
-        IF_NEXT_DIMENSION(slot, nd) {
-            nd->sdl.destroy();
         }
     }
 }

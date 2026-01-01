@@ -157,6 +157,9 @@ int SDLGui_SetScreen(SDL_Surface *pScrn)
 {
 	pSdlGuiScrn = pScrn;
 
+	if (pScrn == NULL)
+		return -1;
+
 	/* Decide which font to use - small or big one: */
 	if (pSdlGuiScrn->w >= 640 && pSdlGuiScrn->h >= 400 && pBigFontGfx != NULL)
 	{
@@ -215,8 +218,9 @@ void SDLGui_GetFontSize(int *width, int *height)
  */
 void SDLGui_CenterDlg(SGOBJ *dlg)
 {
-	dlg[0].x = (pSdlGuiScrn->w/sdlgui_fontwidth-dlg[0].w)/2;
-	dlg[0].y = (pSdlGuiScrn->h/sdlgui_fontheight-dlg[0].h)/2;
+	int w = dlg[0].w, h = dlg[0].h;
+	dlg[0].x = (pSdlGuiScrn->w / sdlgui_fontwidth - w) / 2;
+	dlg[0].y = (pSdlGuiScrn->h / sdlgui_fontheight - h) / 2;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -626,7 +630,8 @@ static void SDLGui_EditField(SGOBJ *dlg, int objnum)
 					bQuitProgram = true;
 					bStopEditing = true;
 					break;
-				 case SDL_MOUSEBUTTONDOWN:          /* Mouse pressed -> stop editing */
+				 case SDL_JOYBUTTONDOWN:
+				 case SDL_MOUSEBUTTONDOWN:          /* Button press -> stop editing */
 					bStopEditing = true;
 					break;
 				 case SDL_TEXTINPUT:

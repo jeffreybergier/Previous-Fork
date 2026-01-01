@@ -66,7 +66,8 @@ static char sc_names[SHORTCUT_KEYS][20] = {
 	"Pause",
 	"Quit",
 	"Screen toggle",
-	"Show/hide statusbar"
+	"Show/hide statusbar",
+	"Show/hide titlebar"
 };
 
 
@@ -221,14 +222,14 @@ static void Dialog_ShortcutDlg(void)
 #define DLGKEYMAIN_SYMBOLIC  5
 #define DLGKEYMAIN_SWAP      8
 #define DLGKEYMAIN_DEFINE    12
-#define DLGKEYMAIN_EXIT      46
+#define DLGKEYMAIN_EXIT      49
 
 static char key_names[SHORTCUT_KEYS][2][16];
 
 /* The keyboard dialog: */
 static SGOBJ keyboarddlg[] =
 {
-	{ SGBOX, 0, 0, 0,0, 49,31, NULL },
+	{ SGBOX, 0, 0, 0,0, 49,32, NULL },
 	{ SGTEXT, 0, 0, 16,1, 16,1, "Keyboard options" },
 
 	{ SGBOX, 0, 0, 2,3, 22,7, NULL },
@@ -240,7 +241,7 @@ static SGOBJ keyboarddlg[] =
 	{ SGTEXT, 0, 0, 27,4, 12,1, "Key options:" },
 	{ SGCHECKBOX, 0, 0, 27,6, 18,1, "Swap cmd and alt" },
 
-	{ SGBOX,  0, 0,  2,11, 45,15, NULL },
+	{ SGBOX,  0, 0,  2,11, 45,16, NULL },
 	{ SGTEXT, 0, 0,  4,12, 10,1, "Shortcuts:" },
 	{ SGTEXT, 0, 0, 18,12, 10,1, "ctrl-alt-X  or  Fn" },
 	{ SGBUTTON, 0, 0, 38,12, 8,1, "Change" },
@@ -272,14 +273,17 @@ static SGOBJ keyboarddlg[] =
 	{ SGTEXT, 0, 0,  6,22, 20,1, sc_names[SHORTCUT_STATUSBAR] },
 	{ SGTEXT, 0, 0, 26,22,  8,1, key_names[SHORTCUT_STATUSBAR][0] },
 	{ SGTEXT, 0, 0, 34,22, 11,1, key_names[SHORTCUT_STATUSBAR][1] },
-	{ SGTEXT, 0, 0,  6,23, 20,1, sc_names[SHORTCUT_SOUND] },
-	{ SGTEXT, 0, 0, 26,23,  8,1, key_names[SHORTCUT_SOUND][0] },
-	{ SGTEXT, 0, 0, 34,23, 11,1, key_names[SHORTCUT_SOUND][1] },
-	{ SGTEXT, 0, 0,  6,24, 20,1, sc_names[SHORTCUT_QUIT] },
-	{ SGTEXT, 0, 0, 26,24,  8,1, key_names[SHORTCUT_QUIT][0] },
-	{ SGTEXT, 0, 0, 34,24, 11,1, key_names[SHORTCUT_QUIT][1] },
+	{ SGTEXT, 0, 0,  6,23, 20,1, sc_names[SHORTCUT_TITLEBAR] },
+	{ SGTEXT, 0, 0, 26,23,  8,1, key_names[SHORTCUT_TITLEBAR][0] },
+	{ SGTEXT, 0, 0, 34,23, 11,1, key_names[SHORTCUT_TITLEBAR][1] },
+	{ SGTEXT, 0, 0,  6,24, 20,1, sc_names[SHORTCUT_SOUND] },
+	{ SGTEXT, 0, 0, 26,24,  8,1, key_names[SHORTCUT_SOUND][0] },
+	{ SGTEXT, 0, 0, 34,24, 11,1, key_names[SHORTCUT_SOUND][1] },
+	{ SGTEXT, 0, 0,  6,25, 20,1, sc_names[SHORTCUT_QUIT] },
+	{ SGTEXT, 0, 0, 26,25,  8,1, key_names[SHORTCUT_QUIT][0] },
+	{ SGTEXT, 0, 0, 34,25, 11,1, key_names[SHORTCUT_QUIT][1] },
 
-	{ SGBUTTON, SG_DEFAULT, 0, 14,28, 21,1, "Back to main menu" },
+	{ SGBUTTON, SG_DEFAULT, 0, 14,29, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
 

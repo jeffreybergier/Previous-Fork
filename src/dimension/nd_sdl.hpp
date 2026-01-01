@@ -37,6 +37,7 @@ public:
     void    uninit(void);
     void    destroy(void);
     void    resize(float scale);
+    void    titlebar(bool show);
 };
 
 extern "C" {
@@ -44,10 +45,10 @@ extern "C" {
 #ifndef ENABLE_RENDERING_THREAD
     void nd_sdl_repaint(void);
 #endif
+    void nd_sdl_titlebar(bool show);
     void nd_sdl_resize(float scale);
     void nd_sdl_show(void);
     void nd_sdl_hide(void);
-    void nd_sdl_destroy(void);
 #ifdef __cplusplus
 }
 #endif

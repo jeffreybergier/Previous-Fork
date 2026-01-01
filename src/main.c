@@ -131,10 +131,8 @@ bool Main_PauseEmulation(bool visualize) {
 	NextBus_Pause(true);
 
 	if (visualize) {
-		Statusbar_AddMessage("Emulation paused", 100);
-		/* make sure msg gets shown */
-		Statusbar_Update(sdlscrn);
-		
+		Screen_StatusbarMessage("Emulation paused", 100);
+
 		/* Un-grab mouse pointer */
 		Main_SetMouseGrab(false);
 	}
@@ -216,6 +214,17 @@ void Main_RequestQuit(bool confirm) {
 		/* Assure that CPU core shuts down */
 		M68000_Stop();
 	}
+}
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Set Previous window title. Use NULL for default
+ */
+static void Main_SetTitle(const char *title) {
+	if (title)
+		SDL_SetWindowTitle(sdlWindow, title);
+	else
+		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -474,6 +483,15 @@ void Main_ResetKeys(void) {
 
 /* ----------------------------------------------------------------------- */
 /**
+ * Is a shortcut modifier key pressed?
+ */
+static bool Main_ShortcutMod(int modkey)
+{
+	return (modkey & KMOD_CTRL) && (modkey & KMOD_ALT);
+}
+
+/* ----------------------------------------------------------------------- */
+/**
  * Emulator message handler. Called from emulator.
  */
 void Main_EventHandlerInterrupt(void) {
@@ -702,7 +720,7 @@ void Main_EventHandler(void) {
 				if (event.key.repeat) {
 					break;
 				}
-				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, true)) {
+				if (ShortCut_CheckKeys(event.key.keysym.sym, Main_ShortcutMod(event.key.keysym.mod), true)) {
 					ShortCut_ActKey();
 					break;
 				}
@@ -714,7 +732,7 @@ void Main_EventHandler(void) {
 				break;
 
 			case SDL_KEYUP:
-				if (ShortCut_CheckKeys(event.key.keysym.mod, event.key.keysym.sym, false)) {
+				if (ShortCut_CheckKeys(event.key.keysym.sym, Main_ShortcutMod(event.key.keysym.mod), false)) {
 					break;
 				}
 #ifdef ENABLE_RENDERING_THREAD
@@ -788,17 +806,6 @@ static void Main_Loop(void) {
 		Main_EventHandler();
 	}
 #endif
-}
-
-/*-----------------------------------------------------------------------*/
-/**
- * Set Previous window title. Use NULL for default
- */
-void Main_SetTitle(const char *title) {
-	if (title)
-		SDL_SetWindowTitle(sdlWindow, title);
-	else
-		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -941,7 +948,7 @@ static void Main_StatusbarSetup(void) {
  * Set signal handlers to catch signals
  */
 static void Main_SetSignalHandlers(void) {
-#ifndef _WIN32
+#ifndef WIN32
 	signal(SIGPIPE, SIG_IGN);
 #endif
 	signal(SIGFPE, SIG_IGN);
