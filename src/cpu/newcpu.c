@@ -92,6 +92,7 @@ static int baseclock;
 #endif
 int m68k_pc_indirect;
 bool m68k_interrupt_delay;
+int slow_cpu_access;
 static bool m68k_accurate_ipl;
 static bool m68k_reset_delay;
 static bool ismoves_nommu;
