@@ -1,6 +1,6 @@
 
 
-                                  Previous 3.9
+                                  Previous 4.0
 
 
 
@@ -452,7 +452,7 @@ Previous v3.9:
   > Fixes bug that could cause a crash when calling the READDIR procedure.
   > Fixes bug that caused certain file mode bits to be unreadable through NFS.
 
-Previous v4.0 (unreleased):
+Previous v4.0:
   > Adds support for reading partition data without disk label using ditool.
   > Adds support for hiding the status bar from the start.
   > Adds option to hide the title bar, resulting in a borderless window.
