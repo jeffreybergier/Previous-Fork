@@ -24,6 +24,7 @@
  */
 #include <slirp.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "rpc.h"
 #include "dns.h"
