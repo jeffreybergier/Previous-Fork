@@ -48,7 +48,7 @@ int host_atomic_add(atomic_int* a, int value) {
 }
 
 int host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
-	return (SDL_AtomicCAS(a, oldValue, newValue) == SDL_TRUE) ? 1 : 0;
+	return SDL_AtomicCAS(a, oldValue, newValue);
 }
 
 thread_t* host_thread_create(thread_func_t func, const char* name, void* data) {
@@ -119,7 +119,7 @@ void host_sleep_us(uint64_t us) {
 	do {
 		errno = 0;
 		ret = nanosleep(&ts, &ts);
-	} while (ret && (errno == EINTR ));		/* keep on sleeping if we were interrupted */
+	} while (ret && (errno == EINTR));		/* keep on sleeping if we were interrupted */
 #else
 	uint64_t timeout = us;
 	timeout += real_time();
