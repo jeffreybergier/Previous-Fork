@@ -20,7 +20,7 @@ const char SysReg_fileid[] = "Previous sysReg.c";
 #include "rtcnvram.h"
 #include "bmap.h"
 #include "statusbar.h"
-#include "host.h"
+#include "timing.h"
 
 #define LOG_SCR_LEVEL       LOG_DEBUG
 #define LOG_HARDCLOCK_LEVEL LOG_DEBUG
@@ -625,10 +625,10 @@ void Hardclock_InterruptHandler ( void )
 {
     CycInt_AcknowledgeInterrupt();
     if ((hardclock_csr&HARDCLOCK_ENABLE) && (latch_hardclock>0)) {
-        Log_Printf(LOG_DEBUG, "[INT] throwing hardclock %lld", host_time_us());
+        Log_Printf(LOG_DEBUG, "[INT] throwing hardclock %lld", Timing_GetSyncedGuestTime());
         set_interrupt(INT_TIMER,SET_INT);
-        uint64_t now = host_time_us();
-        host_hardclock(latch_hardclock, (int)(now - hardClockLastLatch));
+        uint64_t now = Timing_GetSyncedGuestTime();
+        Timing_Hardclock(latch_hardclock, (int)(now - hardClockLastLatch));
         hardClockLastLatch = now;
         CycInt_AddRelativeInterruptUs(latch_hardclock, 0, INTERRUPT_HARDCLOCK);
     }
@@ -659,7 +659,7 @@ void HardclockWriteCSR(void) {
     if (hardclock_csr&HARDCLOCK_LATCH) {
         hardclock_csr&= ~HARDCLOCK_LATCH;
         latch_hardclock=(hardclock0<<8)|hardclock1;
-        hardClockLastLatch = host_time_us();
+        hardClockLastLatch = Timing_GetSyncedGuestTime();
     }
     if ((hardclock_csr&HARDCLOCK_ENABLE) && (latch_hardclock>0)) {
         Log_Printf(LOG_HARDCLOCK_LEVEL,"[hardclock] enable periodic interrupt (%i microseconds).", latch_hardclock);
@@ -682,7 +682,7 @@ static uint64_t sysTimerOffset = 0;
 static bool resetTimer;
 
 void System_Timer_Read(void) {
-    uint64_t now = host_time_us();
+    uint64_t now = Timing_GetSyncedGuestTime();
     if(resetTimer) {
         sysTimerOffset = now;
         resetTimer = false;

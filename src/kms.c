@@ -18,7 +18,6 @@ const char Kms_fileid[] = "Previous kms.c";
 #include "dma.h"
 #include "rtcnvram.h"
 #include "snd.h"
-#include "host.h"
 
 #define LOG_KMS_REG_LEVEL LOG_DEBUG
 #define LOG_KMS_LEVEL     LOG_DEBUG
@@ -470,11 +469,20 @@ static void kms_mouse_move_step(void) {
 /* Mouse movement handler */
 #define MOUSE_STEP_FREQ 1000
 
-void kms_mouse_move(int x, bool left, int y, bool up) {
-    if (x<0 || y<0) abort();
+void kms_mouse_move(int x, int y) {
+    if (x < 0) {
+        x = -x;
+        m_move_left = true;
+    } else {
+        m_move_left = false;
+    }
+    if (y < 0) {
+        y = -y;
+        m_move_up = true;
+    } else {
+        m_move_up = false;
+    }
     
-    m_move_left = left;
-    m_move_up   = up;
 #if 0
     int xsteps = x / 8; if(xsteps == 0) xsteps = 1;
     int ysteps = y / 8; if(ysteps == 0) ysteps = 1;
@@ -494,7 +502,7 @@ void kms_mouse_move(int x, bool left, int y, bool up) {
     CycInt_AddRelativeInterruptCycles(10, INTERRUPT_MOUSE);
 }
 
-void Mouse_Handler(void) {
+void KMS_MouseHandler(void) {
     CycInt_AcknowledgeInterrupt();
     
     if (m_move_x > 0 || m_move_y > 0) {

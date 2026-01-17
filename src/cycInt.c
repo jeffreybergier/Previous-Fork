@@ -22,7 +22,7 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 #include <stdint.h>
 #include <assert.h>
 #include "main.h"
-#include "host.h"
+#include "timing.h"
 #include "cycInt.h"
 #include "m68000.h"
 #include "screen.h"
@@ -56,7 +56,7 @@ static void (* const pIntHandlerFunctions[MAX_INTERRUPTS])(void) =
 	NULL,
 	Video_InterruptHandler,
 	Hardclock_InterruptHandler,
-	Mouse_Handler,
+	KMS_MouseHandler,
 	ESP_InterruptHandler,
 	ESP_IO_Handler,
 	M2MDMA_IO_Handler,
@@ -69,7 +69,7 @@ static void (* const pIntHandlerFunctions[MAX_INTERRUPTS])(void) =
 	SND_In_Handler,
 	Printer_IO_Handler,
 	SCC_IO_Handler,
-	Main_EventHandlerInterrupt,
+	Main_EventHandler,
 	nd_display_vbl_handler,
 	nd_video_vbl_handler
 };
@@ -146,7 +146,7 @@ static void CycInt_UpdateInterrupt(void) {
  * Check all microsecond interrupt timings
  */
 bool CycInt_SetNewInterruptUs(void) {
-	int64_t now = host_time_us();
+	int64_t now = Timing_GetSyncedGuestTime();
 	if (ConfigureParams.System.bRealtime) {
 		for(int i = 0; i < MAX_INTERRUPTS; i++) {
 			if (InterruptHandlers[i].type == CYC_INT_US && now > InterruptHandlers[i].time) {
@@ -211,7 +211,7 @@ void CycInt_AddRelativeInterruptUs(int64_t us, int64_t usreal, interrupt_id Hand
 		if ( usreal > 0 ) us = usreal;
 
 		InterruptHandlers[Handler].type = CYC_INT_US;
-		InterruptHandlers[Handler].time = host_time_us() + us;
+		InterruptHandlers[Handler].time = Timing_GetSyncedGuestTime() + us;
 
 		/* Set new active int and compute a new value for PendingInterruptCount*/
 		CycInt_SetNewInterrupt();

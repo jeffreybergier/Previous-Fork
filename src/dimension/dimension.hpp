@@ -40,6 +40,7 @@ extern "C" {
 #include "i860.hpp"
 #include "nd_nbic.hpp"
 #include "nd_mem.hpp"
+#include "nd_sdl.hpp"
 #include "ramdac.h"
 
 class NextDimension;

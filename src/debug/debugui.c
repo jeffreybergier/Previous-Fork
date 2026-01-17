@@ -29,7 +29,6 @@ const char DebugUI_fileid[] = "Hatari debugui.c";
 #include "m68000.h"
 #include "reset.h"
 #include "screen.h"
-#include "statusbar.h"
 #include "str.h"
 
 #include "debug_priv.h"
@@ -1198,7 +1197,7 @@ void DebugUI(debug_reason_t reason)
 	 * this is invoked from.  E.g. returning from fullscreen
 	 * enables grab if that was enabled on windowed mode.
 	 */
-	Main_SetMouseGrab(false);
+	Screen_SetMouseGrab(false);
 
 	DebugUI_Init();
 

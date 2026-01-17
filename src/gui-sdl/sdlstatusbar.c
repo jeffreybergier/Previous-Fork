@@ -1,5 +1,5 @@
 /*
-  Hatari - statusbar.c
+  Previous - sdlstatusbar.c
 
   This file is distributed under the GNU General Public License, version 2
   or at your option any later version. Read the file gpl.txt for details.
@@ -27,14 +27,15 @@
   - If other information shown by Statusbar (TOS version etc) changes,
     call Statusbar_UpdateInfo()
 */
-const char Statusbar_fileid[] = "Hatari statusbar.c";
+const char SDLstatusbar_fileid[] = "Previous sdlstatusbar.c";
 
 #include <assert.h>
 #include "main.h"
 #include "configuration.h"
 #include "sdlgui.h"
 #include "statusbar.h"
-#include "screen.h"
+#include "sdlstatusbar.h"
+#include "sdlscreen.h"
 #include "video.h"
 #include "grab.h"
 #include "dimension.hpp"
