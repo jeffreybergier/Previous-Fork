@@ -11,7 +11,6 @@
 #define PREV_HOST_H
 
 #include <SDL3/SDL.h>
-#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,13 +31,13 @@ extern void         host_unlock(lock_t* lock);
 extern int          host_atomic_set(atomic_int* a, int newValue);
 extern int          host_atomic_get(atomic_int* a);
 extern int          host_atomic_add(atomic_int* a, int value);
-extern bool         host_atomic_cas(atomic_int* a, int oldValue, int newValue);
+extern int          host_atomic_cas(atomic_int* a, int oldValue, int newValue);
 extern thread_t*    host_thread_create(thread_func_t, const char* name, void* data);
 extern void         host_thread_priority(int priority);
 extern int          host_thread_wait(thread_t* thread);
 extern semaphore_t* host_semaphore_create(uint32_t value);
 extern void         host_semaphore_signal(semaphore_t* semaphore);
-extern bool         host_semaphore_wait_timeout(semaphore_t* semaphore, int32_t ms);
+extern int          host_semaphore_wait_timeout(semaphore_t* semaphore, int32_t ms);
 extern void         host_semaphore_destroy(semaphore_t* semaphore);
 extern mutex_t*     host_mutex_create(void);
 extern void         host_mutex_lock(mutex_t* mutex);

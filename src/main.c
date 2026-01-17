@@ -115,7 +115,7 @@ bool Main_PauseEmulation(bool visualize) {
 	bEmulationActive = false;
 #ifndef ENABLE_RENDERING_THREAD
 	/* Wait until 68k thread is paused */
-	if (host_semaphore_wait_timeout(pauseFlag, 1000) == false)
+	if (host_semaphore_wait_timeout(pauseFlag, 1000))
 		Log_Printf(LOG_WARN, "Warning: Pause flag timeout!");
 #endif
 	Timing_Pause(true);

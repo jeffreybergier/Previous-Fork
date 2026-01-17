@@ -39,8 +39,8 @@ int host_atomic_add(atomic_int* a, int value) {
 	return SDL_AddAtomicInt(a, value);
 }
 
-bool host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
-	return SDL_CompareAndSwapAtomicInt(a, oldValue, newValue);
+int host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
+	return (SDL_CompareAndSwapAtomicInt(a, oldValue, newValue) == true) ? 1 : 0;
 }
 
 thread_t* host_thread_create(thread_func_t func, const char* name, void* data) {
@@ -73,8 +73,8 @@ void host_semaphore_signal(semaphore_t* semaphore) {
 	SDL_SignalSemaphore(semaphore);
 }
 
-bool host_semaphore_wait_timeout(semaphore_t* semaphore, int32_t ms) {
-	return SDL_WaitSemaphoreTimeout(semaphore, ms);
+int host_semaphore_wait_timeout(semaphore_t* semaphore, int32_t ms) {
+	return (SDL_WaitSemaphoreTimeout(semaphore, ms) == false) ? 1 : 0;
 }
 
 void host_semaphore_destroy(semaphore_t* semaphore) {
