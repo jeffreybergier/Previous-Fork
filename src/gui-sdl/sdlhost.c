@@ -40,7 +40,7 @@ int host_atomic_add(atomic_int* a, int value) {
 }
 
 int host_atomic_cas(atomic_int* a, int oldValue, int newValue) {
-	return (SDL_CompareAndSwapAtomicInt(a, oldValue, newValue) == true) ? 1 : 0;
+	return SDL_CompareAndSwapAtomicInt(a, oldValue, newValue);
 }
 
 thread_t* host_thread_create(thread_func_t func, const char* name, void* data) {
