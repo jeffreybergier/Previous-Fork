@@ -8,6 +8,8 @@
 #include <stdlib.h>
 
 #include "main.h"
+#include "event.h"
+#include "timing.h"
 #include "configuration.h"
 #include "m68000.h"
 #include "dimension.hpp"
@@ -328,17 +330,17 @@ extern "C" {
         if (!bBlankToggle) {
             switch (ConfigureParams.Screen.nMonitorType) {
                 case MONITOR_TYPE_DUAL:
-                    Main_SendSpecialEvent(MAIN_ND_DISPLAY);
+                    GuiEvent_SendSpecialEvent(EVENT_ND_DISPLAY);
                     break;
                 case MONITOR_TYPE_DIMENSION:
-                    Main_SendSpecialEvent(MAIN_REPAINT);
+                    GuiEvent_SendSpecialEvent(EVENT_REPAINT);
                     break;
                 default:
                     break;
             }
         }
 #endif
-        host_blank_count(ND_DISPLAY, bBlankToggle);
+        Timing_BlankCount(ND_DISPLAY, bBlankToggle);
         
         FOR_EACH_SLOT(slot) {
             IF_NEXT_DIMENSION(slot, nd) {
@@ -364,7 +366,7 @@ extern "C" {
         
         CycInt_AcknowledgeInterrupt();
         
-        host_blank_count(ND_VIDEO, bBlankToggle);
+        Timing_BlankCount(ND_VIDEO, bBlankToggle);
         
         FOR_EACH_SLOT(slot) {
             IF_NEXT_DIMENSION(slot, nd) {
