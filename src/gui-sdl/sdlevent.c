@@ -90,6 +90,35 @@ static bool GuiEvent_GetEventQueue(SDL_Event* event) {
 
 	return valid;
 }
+
+void GuiEvent_EventQueueHandler(void) {
+	SDL_Event event;
+
+	if (GuiEvent_GetEventQueue(&event)) {
+		switch (event.type) {
+			case SDL_MOUSEMOTION:
+				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
+				break;
+			case SDL_MOUSEBUTTONDOWN:
+				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_MOUSEBUTTONUP:
+				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_MOUSEWHEEL:
+				Keymap_MouseWheel(&event.wheel);
+				break;
+			case SDL_KEYDOWN:
+				Keymap_KeyDown(&event.key.keysym);
+				break;
+			case SDL_KEYUP:
+				Keymap_KeyUp(&event.key.keysym);
+				break;
+			default:
+				break;
+		}
+	}
+}
 #endif /* !ENABLE_RENDERING_THREAD */
 
 /* ----------------------------------------------------------------------- */
@@ -434,36 +463,6 @@ void GuiEvent_EventHandler(void) {
 	} while (bContinueProcessing || !(bEmulationActive || bQuitProgram));
 }
 
-#ifndef ENABLE_RENDERING_THREAD
-void GuiEvent_EventQueueHandler(void) {
-	SDL_Event event;
-
-	if (GuiEvent_GetEventQueue(&event)) {
-		switch (event.type) {
-			case SDL_MOUSEMOTION:
-				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
-				break;
-			case SDL_MOUSEBUTTONDOWN:
-				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
-				break;
-			case SDL_MOUSEBUTTONUP:
-				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
-				break;
-			case SDL_MOUSEWHEEL:
-				Keymap_MouseWheel(&event.wheel);
-				break;
-			case SDL_KEYDOWN:
-				Keymap_KeyDown(&event.key.keysym);
-				break;
-			case SDL_KEYUP:
-				Keymap_KeyUp(&event.key.keysym);
-				break;
-			default:
-				break;
-		}
-	}
-}
-#endif
 
 void UI_Init(void) {
 #if HAVE_SETENV
@@ -484,8 +483,8 @@ void UI_Init(void) {
 }
 
 void UI_UnInit(void) {
-	SDLGui_UnInit();
 	Screen_UnInit();
+	SDLGui_UnInit();
 
 	/* SDL uninit: */
 	SDL_Quit();
