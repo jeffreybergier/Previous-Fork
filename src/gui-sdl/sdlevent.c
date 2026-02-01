@@ -90,6 +90,35 @@ static bool GuiEvent_GetEventQueue(SDL_Event* event) {
 
 	return valid;
 }
+
+void GuiEvent_EventQueueHandler(void) {
+	SDL_Event event;
+
+	if (GuiEvent_GetEventQueue(&event)) {
+		switch (event.type) {
+			case SDL_EVENT_MOUSE_MOTION:
+				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
+				break;
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
+				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_EVENT_MOUSE_BUTTON_UP:
+				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
+				break;
+			case SDL_EVENT_MOUSE_WHEEL:
+				Keymap_MouseWheel(&event.wheel);
+				break;
+			case SDL_EVENT_KEY_DOWN:
+				Keymap_KeyDown(&event.key);
+				break;
+			case SDL_EVENT_KEY_UP:
+				Keymap_KeyUp(&event.key);
+				break;
+			default:
+				break;
+		}
+	}
+}
 #endif /* !ENABLE_RENDERING_THREAD */
 
 /* ----------------------------------------------------------------------- */
@@ -422,36 +451,6 @@ void GuiEvent_EventHandler(void) {
 	} while (bContinueProcessing || !(bEmulationActive || bQuitProgram));
 }
 
-#ifndef ENABLE_RENDERING_THREAD
-void GuiEvent_EventQueueHandler(void) {
-	SDL_Event event;
-
-	if (GuiEvent_GetEventQueue(&event)) {
-		switch (event.type) {
-			case SDL_EVENT_MOUSE_MOTION:
-				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
-				break;
-			case SDL_EVENT_MOUSE_BUTTON_DOWN:
-				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
-				break;
-			case SDL_EVENT_MOUSE_BUTTON_UP:
-				Keymap_MouseUp(event.button.button == SDL_BUTTON_LEFT);
-				break;
-			case SDL_EVENT_MOUSE_WHEEL:
-				Keymap_MouseWheel(&event.wheel);
-				break;
-			case SDL_EVENT_KEY_DOWN:
-				Keymap_KeyDown(&event.key);
-				break;
-			case SDL_EVENT_KEY_UP:
-				Keymap_KeyUp(&event.key);
-				break;
-			default:
-				break;
-		}
-	}
-}
-#endif
 
 void UI_Init(void) {
 	/* Needed on maemo but useful also with normal X11 window managers for
@@ -470,8 +469,8 @@ void UI_Init(void) {
 }
 
 void UI_UnInit(void) {
-	SDLGui_UnInit();
 	Screen_UnInit();
+	SDLGui_UnInit();
 
 	/* SDL uninit: */
 	SDL_Quit();
