@@ -378,8 +378,8 @@ static void Main_UnInit(void) {
 	Sound_Pause(true);
 	Ethernet_UnInit();
 	IoMem_UnInit();
-	Exit680x0();
 	UI_UnInit();
+	Exit680x0();
 
 	/* Close debug log file */
 	DebugUI_UnInit();
