@@ -483,8 +483,8 @@ void UI_Init(void) {
 }
 
 void UI_UnInit(void) {
-	Screen_UnInit();
 	SDLGui_UnInit();
+	Screen_UnInit();
 
 	/* SDL uninit: */
 	SDL_Quit();
