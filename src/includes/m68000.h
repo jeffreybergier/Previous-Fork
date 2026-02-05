@@ -90,7 +90,7 @@ static inline void M68000_AddCycles(int cycles) {
 		PendingInterrupt.time -= cycles;
 	}
 	if (usCheckCycles < 0) {
-		if(!(CycInt_SetNewInterruptUs())) {
+		if (!(CycInt_CheckInterruptUs())) {
 			usCheckCycles = 100 * ConfigureParams.System.nCpuFreq;
 		}
 	} else {

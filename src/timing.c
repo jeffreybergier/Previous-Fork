@@ -71,10 +71,16 @@ void Timing_Pause(bool pause) {
 }
 
 /* Return current time as microseconds */
-uint64_t Timing_GetSyncedGuestTime(void) {
+uint64_t Timing_GetTime(void) {
+	bool state;
 	uint64_t hostTime;
 	
 	host_lock(&timeLock);
+	
+	/* switch to realtime if...
+	 * 1) ...realtime mode is enabled and...
+	 * 2) ...either we are running darkmatter or the m68k CPU is in user mode */
+	state = (osDarkmatter || !(regs.s)) && enableRealtime;
 	
 	if (currentIsRealtime) {
 		hostTime = Timing_GetRealTime();
@@ -83,22 +89,13 @@ uint64_t Timing_GetSyncedGuestTime(void) {
 		hostTime /= cycleDivisor;
 	}
 	
-	/* save hostTime to be read by other threads */
-	saveTime = hostTime;
-	
-	/* switch to realtime if...
-	 * 1) ...realtime mode is enabled and...
-	 * 2) ...either we are running darkmatter or the m68k CPU is in user mode */
-	bool state = (osDarkmatter || !(regs.s)) && enableRealtime;
 	if (currentIsRealtime != state) {
-		uint64_t realTime  = Timing_GetRealTime();
-		
 		if (currentIsRealtime) {
 			/* switching from real-time to cycle-time */
-			cycleCounterStart = nCyclesMainCounter - realTime * cycleDivisor;
+			cycleCounterStart = nCyclesMainCounter - hostTime * cycleDivisor;
 		} else {
 			/* switching from cycle-time to real-time */
-			int64_t realTimeOffset = (int64_t)hostTime - realTime;
+			int64_t realTimeOffset = (int64_t)hostTime - Timing_GetRealTime();
 			if (realTimeOffset > 0) {
 				/* if hostTime is in the future, wait until realTime is there as well */
 				if (realTimeOffset > 10000LL)
@@ -110,13 +107,16 @@ uint64_t Timing_GetSyncedGuestTime(void) {
 		currentIsRealtime = state;
 	}
 	
+	/* save hostTime to be read by other threads */
+	saveTime = hostTime;
+	
 	host_unlock(&timeLock);
 	
 	return hostTime;
 }
 
 void Timing_GetTimes(uint64_t* realTime, uint64_t* hostTime) {
-	*hostTime = Timing_GetSyncedGuestTime();
+	*hostTime = Timing_GetTime();
 	*realTime = Timing_GetRealTime();
 }
 
@@ -131,7 +131,7 @@ uint64_t Timing_GetSaveTime(void) {
 
 /* Return current time as seconds */
 static uint64_t Timing_GetTimeSec(void) {
-	return Timing_GetSyncedGuestTime() / 1000000ULL;
+	return Timing_GetTime() / 1000000ULL;
 }
 
 time_t Timing_GetUnixTime(void) {
@@ -154,7 +154,7 @@ void Timing_SetUnixTimeStruct(struct tm* now) {
 
 void Timing_Hardclock(int expected, int actual) {
 	if (abs(actual - expected) > 1000) {
-		Log_Printf(LOG_WARN, "[Hardclock] Expected: %d us, Actual: %d us\n", expected, actual);
+		Log_Printf(LOG_WARN, "[Hardclock] Expected: %d us, actual: %d us\n", expected, actual);
 	} else {
 		hardClockExpected += expected;
 		hardClockActual   += actual;

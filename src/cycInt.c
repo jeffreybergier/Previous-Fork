@@ -145,12 +145,12 @@ static void CycInt_UpdateInterrupt(void) {
 /**
  * Check all microsecond interrupt timings
  */
-bool CycInt_SetNewInterruptUs(void) {
-	int64_t now = Timing_GetSyncedGuestTime();
+bool CycInt_CheckInterruptUs(void) {
+	int64_t now = Timing_GetTime();
 	if (ConfigureParams.System.bRealtime) {
-		for(int i = 0; i < MAX_INTERRUPTS; i++) {
+		for (int i = 0; i < MAX_INTERRUPTS; i++) {
 			if (InterruptHandlers[i].type == CYC_INT_US && now > InterruptHandlers[i].time) {
-				PendingInterrupt = InterruptHandlers[i];
+				PendingInterrupt      = InterruptHandlers[i];
 				PendingInterrupt.time = -1;
 				ActiveInterrupt       = i;
 				return true;
@@ -211,7 +211,7 @@ void CycInt_AddRelativeInterruptUs(int64_t us, int64_t usreal, interrupt_id Hand
 		if ( usreal > 0 ) us = usreal;
 
 		InterruptHandlers[Handler].type = CYC_INT_US;
-		InterruptHandlers[Handler].time = Timing_GetSyncedGuestTime() + us;
+		InterruptHandlers[Handler].time = Timing_GetTime() + us;
 
 		/* Set new active int and compute a new value for PendingInterruptCount*/
 		CycInt_SetNewInterrupt();

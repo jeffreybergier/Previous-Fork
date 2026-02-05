@@ -26,7 +26,7 @@ enum {
 
 extern int64_t     Timing_GetRealTimeOffset(void);
 extern void        Timing_Pause(bool pause);
-extern uint64_t    Timing_GetSyncedGuestTime(void);
+extern uint64_t    Timing_GetTime(void);
 extern void        Timing_GetTimes(uint64_t* realTime, uint64_t* hostTime);
 extern uint64_t    Timing_GetSaveTime(void);
 extern time_t      Timing_GetUnixTime(void);
