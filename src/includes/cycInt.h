@@ -51,7 +51,7 @@ enum {
 typedef struct
 {
     int     type;   /* Type of time (CPU Cycles, microseconds) or NONE for inactive */
-    int64_t time;   /* number of CPU cycles to go until interupt or absolute microsecond timeout until interrupt */
+    int64_t time;   /* number of CPU cycles to go until interrupt or absolute microsecond timeout until interrupt */
     void (*pFunction)(void);
 } INTERRUPTHANDLER;
 
@@ -70,7 +70,7 @@ extern void CycInt_AddRelativeInterruptUs(int64_t us, int64_t usreal, interrupt_
 extern void CycInt_AddRelativeInterruptUsCycles(int64_t us, int64_t usreal, interrupt_id Handler);
 extern void CycInt_RemovePendingInterrupt(interrupt_id Handler);
 extern bool CycInt_InterruptActive(interrupt_id Handler);
-extern bool CycInt_SetNewInterruptUs(void);
+extern bool CycInt_CheckInterruptUs(void);
 
 #ifdef __cplusplus
 }
