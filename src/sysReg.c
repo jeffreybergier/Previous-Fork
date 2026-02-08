@@ -625,7 +625,7 @@ void Hardclock_InterruptHandler(void) {
     CycInt_AcknowledgeInterrupt();
     set_interrupt(INT_TIMER, SET_INT);
     now = Timing_GetTime();
-    Log_Printf(LOG_DEBUG, "[Hardclock] Interrupting at %lld us", now);
+    Log_Printf(LOG_HARDCLOCK_LEVEL, "[Hardclock] Interrupting at %lld us", now);
     Timing_Hardclock(hardclock_counter, (int)(now - hardclock_last_time));
     hardclock_counter = hardclock_latch;
     if (hardclock_counter) {

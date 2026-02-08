@@ -28,8 +28,8 @@ const char Timing_fileid[] = "Previous timing.c";
 static atomic_int  vblCounter[NUM_BLANKS];
 static const char* BLANKS[NUM_BLANKS] = {"main", "nd_main", "nd_video"};
 
-static int64_t      cycleCounterStart;
-static int64_t      cycleDivisor;
+static uint64_t     cycleCounterStart;
+static uint64_t     cycleDivisor;
 static uint64_t     perfCounterStart;
 static uint64_t     perfFrequency;
 static bool         perfCounterFreqInt;
@@ -208,12 +208,12 @@ static void Timing_ReportLimits(void) {
 	
 	Log_Printf(LOG_WARN, "[Hosttime] Timing system reset:");
 	
-	cycleCounterLimit  = INT64_MAX - nCyclesMainCounter;
+	cycleCounterLimit  = UINT64_MAX - nCyclesMainCounter;
 	cycleCounterLimit /= cycleDivisor;
 	cycleCounterLimit /= DAY_TO_US;
 	
-	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter value: %"PRId64, nCyclesMainCounter);
-	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter frequency: %"PRId64" MHz", cycleDivisor);
+	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter value: %"PRIu64, nCyclesMainCounter);
+	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter frequency: %"PRIu64" MHz", cycleDivisor);
 	Log_Printf(LOG_WARN, "[Hosttime] Cycle timer will overflow in %"PRIu64" days", cycleCounterLimit);
 	
 	perfCounter        = host_get_counter();

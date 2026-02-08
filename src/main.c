@@ -63,7 +63,7 @@ static char     speedMsg[32];
 
 static void Main_Speed(uint64_t realTime, uint64_t hostTime) {
 	uint64_t dRT  = realTime - lastRT;
-	speedFactor   = (nCyclesMainCounter - lastCycles);
+	speedFactor   = nCyclesMainCounter - lastCycles;
 	speedFactor  /= ConfigureParams.System.nCpuFreq;
 	speedFactor  /= dRT;
 	lastRT        = realTime;

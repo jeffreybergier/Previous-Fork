@@ -36,41 +36,33 @@ typedef enum
   INTERRUPT_EVENT_LOOP,
   INTERRUPT_ND_VBL,
   INTERRUPT_ND_VIDEO_VBL,
-  MAX_INTERRUPTS
+  NUM_INTERRUPTS
 } interrupt_id;
-
-/* Event timer structure - keeps next timer to occur in structure so don't need
- * to check all entries */
-
-enum {
-    CYC_INT_NONE,
-    CYC_INT_CPU,
-    CYC_INT_US,
-};
 
 typedef struct
 {
-    int     type;   /* Type of time (CPU Cycles, microseconds) or NONE for inactive */
-    int64_t time;   /* number of CPU cycles to go until interrupt or absolute microsecond timeout until interrupt */
-    void (*pFunction)(void);
+	void (*pFunction)(void);
+	uint64_t cycles;
+	uint64_t time;
+	interrupt_id prev;
+	interrupt_id next;
 } INTERRUPTHANDLER;
 
-extern INTERRUPTHANDLER PendingInterrupt;
+extern INTERRUPTHANDLER InterruptHandlers[NUM_INTERRUPTS];
 
-extern int64_t nCyclesMainCounter;
-extern int64_t nCyclesOver;
+extern interrupt_id nCyclesFirst;
+extern interrupt_id nTimeFirst;
 
-extern int usCheckCycles;
+extern uint64_t nCyclesMainCounter;
 
 extern void CycInt_Reset(void);
-extern void CycInt_MemorySnapShot_Capture(bool bSave);
 extern void CycInt_AcknowledgeInterrupt(void);
 extern void CycInt_AddRelativeInterruptCycles(int64_t CycleTime, interrupt_id Handler);
 extern void CycInt_AddRelativeInterruptUs(int64_t us, int64_t usreal, interrupt_id Handler);
 extern void CycInt_AddRelativeInterruptUsCycles(int64_t us, int64_t usreal, interrupt_id Handler);
 extern void CycInt_RemovePendingInterrupt(interrupt_id Handler);
 extern bool CycInt_InterruptActive(interrupt_id Handler);
-extern bool CycInt_CheckInterruptUs(void);
+extern void CycInt_AddCycles(int Cycles);
 
 #ifdef __cplusplus
 }
