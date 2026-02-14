@@ -87,7 +87,7 @@ void CycInt_Reset(void) {
 	for (i = INTERRUPT_NULL; i < NUM_INTERRUPTS; i++) {
 		InterruptHandlers[i].pFunction = pIntHandlerFunctions[i];
 		InterruptHandlers[i].type      = TYPE_NONE;
-		InterruptHandlers[i].time      = INT64_MAX;
+		InterruptHandlers[i].time      = UINT64_MAX;
 		InterruptHandlers[i].prev      = INTERRUPT_NULL;
 		InterruptHandlers[i].next      = INTERRUPT_NULL;
 	}
@@ -143,14 +143,14 @@ void CycInt_AcknowledgeInterrupt(void) {
  */
 static inline interrupt_id CycInt_AddInterrupt(interrupt_id first, interrupt_id i) {
 	interrupt_id next, prev;
-		
+
 	next = first;
 	prev = INTERRUPT_NULL;
-	
+
 	while (InterruptHandlers[next].time < InterruptHandlers[i].time) {
 		prev = next;
 		next = InterruptHandlers[next].next;
-	}	
+	}
 	if (next == first) {
 		first = i;
 	}

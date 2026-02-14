@@ -352,6 +352,7 @@ static bool Main_Init(void) {
 	M68000_Init();
 	DSP_Init();
 	IoMem_Init();
+	CycInt_Reset();
 	/* Done as last, needs CPU & DSP running... */
 	DebugUI_Init();
 
