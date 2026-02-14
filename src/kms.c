@@ -499,7 +499,9 @@ void kms_mouse_move(int x, int y) {
     m_move_dx = 1;
     m_move_dy = 1;
 #endif
-    CycInt_AddRelativeInterruptCycles(10, INTERRUPT_MOUSE);
+    if (!CycInt_InterruptActive(INTERRUPT_MOUSE)) {
+        CycInt_AddRelativeInterruptCycles(10, INTERRUPT_MOUSE);
+    }
 }
 
 void KMS_MouseHandler(void) {

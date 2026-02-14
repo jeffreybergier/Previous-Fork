@@ -5126,7 +5126,7 @@ static inline void run_other_MPUs(void)
 	}
 
 	/* We can have several events at the same time before the next CPU instruction */
-	while (InterruptHandlers[nCyclesFirst].cycles <= nCyclesMainCounter) {
+	while (InterruptHandlers[nCyclesFirst].time <= nCyclesMainCounter) {
 		CALL_VAR(InterruptHandlers[nCyclesFirst].pFunction); /* call the event handler */
 	}
 }

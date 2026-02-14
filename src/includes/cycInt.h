@@ -39,10 +39,16 @@ typedef enum
   NUM_INTERRUPTS
 } interrupt_id;
 
+typedef enum {
+  TYPE_NONE,
+  TYPE_CYCLES,
+  TYPE_TIME
+} interrupt_type;
+
 typedef struct
 {
 	void (*pFunction)(void);
-	uint64_t cycles;
+	interrupt_type type;
 	uint64_t time;
 	interrupt_id prev;
 	interrupt_id next;
