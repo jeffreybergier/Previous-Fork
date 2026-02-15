@@ -317,14 +317,12 @@ bool NextDimension::handle_msgs(void) {
 
 extern "C" {
     void nd_start_interrupts(void) {
-        CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VBL);
-        CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_ND_VIDEO_VBL);
+        CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_ND_VBL);
+        CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_ND_VIDEO_VBL);
     }
 
     void nd_display_vbl_handler(void) {
         static bool bBlankToggle = false;
-        
-        CycInt_AcknowledgeInterrupt();
         
 #ifndef ENABLE_RENDERING_THREAD
         if (!bBlankToggle) {
@@ -352,7 +350,7 @@ extern "C" {
         bBlankToggle = !bBlankToggle;
         
         // 136Hz with toggle gives 68Hz, blank time is 1/2 frame time
-        CycInt_AddRelativeInterruptUs((1000*1000)/136, 0, INTERRUPT_ND_VBL);
+        CycInt_UpdateTimeInterrupt((1000*1000)/136, 0, INTERRUPT_ND_VBL);
     }
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -363,8 +361,6 @@ extern "C" {
 
     void nd_video_vbl_handler(void) {
         static bool bBlankToggle = false;
-        
-        CycInt_AcknowledgeInterrupt();
         
         Timing_BlankCount(ND_VIDEO, bBlankToggle);
         
@@ -377,7 +373,7 @@ extern "C" {
         bBlankToggle = !bBlankToggle;
         
         // 120Hz with toggle gives 60Hz NTSC, blank time is 1/2 frame time
-        CycInt_AddRelativeInterruptUs((1000*1000)/120, 0, INTERRUPT_ND_VIDEO_VBL);
+        CycInt_UpdateTimeInterrupt((1000*1000)/120, 0, INTERRUPT_ND_VIDEO_VBL);
     }
 
     bool nd_video_enabled(int slot) {

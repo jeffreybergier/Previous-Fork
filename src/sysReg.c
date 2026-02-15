@@ -622,7 +622,6 @@ static uint64_t hardclock_last_time;
 
 void Hardclock_InterruptHandler(void) {
     uint64_t now;
-    CycInt_AcknowledgeInterrupt();
     set_interrupt(INT_TIMER, SET_INT);
     now = Timing_GetTime();
     Log_Printf(LOG_HARDCLOCK_LEVEL, "[Hardclock] Interrupting at %lld us", now);
@@ -630,7 +629,7 @@ void Hardclock_InterruptHandler(void) {
     hardclock_counter = hardclock_latch;
     if (hardclock_counter) {
         hardclock_last_time = now;
-        CycInt_AddRelativeInterruptUs(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
+        CycInt_UpdateTimeInterrupt(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
     }
 }
 
@@ -670,7 +669,7 @@ void HardclockWriteCSR(void) {
         Log_Printf(LOG_HARDCLOCK_LEVEL,"[Hardclock] Enable periodic interrupt (%d microseconds).", hardclock_counter);
         if (hardclock_counter) {
             hardclock_last_time = Timing_GetTime();
-            CycInt_AddRelativeInterruptUs(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
+            CycInt_AddTimeInterrupt(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
         }
     } else if (!(hardclock_csr & HARDCLOCK_ENABLE) && (changed_bits & HARDCLOCK_ENABLE)) {
         Log_Printf(LOG_HARDCLOCK_LEVEL,"[Hardclock] Disable periodic interrupt.");

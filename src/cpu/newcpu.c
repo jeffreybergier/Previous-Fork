@@ -5125,10 +5125,7 @@ static inline void run_other_MPUs(void)
 		ndCycles = 0;
 	}
 
-	/* We can have several events at the same time before the next CPU instruction */
-	while (InterruptHandlers[nCyclesFirst].time <= nCyclesMainCounter) {
-		CALL_VAR(InterruptHandlers[nCyclesFirst].pFunction); /* call the event handler */
-	}
+	M68000_AddCycles(cpu_cycles);
 }
 
 static int do_specialties (int cycles)
@@ -6327,9 +6324,7 @@ static void m68k_run_mmu040 (void)
 				count_instr (regs.opcode);
 				cpu_cycles = (*cpufunctbl[regs.opcode])(regs.opcode);
 
-#ifdef WINUAE_FOR_HATARI
-				M68000_AddCycles(cpu_cycles);
-
+#ifdef WINUAE_FOR_PREVIOUS
 				run_other_MPUs();
 #endif
 
@@ -6438,9 +6433,7 @@ insretry:
 
 				mmu030_opcode = -1;
 
-#ifdef WINUAE_FOR_HATARI
-				M68000_AddCycles(cpu_cycles);
-
+#ifdef WINUAE_FOR_PREVIOUS
 				run_other_MPUs();
 #endif
 				if (regs.spcflags) {

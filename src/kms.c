@@ -500,16 +500,14 @@ void kms_mouse_move(int x, int y) {
     m_move_dy = 1;
 #endif
     if (!CycInt_InterruptActive(INTERRUPT_MOUSE)) {
-        CycInt_AddRelativeInterruptCycles(10, INTERRUPT_MOUSE);
+        CycInt_AddTimeInterrupt(1, 0, INTERRUPT_MOUSE);
     }
 }
 
 void KMS_MouseHandler(void) {
-    CycInt_AcknowledgeInterrupt();
-    
     if (m_move_x > 0 || m_move_y > 0) {
         kms_mouse_move_step();
-        CycInt_AddRelativeInterruptUs((1000*1000)/MOUSE_STEP_FREQ, 0, INTERRUPT_MOUSE);
+        CycInt_UpdateTimeInterrupt((1000*1000)/MOUSE_STEP_FREQ, 0, INTERRUPT_MOUSE);
     }
 }
 

@@ -33,6 +33,7 @@ const char Main_fileid[] = "Previous main.c";
 #include "dsp.h"
 #include "host.h"
 #include "grab.h"
+#include "dimension.hpp"
 
 #include "hatari-glue.h"
 #include "NextBus.hpp"
@@ -216,11 +217,7 @@ void Main_EventHandler(void) {
 	static int statusBarUpdate = 0;
 #ifndef ENABLE_RENDERING_THREAD
 	int64_t time_offset;
-#endif
 
-	CycInt_AcknowledgeInterrupt();
-
-#ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
 		host_semaphore_signal(pauseFlag);
 		do {
@@ -257,7 +254,7 @@ void Main_EventHandler(void) {
 	}
 #endif /* !ENABLE_RENDERING_THREAD */
 
-	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
+	CycInt_AddTimeInterrupt((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
 }
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -270,7 +267,7 @@ static int Main_Thread(void* unused) {
 
 	while (!bQuitProgram) {
 		/* Start EventHandler */
-		CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+		CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_EVENT_LOOP);
 
 		/* Start emulation */
 		M68000_Start();
@@ -296,7 +293,7 @@ static void Main_Loop(void) {
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start EventHandler */
-	CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+	CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_EVENT_LOOP);
 
 	/* Start emulation */
 	M68000_Start();

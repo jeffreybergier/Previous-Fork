@@ -726,8 +726,6 @@ static void new_enet_io(void) {
 }
 
 void ENET_IO_Handler(void) {
-    CycInt_AcknowledgeInterrupt();
-    
     if (enet.reset&EN_RESET) {
         Log_Printf(LOG_WARN, "Stopping Ethernet Transmitter/Receiver");
         /* Stop SLIRP/PCAP */
@@ -743,7 +741,7 @@ void ENET_IO_Handler(void) {
         enet_io();
     }
     
-    CycInt_AddRelativeInterruptUs(receiver_state==RECV_STATE_WAITING?ENET_IO_DELAY:ENET_IO_SHORT, 0, INTERRUPT_ENET_IO);
+    CycInt_UpdateTimeInterrupt(receiver_state==RECV_STATE_WAITING?ENET_IO_DELAY:ENET_IO_SHORT, 0, INTERRUPT_ENET_IO);
 }
 
 void enet_reset(void) {
@@ -756,7 +754,7 @@ void enet_reset(void) {
         }
         if (!CycInt_InterruptActive(INTERRUPT_ENET_IO)) {
             Log_Printf(LOG_WARN, "Starting Ethernet Transmitter/Receiver");
-            CycInt_AddRelativeInterruptUs(ENET_IO_DELAY, 0, INTERRUPT_ENET_IO);
+            CycInt_AddTimeInterrupt(ENET_IO_DELAY, 0, INTERRUPT_ENET_IO);
         }
     }
 }

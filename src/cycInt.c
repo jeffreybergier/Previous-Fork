@@ -34,12 +34,12 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 #include "dimension.hpp"
 
 
-interrupt_id nCyclesFirst;
-interrupt_id nTimeFirst;
-
 uint64_t nCyclesMainCounter; /* Main cycles counter, counts emulated CPU cycles since reset */
 
-static int nCheckCycles;
+static int64_t      nCheckCycles;
+static uint64_t     nTimeNow;
+static interrupt_id nCyclesFirst;
+static interrupt_id nTimeFirst;
 
 /* List of possible interrupt handlers to be store in 'PendingInterruptTable' */
 static void (* const pIntHandlerFunctions[NUM_INTERRUPTS])(void) =
@@ -65,7 +65,7 @@ static void (* const pIntHandlerFunctions[NUM_INTERRUPTS])(void) =
 	nd_video_vbl_handler
 };
 
-INTERRUPTHANDLER InterruptHandlers[NUM_INTERRUPTS];
+static INTERRUPTHANDLER InterruptHandlers[NUM_INTERRUPTS];
 
 
 /*-----------------------------------------------------------------------*/
@@ -78,6 +78,7 @@ void CycInt_Reset(void) {
 	/* Reset counts */
 	nCyclesMainCounter = 0;
 	nCheckCycles       = 0;
+	nTimeNow           = 0;
 	
 	/* Reset entry points */
 	nCyclesFirst = INTERRUPT_NULL;
@@ -85,27 +86,33 @@ void CycInt_Reset(void) {
 
 	/* Reset interrupt table */
 	for (i = INTERRUPT_NULL; i < NUM_INTERRUPTS; i++) {
-		InterruptHandlers[i].pFunction = pIntHandlerFunctions[i];
-		InterruptHandlers[i].type      = TYPE_NONE;
-		InterruptHandlers[i].time      = UINT64_MAX;
-		InterruptHandlers[i].prev      = INTERRUPT_NULL;
-		InterruptHandlers[i].next      = INTERRUPT_NULL;
+		InterruptHandlers[i].func = pIntHandlerFunctions[i];
+		InterruptHandlers[i].type = TYPE_NONE;
+		InterruptHandlers[i].time = UINT64_MAX;
+		InterruptHandlers[i].prev = INTERRUPT_NULL;
+		InterruptHandlers[i].next = INTERRUPT_NULL;
 	}
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Add cycles, check for pending microsecond interrupt and place it at 
- * the beginning of the cycle interrupt queue.
+ * Add cycles and process pending interrupts.
  */
 void CycInt_AddCycles(int cycles) {
 	nCyclesMainCounter += cycles;
+	while (InterruptHandlers[nCyclesFirst].time <= nCyclesMainCounter) {
+		interrupt_id i = nCyclesFirst;
+		InterruptHandlers[i].type = TYPE_NONE;
+		nCyclesFirst = InterruptHandlers[i].next;
+		InterruptHandlers[nCyclesFirst].prev = INTERRUPT_NULL;
+		InterruptHandlers[i].func();
+	}
 	if (nCheckCycles > 0) {
 		nCheckCycles -= cycles;
 	} else {
-		uint64_t now = Timing_GetTime();
+		nTimeNow = Timing_GetTime();
 		while (nTimeFirst) {
-			int64_t diff = InterruptHandlers[nTimeFirst].time - now;
+			int64_t diff = InterruptHandlers[nTimeFirst].time - nTimeNow;
 			if (diff > 0) {
 				if (diff < 100) {
 					nCheckCycles = diff * ConfigureParams.System.nCpuFreq;
@@ -114,27 +121,14 @@ void CycInt_AddCycles(int cycles) {
 				break;
 			} else {
 				interrupt_id i = nTimeFirst;
+				InterruptHandlers[i].type = TYPE_NONE;
 				nTimeFirst = InterruptHandlers[i].next;
 				InterruptHandlers[nTimeFirst].prev = INTERRUPT_NULL;
-				InterruptHandlers[i].type = TYPE_CYCLES;
-				InterruptHandlers[i].time = 0;
-				InterruptHandlers[i].prev = INTERRUPT_NULL;
-				InterruptHandlers[i].next = nCyclesFirst;
-				nCyclesFirst = i;
+				InterruptHandlers[i].func();
 			}
 		}
 		nCheckCycles = 100 * ConfigureParams.System.nCpuFreq;
 	}
-}
-
-/*-----------------------------------------------------------------------*/
-/**
- * Remove the active interrupt from the cycle interrupt queue.
- */
-void CycInt_AcknowledgeInterrupt(void) {
-	InterruptHandlers[nCyclesFirst].type = TYPE_NONE;
-	nCyclesFirst = InterruptHandlers[nCyclesFirst].next;
-	InterruptHandlers[nCyclesFirst].prev = INTERRUPT_NULL;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -167,9 +161,9 @@ static inline interrupt_id CycInt_AddInterrupt(interrupt_id first, interrupt_id 
 
 /*-----------------------------------------------------------------------*/
 /**
- * Add cycle interrupt to the queue.
+ * Set or update cycle interrupt and add it to the queue.
  */
-void CycInt_AddRelativeInterruptCycles(int64_t CycleTime, interrupt_id i) {
+void CycInt_AddCyclesInterrupt(int64_t CycleTime, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
@@ -177,12 +171,20 @@ void CycInt_AddRelativeInterruptCycles(int64_t CycleTime, interrupt_id i) {
 	InterruptHandlers[i].time = nCyclesMainCounter + CycleTime;
 	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
 }
+void CycInt_UpdateCyclesInterrupt(int64_t CycleTime, interrupt_id i) {
+	if (InterruptHandlers[i].type) {
+		CycInt_RemovePendingInterrupt(i);
+	}
+	InterruptHandlers[i].type = TYPE_CYCLES;
+	InterruptHandlers[i].time += CycleTime;
+	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+}
 
 /*-----------------------------------------------------------------------*/
 /**
- * Add microsecond interrupt to the queue.
+ * Set or update microsecond time interrupt and add it to the queue.
  */
-void CycInt_AddRelativeInterruptUs(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_AddTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
@@ -196,16 +198,36 @@ void CycInt_AddRelativeInterruptUs(int64_t RealTime, int64_t FastTime, interrupt
 		nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
 	}
 }
+void CycInt_UpdateTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+	if (InterruptHandlers[i].type) {
+		CycInt_RemovePendingInterrupt(i);
+	}
+	if (ConfigureParams.System.bRealtime) {
+		InterruptHandlers[i].type = TYPE_TIME;
+		InterruptHandlers[i].time += FastTime ? FastTime : RealTime;
+		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
+	} else {
+		InterruptHandlers[i].type = TYPE_CYCLES;
+		InterruptHandlers[i].time += RealTime * ConfigureParams.System.nCpuFreq;
+		nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+	}
+}
 
 /*-----------------------------------------------------------------------*/
 /**
- * Convert microseconds to cycles and add cycle interrupt to the queue.
+ * Convert microseconds to cycles and set or update cycle interrupt.
  */
-void CycInt_AddRelativeInterruptUsCycles(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_AddCycleTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
 	if (ConfigureParams.System.bRealtime && FastTime) {
 		RealTime = FastTime;
 	}
-	CycInt_AddRelativeInterruptCycles(RealTime * ConfigureParams.System.nCpuFreq, i);
+	CycInt_AddCyclesInterrupt(RealTime * ConfigureParams.System.nCpuFreq, i);
+}
+void CycInt_UpdateCycleTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+	if (ConfigureParams.System.bRealtime && FastTime) {
+		RealTime = FastTime;
+	}
+	CycInt_UpdateCyclesInterrupt(RealTime * ConfigureParams.System.nCpuFreq, i);
 }
 
 /*-----------------------------------------------------------------------*/
