@@ -56,12 +56,6 @@ static inline uint64_t Timing_GetRealTime(void) {
 	return rt;
 }
 
-int64_t Timing_GetRealTimeOffset(void) {
-	uint64_t rt, vt;
-	Timing_GetTimes(&rt, &vt);
-	return (int64_t)vt - rt;
-}
-
 void Timing_Pause(bool pause) {
 	if (pause) {
 		pauseTimeStamp = host_get_counter();
@@ -95,7 +89,7 @@ uint64_t Timing_GetTime(void) {
 			cycleCounterStart = nCyclesMainCounter - hostTime * cycleDivisor;
 		} else {
 			/* switching from cycle-time to real-time */
-			int64_t realTimeOffset = (int64_t)hostTime - Timing_GetRealTime();
+			int64_t realTimeOffset = hostTime - Timing_GetRealTime();
 			if (realTimeOffset > 0) {
 				/* if hostTime is in the future, wait until realTime is there as well */
 				if (realTimeOffset > 10000LL)
@@ -118,6 +112,16 @@ uint64_t Timing_GetTime(void) {
 void Timing_GetTimes(uint64_t* realTime, uint64_t* hostTime) {
 	*hostTime = Timing_GetTime();
 	*realTime = Timing_GetRealTime();
+}
+
+void Timing_Sync(void) {
+	int64_t realTimeOffset;
+	uint64_t realTime, hostTime;
+	Timing_GetTimes(&realTime, &hostTime);
+	realTimeOffset = hostTime - realTime;
+	if (realTimeOffset > 0) {
+		host_sleep_us(realTimeOffset);
+	}
 }
 
 /* This can be used by other threads to read hostTime */

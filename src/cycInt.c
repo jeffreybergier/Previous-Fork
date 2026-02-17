@@ -34,9 +34,11 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 #include "dimension.hpp"
 
 
+#define CHECK_INTERVAL 100
+
 uint64_t nCyclesMainCounter; /* Main cycles counter, counts emulated CPU cycles since reset */
 
-static int64_t      nCheckCycles;
+static int          nCheckCycles;
 static uint64_t     nTimeNow;
 static interrupt_id nCyclesFirst;
 static interrupt_id nTimeFirst;
@@ -114,7 +116,7 @@ void CycInt_AddCycles(int cycles) {
 		while (nTimeFirst) {
 			int64_t diff = InterruptHandlers[nTimeFirst].time - nTimeNow;
 			if (diff > 0) {
-				if (diff < 100) {
+				if (diff < CHECK_INTERVAL) {
 					nCheckCycles = diff * ConfigureParams.System.nCpuFreq;
 					return;
 				}
@@ -127,7 +129,7 @@ void CycInt_AddCycles(int cycles) {
 				InterruptHandlers[i].func();
 			}
 		}
-		nCheckCycles = 100 * ConfigureParams.System.nCpuFreq;
+		nCheckCycles = CHECK_INTERVAL * ConfigureParams.System.nCpuFreq;
 	}
 }
 
@@ -189,9 +191,13 @@ void CycInt_AddTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i)
 		CycInt_RemovePendingInterrupt(i);
 	}
 	if (ConfigureParams.System.bRealtime) {
+		RealTime = FastTime ? FastTime : RealTime;
 		InterruptHandlers[i].type = TYPE_TIME;
-		InterruptHandlers[i].time = Timing_GetTime() + (FastTime ? FastTime : RealTime);
+		InterruptHandlers[i].time = Timing_GetTime() + RealTime;
 		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
+		if (RealTime < CHECK_INTERVAL && i == nTimeFirst) {
+			nCheckCycles = RealTime * ConfigureParams.System.nCpuFreq;
+		}
 	} else {
 		InterruptHandlers[i].type = TYPE_CYCLES;
 		InterruptHandlers[i].time = nCyclesMainCounter + RealTime * ConfigureParams.System.nCpuFreq;
@@ -203,6 +209,10 @@ void CycInt_UpdateTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id
 		CycInt_RemovePendingInterrupt(i);
 	}
 	if (ConfigureParams.System.bRealtime) {
+		nTimeNow = Timing_GetTime();
+		if ((nTimeNow - InterruptHandlers[i].time) > CHECK_INTERVAL) {
+			InterruptHandlers[i].time = nTimeNow;
+		}
 		InterruptHandlers[i].type = TYPE_TIME;
 		InterruptHandlers[i].time += FastTime ? FastTime : RealTime;
 		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
@@ -257,9 +267,8 @@ void CycInt_RemovePendingInterrupt(interrupt_id i) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * Return true if the interrupt queued.
+ * Return true if the interrupt is queued.
  */
-bool CycInt_InterruptActive(interrupt_id i)
-{
+bool CycInt_InterruptActive(interrupt_id i) {
 	return (InterruptHandlers[i].type != TYPE_NONE);
 }

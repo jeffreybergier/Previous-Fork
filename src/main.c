@@ -216,8 +216,6 @@ void Main_RequestQuit(bool confirm) {
 void Main_EventHandler(void) {
 	static int statusBarUpdate = 0;
 #ifndef ENABLE_RENDERING_THREAD
-	int64_t time_offset;
-
 	if (!bEmulationActive) {
 		host_semaphore_signal(pauseFlag);
 		do {
@@ -247,12 +245,9 @@ void Main_EventHandler(void) {
 	GuiEvent_EventHandler();
 #else
 	GuiEvent_EventQueueHandler();
+#endif
 
-	time_offset = Timing_GetRealTimeOffset();
-	if (time_offset > 0) {
-		host_sleep_us(time_offset);
-	}
-#endif /* !ENABLE_RENDERING_THREAD */
+	Timing_Sync();
 
 	CycInt_AddTimeInterrupt((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
 }
