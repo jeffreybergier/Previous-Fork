@@ -7391,7 +7391,6 @@ void m68k_go (int may_quit)
 	for (;;) {
 		cpu_prefs_changed_flag = 0;
 		int restored = 0;
-		void (*run_func)(void);
 
 #ifdef WINUAE_FOR_PREVIOUS
 		if (regs.spcflags & SPCFLAG_BRK) {
