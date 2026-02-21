@@ -16,55 +16,40 @@ extern "C" {
 
 /* Interrupt handlers in system */
 typedef enum {
-	INTERRUPT_NULL,
-	INTERRUPT_VIDEO_VBL,
-	INTERRUPT_HARDCLOCK,
-	INTERRUPT_MOUSE,
-	INTERRUPT_ESP,
-	INTERRUPT_ESP_IO,
-	INTERRUPT_M2M_IO,
-	INTERRUPT_MO,
-	INTERRUPT_MO_IO,
-	INTERRUPT_ECC_IO,
-	INTERRUPT_ENET_IO,
-	INTERRUPT_FLP_IO,
-	INTERRUPT_SND_OUT,
-	INTERRUPT_SND_IN,
-	INTERRUPT_LP_IO,
-	INTERRUPT_SCC_IO,
-	INTERRUPT_EVENT_LOOP,
-	INTERRUPT_ND_VBL,
-	INTERRUPT_ND_VIDEO_VBL,
-	NUM_INTERRUPTS
-} interrupt_id;
-
-/* Interrupt types */
-typedef enum {
-	TYPE_NONE,
-	TYPE_CYCLES,
-	TYPE_TIME
-} interrupt_type;
-
-typedef struct {
-	void (*func)(void);
-	interrupt_type type;
-	uint64_t time;
-	interrupt_id prev;
-	interrupt_id next;
-} INTERRUPTHANDLER;
+	EVENT_NULL,
+	EVENT_HARDCLOCK_INTERRUPT,
+	EVENT_ESP_INTERRUPT,
+	EVENT_ESP_IO,
+	EVENT_MO_INTERRUPT,
+	EVENT_MO_IO,
+	EVENT_MO_ECC_IO,
+	EVENT_FLOPPY_IO,
+	EVENT_ETHERNET_IO,
+	EVENT_PRINTER_IO,
+	EVENT_SCC_IO,
+	EVENT_DMA_M2M_IO,
+	EVENT_KMS_MOUSE_MOTION,
+	EVENT_SND_INPUT,
+	EVENT_SND_OUTPUT,
+	EVENT_VIDEO_VBL,
+	EVENT_ND_VBL,
+	EVENT_ND_VIDEO_VBL,
+	EVENT_MAIN_EVENT,
+	NUM_EVENTS
+} event_id;
 
 extern uint64_t nCyclesMainCounter;
 
 extern void CycInt_Reset(void);
 extern void CycInt_AddCycles(int Cycles);
-extern void CycInt_AddCyclesInterrupt(uint64_t Cycles, interrupt_id i);
-extern void CycInt_UpdateCyclesInterrupt(uint64_t Cycles, interrupt_id i);
-extern void CycInt_AddTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i);
-extern void CycInt_UpdateTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i);
-extern void CycInt_AddCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i);
-extern void CycInt_UpdateCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i);
-extern void CycInt_RemovePendingInterrupt(interrupt_id i);
-extern bool CycInt_InterruptActive(interrupt_id i);
+extern void CycInt_AddCyclesEvent(uint64_t Cycles, event_id i);
+extern void CycInt_UpdateCyclesEvent(uint64_t Cycles, event_id i);
+extern void CycInt_AddTimeEvent(uint64_t RealTime, uint64_t FastTime, event_id i);
+extern void CycInt_UpdateTimeEvent(uint64_t RealTime, uint64_t FastTime, event_id i);
+extern void CycInt_AddCycleTimeEvent(uint64_t CycleTime, uint64_t FastTime, event_id i);
+extern void CycInt_UpdateCycleTimeEvent(uint64_t CycleTime, uint64_t FastTime, event_id i);
+extern void CycInt_RemovePendingEvent(event_id i);
+extern bool CycInt_EventPending(event_id i);
 
 #ifdef __cplusplus
 }

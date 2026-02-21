@@ -499,15 +499,15 @@ void kms_mouse_move(int x, int y) {
     m_move_dx = 1;
     m_move_dy = 1;
 #endif
-    if (!CycInt_InterruptActive(INTERRUPT_MOUSE)) {
-        CycInt_AddTimeInterrupt(1, 0, INTERRUPT_MOUSE);
+	if (!CycInt_EventPending(EVENT_KMS_MOUSE_MOTION)) {
+		CycInt_AddTimeEvent(1, 0, EVENT_KMS_MOUSE_MOTION);
     }
 }
 
-void KMS_MouseHandler(void) {
+void KMS_Mouse_Motion_Handler(void) {
     if (m_move_x > 0 || m_move_y > 0) {
         kms_mouse_move_step();
-        CycInt_UpdateTimeInterrupt((1000*1000)/MOUSE_STEP_FREQ, 0, INTERRUPT_MOUSE);
+		CycInt_UpdateTimeEvent((1000*1000)/MOUSE_STEP_FREQ, 0, EVENT_KMS_MOUSE_MOTION);
     }
 }
 

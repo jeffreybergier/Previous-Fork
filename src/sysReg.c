@@ -620,7 +620,7 @@ void IntRegMaskWrite(void) {
 static uint16_t hardclock_latch;
 static uint64_t hardclock_last_time;
 
-void Hardclock_InterruptHandler(void) {
+void Hardclock_Interrupt_Handler(void) {
     uint64_t now;
     set_interrupt(INT_TIMER, SET_INT);
     now = Timing_GetTime();
@@ -629,7 +629,7 @@ void Hardclock_InterruptHandler(void) {
     hardclock_counter = hardclock_latch;
     if (hardclock_counter) {
         hardclock_last_time = now;
-        CycInt_UpdateTimeInterrupt(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
+        CycInt_UpdateTimeEvent(hardclock_counter, 0, EVENT_HARDCLOCK_INTERRUPT);
     }
 }
 
@@ -669,12 +669,12 @@ void HardclockWriteCSR(void) {
         Log_Printf(LOG_HARDCLOCK_LEVEL,"[Hardclock] Enable periodic interrupt (%d microseconds).", hardclock_counter);
         if (hardclock_counter) {
             hardclock_last_time = Timing_GetTime();
-            CycInt_AddTimeInterrupt(hardclock_counter, 0, INTERRUPT_HARDCLOCK);
+            CycInt_AddTimeEvent(hardclock_counter, 0, EVENT_HARDCLOCK_INTERRUPT);
         }
     } else if (!(hardclock_csr & HARDCLOCK_ENABLE) && (changed_bits & HARDCLOCK_ENABLE)) {
         Log_Printf(LOG_HARDCLOCK_LEVEL,"[Hardclock] Disable periodic interrupt.");
         hardclock_counter -= Timing_GetTime() - hardclock_last_time;
-        CycInt_RemovePendingInterrupt(INTERRUPT_HARDCLOCK);
+        CycInt_RemovePendingEvent(EVENT_HARDCLOCK_INTERRUPT);
     }
     hardclock_csr &= ~HARDCLOCK_LATCH;
     set_interrupt(INT_TIMER, RELEASE_INT);

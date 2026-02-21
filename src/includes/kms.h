@@ -126,6 +126,6 @@ extern void KMS_Data_Read(void);
 
 extern void KMS_KM_Data_Read(void);
 
-extern void KMS_MouseHandler(void);
+extern void KMS_Mouse_Motion_Handler(void);
 
 #endif /* PREV_KMS_H */

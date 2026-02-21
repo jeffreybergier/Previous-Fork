@@ -181,7 +181,7 @@ void Main_Halt(void) {
 #ifdef ENABLE_RENDERING_THREAD
 	Main_HaltDialog();
 #else
-	GuiEvent_SendSpecialEvent(EVENT_HALT);
+	GuiEvent_SendSpecialEvent(SPECIAL_EVENT_HALT);
 #endif
 }
 
@@ -249,7 +249,7 @@ void Main_EventHandler(void) {
 
 	Timing_Sync();
 
-	CycInt_AddTimeInterrupt((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
+	CycInt_AddTimeEvent((1000*1000)/200, 0, EVENT_MAIN_EVENT); /* Poll events at 200 Hz */
 }
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -262,7 +262,7 @@ static int Main_Thread(void* unused) {
 
 	while (!bQuitProgram) {
 		/* Start EventHandler */
-		CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_EVENT_LOOP);
+		CycInt_AddTimeEvent(1000, 0, EVENT_MAIN_EVENT);
 
 		/* Start emulation */
 		M68000_Start();
@@ -288,7 +288,7 @@ static void Main_Loop(void) {
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start EventHandler */
-	CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_EVENT_LOOP);
+	CycInt_AddTimeEvent(1000, 0, EVENT_MAIN_EVENT);
 
 	/* Start emulation */
 	M68000_Start();

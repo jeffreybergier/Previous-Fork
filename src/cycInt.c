@@ -6,19 +6,17 @@
 
   This code handles cycle accurate program interruption. We add any pending
   callback handler into a queue so that we do not need to test for every
-  possible interrupt event.
-  We support two time units: CPU cycles and microseconds. Microseconds are
-  either bound to the host CPU's performance counter in realtime mode or to
-  the emulated CPU cycles if non-realtime mode.
+  possible event. We support two time units: CPU cycles and microseconds. 
+  Microseconds are either bound to the host CPU's performance counter in 
+  realtime mode or to the emulated CPU cycles if non-realtime mode.
 */
 
 const char CycInt_fileid[] = "Previous cycInt.c";
 
 #include "main.h"
-#include "timing.h"
 #include "cycInt.h"
-#include "m68000.h"
-#include "screen.h"
+#include "configuration.h"
+#include "timing.h"
 #include "video.h"
 #include "sysReg.h"
 #include "esp.h"
@@ -30,7 +28,6 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 #include "printer.h"
 #include "kms.h"
 #include "scc.h"
-#include "configuration.h"
 #include "dimension.hpp"
 
 
@@ -38,44 +35,58 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 
 uint64_t nCyclesMainCounter; /* Main cycles counter, counts emulated CPU cycles since reset */
 
-static int          nCheckCycles;
-static uint64_t     nTimeNow;
-static interrupt_id nCyclesFirst;
-static interrupt_id nTimeFirst;
+typedef enum {
+	TYPE_NONE,
+	TYPE_CYCLES,
+	TYPE_TIME
+} event_type;
 
-/* List of possible interrupt handlers to be store in 'PendingInterruptTable' */
-static void (* const pIntHandlerFunctions[NUM_INTERRUPTS])(void) =
+typedef struct {
+	void (*func)(void);
+	event_type type;
+	uint64_t time;
+	event_id prev;
+	event_id next;
+} cycint_event;
+
+static cycint_event EventList[NUM_EVENTS];
+
+static int      nCheckCycles;
+static uint64_t nTimeNow;
+static event_id nCyclesFirst;
+static event_id nTimeFirst;
+
+/* List of possible event handlers to be stored in event function pointers */
+static void (*const pEventHandlers[NUM_EVENTS])(void) =
 {
 	NULL,
-	Video_InterruptHandler,
-	Hardclock_InterruptHandler,
-	KMS_MouseHandler,
-	ESP_InterruptHandler,
+	Hardclock_Interrupt_Handler,
+	ESP_Interrupt_Handler,
 	ESP_IO_Handler,
-	M2MDMA_IO_Handler,
-	MO_InterruptHandler,
+	MO_Interrupt_Handler,
 	MO_IO_Handler,
-	ECC_IO_Handler,
-	ENET_IO_Handler,
-	FLP_IO_Handler,
-	SND_Out_Handler,
-	SND_In_Handler,
+	MO_ECC_IO_Handler,
+	Floppy_IO_Handler,
+	Ethernet_IO_Handler,
 	Printer_IO_Handler,
 	SCC_IO_Handler,
-	Main_EventHandler,
-	nd_display_vbl_handler,
-	nd_video_vbl_handler
+	DMA_M2M_IO_Handler,
+	KMS_Mouse_Motion_Handler,
+	SND_In_Handler,
+	SND_Out_Handler,
+	Video_VBL_Handler,
+	ND_VBL_Handler,
+	ND_Video_VBL_Handler,
+	Main_EventHandler
 };
-
-static INTERRUPTHANDLER InterruptHandlers[NUM_INTERRUPTS];
 
 
 /*-----------------------------------------------------------------------*/
 /**
- * Reset interrupts and handlers.
+ * Reset events and handlers.
  */
 void CycInt_Reset(void) {
-	interrupt_id i;
+	event_id i;
 
 	/* Reset counts */
 	nCyclesMainCounter = 0;
@@ -83,38 +94,38 @@ void CycInt_Reset(void) {
 	nTimeNow           = 0;
 	
 	/* Reset entry points */
-	nCyclesFirst = INTERRUPT_NULL;
-	nTimeFirst   = INTERRUPT_NULL;
+	nCyclesFirst = EVENT_NULL;
+	nTimeFirst   = EVENT_NULL;
 
-	/* Reset interrupt table */
-	for (i = INTERRUPT_NULL; i < NUM_INTERRUPTS; i++) {
-		InterruptHandlers[i].func = pIntHandlerFunctions[i];
-		InterruptHandlers[i].type = TYPE_NONE;
-		InterruptHandlers[i].time = UINT64_MAX;
-		InterruptHandlers[i].prev = INTERRUPT_NULL;
-		InterruptHandlers[i].next = INTERRUPT_NULL;
+	/* Reset event table */
+	for (i = EVENT_NULL; i < NUM_EVENTS; i++) {
+		EventList[i].func = pEventHandlers[i];
+		EventList[i].type = TYPE_NONE;
+		EventList[i].time = UINT64_MAX;
+		EventList[i].prev = EVENT_NULL;
+		EventList[i].next = EVENT_NULL;
 	}
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Add cycles and process pending interrupts.
+ * Add cycles and process pending events.
  */
 void CycInt_AddCycles(int Cycles) {
 	nCyclesMainCounter += Cycles;
-	while (InterruptHandlers[nCyclesFirst].time <= nCyclesMainCounter) {
-		interrupt_id i = nCyclesFirst;
-		InterruptHandlers[i].type = TYPE_NONE;
-		nCyclesFirst = InterruptHandlers[i].next;
-		InterruptHandlers[nCyclesFirst].prev = INTERRUPT_NULL;
-		InterruptHandlers[i].func();
+	while (EventList[nCyclesFirst].time <= nCyclesMainCounter) {
+		event_id i = nCyclesFirst;
+		EventList[i].type = TYPE_NONE;
+		nCyclesFirst = EventList[i].next;
+		EventList[nCyclesFirst].prev = EVENT_NULL;
+		EventList[i].func();
 	}
 	if (nCheckCycles > 0) {
 		nCheckCycles -= Cycles;
 	} else {
 		nTimeNow = Timing_GetTime();
 		while (nTimeFirst) {
-			int64_t diff = InterruptHandlers[nTimeFirst].time - nTimeNow;
+			int64_t diff = EventList[nTimeFirst].time - nTimeNow;
 			if (diff > 0) {
 				if (diff < CHECK_INTERVAL) {
 					nCheckCycles = diff * ConfigureParams.System.nCpuFreq;
@@ -122,11 +133,11 @@ void CycInt_AddCycles(int Cycles) {
 				}
 				break;
 			} else {
-				interrupt_id i = nTimeFirst;
-				InterruptHandlers[i].type = TYPE_NONE;
-				nTimeFirst = InterruptHandlers[i].next;
-				InterruptHandlers[nTimeFirst].prev = INTERRUPT_NULL;
-				InterruptHandlers[i].func();
+				event_id i = nTimeFirst;
+				EventList[i].type = TYPE_NONE;
+				nTimeFirst = EventList[i].next;
+				EventList[nTimeFirst].prev = EVENT_NULL;
+				EventList[i].func();
 			}
 		}
 		nCheckCycles = CHECK_INTERVAL * ConfigureParams.System.nCpuFreq;
@@ -135,141 +146,141 @@ void CycInt_AddCycles(int Cycles) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * Add interrupt to the queue.
+ * Add event to the queue.
  */
-static inline interrupt_id CycInt_AddInterrupt(interrupt_id first, interrupt_id i) {
-	interrupt_id next, prev;
+static inline event_id CycInt_AddEvent(event_id first, event_id i) {
+	event_id next, prev;
 
 	next = first;
-	prev = INTERRUPT_NULL;
+	prev = EVENT_NULL;
 
-	while (InterruptHandlers[next].time < InterruptHandlers[i].time) {
+	while (EventList[next].time < EventList[i].time) {
 		prev = next;
-		next = InterruptHandlers[next].next;
+		next = EventList[next].next;
 	}
 	if (next == first) {
 		first = i;
 	}
-	InterruptHandlers[i].prev = prev;
-	InterruptHandlers[i].next = next;
+	EventList[i].prev = prev;
+	EventList[i].next = next;
 	if (prev) {
-		InterruptHandlers[prev].next = i;
+		EventList[prev].next = i;
 	}
 	if (next) {
-		InterruptHandlers[next].prev = i;
+		EventList[next].prev = i;
 	}
 	return first;
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Set or update cycle interrupt and add it to the queue.
+ * Set or update cycle event and add it to the queue.
  */
-void CycInt_AddCyclesInterrupt(uint64_t Cycles, interrupt_id i) {
-	if (InterruptHandlers[i].type) {
-		CycInt_RemovePendingInterrupt(i);
+void CycInt_AddCyclesEvent(uint64_t Cycles, event_id i) {
+	if (EventList[i].type) {
+		CycInt_RemovePendingEvent(i);
 	}
-	InterruptHandlers[i].type = TYPE_CYCLES;
-	InterruptHandlers[i].time = nCyclesMainCounter + Cycles;
-	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+	EventList[i].type = TYPE_CYCLES;
+	EventList[i].time = nCyclesMainCounter + Cycles;
+	nCyclesFirst = CycInt_AddEvent(nCyclesFirst, i);
 }
-void CycInt_UpdateCyclesInterrupt(uint64_t Cycles, interrupt_id i) {
-	if (InterruptHandlers[i].type) {
-		CycInt_RemovePendingInterrupt(i);
+void CycInt_UpdateCyclesEvent(uint64_t Cycles, event_id i) {
+	if (EventList[i].type) {
+		CycInt_RemovePendingEvent(i);
 	}
-	InterruptHandlers[i].type = TYPE_CYCLES;
-	InterruptHandlers[i].time += Cycles;
-	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+	EventList[i].type = TYPE_CYCLES;
+	EventList[i].time += Cycles;
+	nCyclesFirst = CycInt_AddEvent(nCyclesFirst, i);
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Set or update microsecond time interrupt and add it to the queue.
+ * Set or update microsecond time event and add it to the queue.
  */
-void CycInt_AddTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i) {
-	if (InterruptHandlers[i].type) {
-		CycInt_RemovePendingInterrupt(i);
+void CycInt_AddTimeEvent(uint64_t RealTime, uint64_t FastTime, event_id i) {
+	if (EventList[i].type) {
+		CycInt_RemovePendingEvent(i);
 	}
 	if (ConfigureParams.System.bRealtime) {
 		RealTime = FastTime ? FastTime : RealTime;
-		InterruptHandlers[i].type = TYPE_TIME;
-		InterruptHandlers[i].time = Timing_GetTime() + RealTime;
-		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
+		EventList[i].type = TYPE_TIME;
+		EventList[i].time = Timing_GetTime() + RealTime;
+		nTimeFirst = CycInt_AddEvent(nTimeFirst, i);
 		if (RealTime < CHECK_INTERVAL && i == nTimeFirst) {
 			nCheckCycles = RealTime * ConfigureParams.System.nCpuFreq;
 		}
 	} else {
-		InterruptHandlers[i].type = TYPE_CYCLES;
-		InterruptHandlers[i].time = nCyclesMainCounter + RealTime * ConfigureParams.System.nCpuFreq;
-		nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+		EventList[i].type = TYPE_CYCLES;
+		EventList[i].time = nCyclesMainCounter + RealTime * ConfigureParams.System.nCpuFreq;
+		nCyclesFirst = CycInt_AddEvent(nCyclesFirst, i);
 	}
 }
-void CycInt_UpdateTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i) {
-	if (InterruptHandlers[i].type) {
-		CycInt_RemovePendingInterrupt(i);
+void CycInt_UpdateTimeEvent(uint64_t RealTime, uint64_t FastTime, event_id i) {
+	if (EventList[i].type) {
+		CycInt_RemovePendingEvent(i);
 	}
 	if (ConfigureParams.System.bRealtime) {
 		RealTime = FastTime ? FastTime : RealTime;
 		nTimeNow = Timing_GetTime();
-		if ((nTimeNow - InterruptHandlers[i].time) > (RealTime >> 1)) {
-			InterruptHandlers[i].time = nTimeNow;
+		if ((nTimeNow - EventList[i].time) > (RealTime >> 1)) {
+			EventList[i].time = nTimeNow;
 		}
-		InterruptHandlers[i].type = TYPE_TIME;
-		InterruptHandlers[i].time += RealTime;
-		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
+		EventList[i].type = TYPE_TIME;
+		EventList[i].time += RealTime;
+		nTimeFirst = CycInt_AddEvent(nTimeFirst, i);
 	} else {
-		InterruptHandlers[i].type = TYPE_CYCLES;
-		InterruptHandlers[i].time += RealTime * ConfigureParams.System.nCpuFreq;
-		nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
+		EventList[i].type = TYPE_CYCLES;
+		EventList[i].time += RealTime * ConfigureParams.System.nCpuFreq;
+		nCyclesFirst = CycInt_AddEvent(nCyclesFirst, i);
 	}
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Convert microseconds to cycles and set or update cycle interrupt.
+ * Convert microseconds to cycles and set or update cycle event.
  */
-void CycInt_AddCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i) {
+void CycInt_AddCycleTimeEvent(uint64_t CycleTime, uint64_t FastTime, event_id i) {
 	if (ConfigureParams.System.bRealtime && FastTime) {
 		CycleTime = FastTime;
 	}
-	CycInt_AddCyclesInterrupt(CycleTime * ConfigureParams.System.nCpuFreq, i);
+	CycInt_AddCyclesEvent(CycleTime * ConfigureParams.System.nCpuFreq, i);
 }
-void CycInt_UpdateCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i) {
+void CycInt_UpdateCycleTimeEvent(uint64_t CycleTime, uint64_t FastTime, event_id i) {
 	if (ConfigureParams.System.bRealtime && FastTime) {
 		CycleTime = FastTime;
 	}
-	CycInt_UpdateCyclesInterrupt(CycleTime * ConfigureParams.System.nCpuFreq, i);
+	CycInt_UpdateCyclesEvent(CycleTime * ConfigureParams.System.nCpuFreq, i);
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Remove interrupt from the corresponding queue.
+ * Remove event from the corresponding queue.
  */
-void CycInt_RemovePendingInterrupt(interrupt_id i) {
-	if (InterruptHandlers[i].type == TYPE_CYCLES) {
+void CycInt_RemovePendingEvent(event_id i) {
+	if (EventList[i].type == TYPE_CYCLES) {
 		if (i == nCyclesFirst) {
-			nCyclesFirst = InterruptHandlers[i].next;
+			nCyclesFirst = EventList[i].next;
 		}
-	} else if (InterruptHandlers[i].type == TYPE_TIME) {
+	} else if (EventList[i].type == TYPE_TIME) {
 		if (i == nTimeFirst) {
-			nTimeFirst = InterruptHandlers[i].next;
+			nTimeFirst = EventList[i].next;
 		}
 	} else {
 		return;
 	}
-	if (InterruptHandlers[i].prev) {
-		InterruptHandlers[InterruptHandlers[i].prev].next = InterruptHandlers[i].next;
+	if (EventList[i].prev) {
+		EventList[EventList[i].prev].next = EventList[i].next;
 	}
-	if (InterruptHandlers[i].next) {
-		InterruptHandlers[InterruptHandlers[i].next].prev = InterruptHandlers[i].prev;
+	if (EventList[i].next) {
+		EventList[EventList[i].next].prev = EventList[i].prev;
 	}
-	InterruptHandlers[i].type = TYPE_NONE;
+	EventList[i].type = TYPE_NONE;
 }
 
 /*-----------------------------------------------------------------------*/
 /**
- * Return true if the interrupt is queued.
+ * Return true if the event is queued.
  */
-bool CycInt_InterruptActive(interrupt_id i) {
-	return (InterruptHandlers[i].type != TYPE_NONE);
+bool CycInt_EventPending(event_id i) {
+	return (EventList[i].type != TYPE_NONE);
 }

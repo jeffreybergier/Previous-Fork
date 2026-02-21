@@ -316,22 +316,17 @@ bool NextDimension::handle_msgs(void) {
 }
 
 extern "C" {
-    void nd_start_interrupts(void) {
-        CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_ND_VBL);
-        CycInt_AddTimeInterrupt(1000, 0, INTERRUPT_ND_VIDEO_VBL);
-    }
-
-    void nd_display_vbl_handler(void) {
+    void ND_VBL_Handler(void) {
         static bool bBlankToggle = false;
         
 #ifndef ENABLE_RENDERING_THREAD
         if (!bBlankToggle) {
             switch (ConfigureParams.Screen.nMonitorType) {
                 case MONITOR_TYPE_DUAL:
-                    GuiEvent_SendSpecialEvent(EVENT_ND_DISPLAY);
+                    GuiEvent_SendSpecialEvent(SPECIAL_EVENT_ND_DISPLAY);
                     break;
                 case MONITOR_TYPE_DIMENSION:
-                    GuiEvent_SendSpecialEvent(EVENT_REPAINT);
+                    GuiEvent_SendSpecialEvent(SPECIAL_EVENT_REPAINT);
                     break;
                 default:
                     break;
@@ -350,16 +345,10 @@ extern "C" {
         bBlankToggle = !bBlankToggle;
         
         // 136Hz with toggle gives 68Hz, blank time is 1/2 frame time
-        CycInt_UpdateTimeInterrupt((1000*1000)/136, 0, INTERRUPT_ND_VBL);
+        CycInt_UpdateTimeEvent((1000*1000)/136, 0, EVENT_ND_VBL);
     }
 
-#ifndef ENABLE_RENDERING_THREAD
-    void nd_display_repaint(void) {
-        nd_sdl_repaint();
-    }
-#endif
-
-    void nd_video_vbl_handler(void) {
+    void ND_Video_VBL_Handler(void) {
         static bool bBlankToggle = false;
         
         Timing_BlankCount(ND_VIDEO, bBlankToggle);
@@ -373,8 +362,19 @@ extern "C" {
         bBlankToggle = !bBlankToggle;
         
         // 120Hz with toggle gives 60Hz NTSC, blank time is 1/2 frame time
-        CycInt_UpdateTimeInterrupt((1000*1000)/120, 0, INTERRUPT_ND_VIDEO_VBL);
+        CycInt_UpdateTimeEvent((1000*1000)/120, 0, EVENT_ND_VIDEO_VBL);
     }
+
+    void nd_start_interrupts(void) {
+	    CycInt_AddTimeEvent(1000, 0, EVENT_ND_VBL);
+	    CycInt_AddTimeEvent(1000, 0, EVENT_ND_VIDEO_VBL);
+    }
+
+#ifndef ENABLE_RENDERING_THREAD
+    void nd_display_repaint(void) {
+	    nd_sdl_repaint();
+    }
+#endif
 
     bool nd_video_enabled(int slot) {
         IF_NEXT_DIMENSION(slot, nd) {

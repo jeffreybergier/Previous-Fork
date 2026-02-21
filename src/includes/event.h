@@ -14,11 +14,11 @@ extern "C" {
 
 /* Types for special event */
 enum {
-	EVENT_REPAINT,
-	EVENT_ND_DISPLAY,
-	EVENT_PAUSE,
-	EVENT_UNPAUSE,
-	EVENT_HALT
+	SPECIAL_EVENT_REPAINT,
+	SPECIAL_EVENT_ND_DISPLAY,
+	SPECIAL_EVENT_PAUSE,
+	SPECIAL_EVENT_UNPAUSE,
+	SPECIAL_EVENT_HALT
 };
 
 /* These functions must be provided through host or cross-platform API. */

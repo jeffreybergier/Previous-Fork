@@ -416,21 +416,21 @@ void GuiEvent_EventHandler(void) {
 				/* check special remote events */
 				if (event.type == SPECIAL_EVENT) {
 					switch (event.user.code) {
-						case EVENT_PAUSE:
+						case SPECIAL_EVENT_PAUSE:
 							Main_PauseEmulation(false);
 							break;
-						case EVENT_UNPAUSE:
+						case SPECIAL_EVENT_UNPAUSE:
 							Main_UnPauseEmulation();
 							break;
 #ifndef ENABLE_RENDERING_THREAD
-						case EVENT_REPAINT:
+						case SPECIAL_EVENT_REPAINT:
 							Statusbar_Update(sdlscrn);
 							Screen_Repaint();
 							break;
-						case EVENT_ND_DISPLAY:
+						case SPECIAL_EVENT_ND_DISPLAY:
 							nd_display_repaint();
 							break;
-						case EVENT_HALT:
+						case SPECIAL_EVENT_HALT:
 							Main_HaltDialog();
 							break;
 #endif
