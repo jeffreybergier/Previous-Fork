@@ -57,14 +57,14 @@ extern uint64_t nCyclesMainCounter;
 
 extern void CycInt_Reset(void);
 extern void CycInt_AddCycles(int Cycles);
-extern void CycInt_AddCyclesInterrupt(int64_t CycleTime, interrupt_id Handler);
-extern void CycInt_UpdateCyclesInterrupt(int64_t CycleTime, interrupt_id Handler);
-extern void CycInt_AddTimeInterrupt(int64_t us, int64_t usreal, interrupt_id Handler);
-extern void CycInt_UpdateTimeInterrupt(int64_t us, int64_t usreal, interrupt_id Handler);
-extern void CycInt_AddCycleTimeInterrupt(int64_t us, int64_t usreal, interrupt_id Handler);
-extern void CycInt_UpdateCycleTimeInterrupt(int64_t us, int64_t usreal, interrupt_id Handler);
-extern void CycInt_RemovePendingInterrupt(interrupt_id Handler);
-extern bool CycInt_InterruptActive(interrupt_id Handler);
+extern void CycInt_AddCyclesInterrupt(uint64_t Cycles, interrupt_id i);
+extern void CycInt_UpdateCyclesInterrupt(uint64_t Cycles, interrupt_id i);
+extern void CycInt_AddTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i);
+extern void CycInt_UpdateTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i);
+extern void CycInt_AddCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i);
+extern void CycInt_UpdateCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i);
+extern void CycInt_RemovePendingInterrupt(interrupt_id i);
+extern bool CycInt_InterruptActive(interrupt_id i);
 
 #ifdef __cplusplus
 }

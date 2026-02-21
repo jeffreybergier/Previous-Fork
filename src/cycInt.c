@@ -100,8 +100,8 @@ void CycInt_Reset(void) {
 /**
  * Add cycles and process pending interrupts.
  */
-void CycInt_AddCycles(int cycles) {
-	nCyclesMainCounter += cycles;
+void CycInt_AddCycles(int Cycles) {
+	nCyclesMainCounter += Cycles;
 	while (InterruptHandlers[nCyclesFirst].time <= nCyclesMainCounter) {
 		interrupt_id i = nCyclesFirst;
 		InterruptHandlers[i].type = TYPE_NONE;
@@ -110,7 +110,7 @@ void CycInt_AddCycles(int cycles) {
 		InterruptHandlers[i].func();
 	}
 	if (nCheckCycles > 0) {
-		nCheckCycles -= cycles;
+		nCheckCycles -= Cycles;
 	} else {
 		nTimeNow = Timing_GetTime();
 		while (nTimeFirst) {
@@ -165,20 +165,20 @@ static inline interrupt_id CycInt_AddInterrupt(interrupt_id first, interrupt_id 
 /**
  * Set or update cycle interrupt and add it to the queue.
  */
-void CycInt_AddCyclesInterrupt(int64_t CycleTime, interrupt_id i) {
+void CycInt_AddCyclesInterrupt(uint64_t Cycles, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
 	InterruptHandlers[i].type = TYPE_CYCLES;
-	InterruptHandlers[i].time = nCyclesMainCounter + CycleTime;
+	InterruptHandlers[i].time = nCyclesMainCounter + Cycles;
 	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
 }
-void CycInt_UpdateCyclesInterrupt(int64_t CycleTime, interrupt_id i) {
+void CycInt_UpdateCyclesInterrupt(uint64_t Cycles, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
 	InterruptHandlers[i].type = TYPE_CYCLES;
-	InterruptHandlers[i].time += CycleTime;
+	InterruptHandlers[i].time += Cycles;
 	nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
 }
 
@@ -186,7 +186,7 @@ void CycInt_UpdateCyclesInterrupt(int64_t CycleTime, interrupt_id i) {
 /**
  * Set or update microsecond time interrupt and add it to the queue.
  */
-void CycInt_AddTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_AddTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
@@ -204,17 +204,18 @@ void CycInt_AddTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i)
 		nCyclesFirst = CycInt_AddInterrupt(nCyclesFirst, i);
 	}
 }
-void CycInt_UpdateTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_UpdateTimeInterrupt(uint64_t RealTime, uint64_t FastTime, interrupt_id i) {
 	if (InterruptHandlers[i].type) {
 		CycInt_RemovePendingInterrupt(i);
 	}
 	if (ConfigureParams.System.bRealtime) {
+		RealTime = FastTime ? FastTime : RealTime;
 		nTimeNow = Timing_GetTime();
-		if ((nTimeNow - InterruptHandlers[i].time) > CHECK_INTERVAL) {
+		if ((nTimeNow - InterruptHandlers[i].time) > (RealTime >> 1)) {
 			InterruptHandlers[i].time = nTimeNow;
 		}
 		InterruptHandlers[i].type = TYPE_TIME;
-		InterruptHandlers[i].time += FastTime ? FastTime : RealTime;
+		InterruptHandlers[i].time += RealTime;
 		nTimeFirst = CycInt_AddInterrupt(nTimeFirst, i);
 	} else {
 		InterruptHandlers[i].type = TYPE_CYCLES;
@@ -227,17 +228,17 @@ void CycInt_UpdateTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id
 /**
  * Convert microseconds to cycles and set or update cycle interrupt.
  */
-void CycInt_AddCycleTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_AddCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i) {
 	if (ConfigureParams.System.bRealtime && FastTime) {
-		RealTime = FastTime;
+		CycleTime = FastTime;
 	}
-	CycInt_AddCyclesInterrupt(RealTime * ConfigureParams.System.nCpuFreq, i);
+	CycInt_AddCyclesInterrupt(CycleTime * ConfigureParams.System.nCpuFreq, i);
 }
-void CycInt_UpdateCycleTimeInterrupt(int64_t RealTime, int64_t FastTime, interrupt_id i) {
+void CycInt_UpdateCycleTimeInterrupt(uint64_t CycleTime, uint64_t FastTime, interrupt_id i) {
 	if (ConfigureParams.System.bRealtime && FastTime) {
-		RealTime = FastTime;
+		CycleTime = FastTime;
 	}
-	CycInt_UpdateCyclesInterrupt(RealTime * ConfigureParams.System.nCpuFreq, i);
+	CycInt_UpdateCyclesInterrupt(CycleTime * ConfigureParams.System.nCpuFreq, i);
 }
 
 /*-----------------------------------------------------------------------*/
