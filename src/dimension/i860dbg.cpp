@@ -36,7 +36,7 @@ void i860_cpu_device::debugger(char cmd, const char* format, ...) {
     if (m_single_stepping > 1 && m_single_stepping != m_pc)
         return;
     
-    GuiEvent_SendSpecialEvent(EVENT_PAUSE);
+    GuiEvent_SendSpecialEvent(SPECIAL_EVENT_PAUSE);
     
     if(format) {
         va_list ap;
@@ -197,7 +197,7 @@ void i860_cpu_device::debugger(char cmd, const char* format, ...) {
         if(m_single_stepping == 2) m_single_stepping = 0;
     }
 
-    GuiEvent_SendSpecialEvent(EVENT_UNPAUSE);
+    GuiEvent_SendSpecialEvent(SPECIAL_EVENT_UNPAUSE);
 }
 
 /* Disassemble `len' instructions starting at `addr'.  */

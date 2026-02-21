@@ -12,7 +12,6 @@ const char SDLevent_fileid[] = "Previous sdlevent.c";
 #include "configuration.h"
 #include "log.h"
 #include "event.h"
-#include "timing.h"
 #include "keymap.h"
 #include "screen.h"
 #include "shortcut.h"
@@ -291,11 +290,7 @@ void GuiEvent_EventHandler(void) {
 
 #ifdef ENABLE_RENDERING_THREAD
 		if (bEmulationActive) {
-			int64_t time_offset = Timing_GetRealTimeOffset() / 1000;
-			if (time_offset > 10)
-				events = SDL_WaitEventTimeout(&event, (int)time_offset);
-			else
-				events = SDL_PollEvent(&event);
+			events = SDL_PollEvent(&event);
 		} else {
 			events = SDL_WaitEvent(&event);
 		}
@@ -433,21 +428,21 @@ void GuiEvent_EventHandler(void) {
 				/* check special remote events */
 				if (event.type == SPECIAL_EVENT) {
 					switch (event.user.code) {
-						case EVENT_PAUSE:
+						case SPECIAL_EVENT_PAUSE:
 							Main_PauseEmulation(false);
 							break;
-						case EVENT_UNPAUSE:
+						case SPECIAL_EVENT_UNPAUSE:
 							Main_UnPauseEmulation();
 							break;
 #ifndef ENABLE_RENDERING_THREAD
-						case EVENT_REPAINT:
+						case SPECIAL_EVENT_REPAINT:
 							Statusbar_Update(sdlscrn);
 							Screen_Repaint();
 							break;
-						case EVENT_ND_DISPLAY:
+						case SPECIAL_EVENT_ND_DISPLAY:
 							nd_display_repaint();
 							break;
-						case EVENT_HALT:
+						case SPECIAL_EVENT_HALT:
 							Main_HaltDialog();
 							break;
 #endif

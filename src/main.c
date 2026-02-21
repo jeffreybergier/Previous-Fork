@@ -33,6 +33,7 @@ const char Main_fileid[] = "Previous main.c";
 #include "dsp.h"
 #include "host.h"
 #include "grab.h"
+#include "dimension.hpp"
 
 #include "hatari-glue.h"
 #include "NextBus.hpp"
@@ -63,7 +64,7 @@ static char     speedMsg[32];
 
 static void Main_Speed(uint64_t realTime, uint64_t hostTime) {
 	uint64_t dRT  = realTime - lastRT;
-	speedFactor   = (nCyclesMainCounter - lastCycles);
+	speedFactor   = nCyclesMainCounter - lastCycles;
 	speedFactor  /= ConfigureParams.System.nCpuFreq;
 	speedFactor  /= dRT;
 	lastRT        = realTime;
@@ -180,7 +181,7 @@ void Main_Halt(void) {
 #ifdef ENABLE_RENDERING_THREAD
 	Main_HaltDialog();
 #else
-	GuiEvent_SendSpecialEvent(EVENT_HALT);
+	GuiEvent_SendSpecialEvent(SPECIAL_EVENT_HALT);
 #endif
 }
 
@@ -215,12 +216,6 @@ void Main_RequestQuit(bool confirm) {
 void Main_EventHandler(void) {
 	static int statusBarUpdate = 0;
 #ifndef ENABLE_RENDERING_THREAD
-	int64_t time_offset;
-#endif
-
-	CycInt_AcknowledgeInterrupt();
-
-#ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
 		host_semaphore_signal(pauseFlag);
 		do {
@@ -250,14 +245,11 @@ void Main_EventHandler(void) {
 	GuiEvent_EventHandler();
 #else
 	GuiEvent_EventQueueHandler();
+#endif
 
-	time_offset = Timing_GetRealTimeOffset();
-	if (time_offset > 0) {
-		host_sleep_us(time_offset);
-	}
-#endif /* !ENABLE_RENDERING_THREAD */
+	Timing_Sync();
 
-	CycInt_AddRelativeInterruptUs((1000*1000)/200, 0, INTERRUPT_EVENT_LOOP); /* Poll events at 200 Hz */
+	CycInt_AddTimeEvent((1000*1000)/200, 0, EVENT_MAIN_EVENT); /* Poll events at 200 Hz */
 }
 
 #ifndef ENABLE_RENDERING_THREAD
@@ -270,7 +262,7 @@ static int Main_Thread(void* unused) {
 
 	while (!bQuitProgram) {
 		/* Start EventHandler */
-		CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+		CycInt_AddTimeEvent(1000, 0, EVENT_MAIN_EVENT);
 
 		/* Start emulation */
 		M68000_Start();
@@ -296,7 +288,7 @@ static void Main_Loop(void) {
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start EventHandler */
-	CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_EVENT_LOOP);
+	CycInt_AddTimeEvent(1000, 0, EVENT_MAIN_EVENT);
 
 	/* Start emulation */
 	M68000_Start();
@@ -352,6 +344,7 @@ static bool Main_Init(void) {
 	M68000_Init();
 	DSP_Init();
 	IoMem_Init();
+	CycInt_Reset();
 	/* Done as last, needs CPU & DSP running... */
 	DebugUI_Init();
 

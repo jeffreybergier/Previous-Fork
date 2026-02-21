@@ -29,7 +29,7 @@ const char Video_fileid[] = "Previous video.c";
  * Start VBL interrupt.
  */
 void Video_Reset(void) {
-	CycInt_AddRelativeInterruptUs(1000, 0, INTERRUPT_VIDEO_VBL);
+	CycInt_AddTimeEvent(1000, 0, EVENT_VIDEO_VBL);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -66,24 +66,21 @@ bool Video_Enabled(void) {
 /**
  * Check if it is time for vertical video retrace interrupt.
  */
-void Video_InterruptHandler(void) {
+void Video_VBL_Handler(void) {
 #ifdef ENABLE_RENDERING_THREAD
-	CycInt_AcknowledgeInterrupt();
 	Timing_BlankCount(MAIN_DISPLAY, true);
 	Screen_StatusbarUpdate();
 	Video_Interrupt();
-	CycInt_AddRelativeInterruptUs((1000*1000)/NEXT_VBL_FREQ, 0, INTERRUPT_VIDEO_VBL);
+	CycInt_UpdateTimeEvent((1000*1000)/NEXT_VBL_FREQ, 0, EVENT_VIDEO_VBL);
 #else
 	static bool bBlankToggle = false;
-
-	CycInt_AcknowledgeInterrupt();
 	Timing_BlankCount(MAIN_DISPLAY, bBlankToggle);
 	if (bBlankToggle) {
 		Video_Interrupt();
 	} else if (ConfigureParams.Screen.nMonitorType != MONITOR_TYPE_DIMENSION) {
-		GuiEvent_SendSpecialEvent(EVENT_REPAINT);
+		GuiEvent_SendSpecialEvent(SPECIAL_EVENT_REPAINT);
 	}
 	bBlankToggle = !bBlankToggle;
-	CycInt_AddRelativeInterruptUs((1000*1000)/(2*NEXT_VBL_FREQ), 0, INTERRUPT_VIDEO_VBL);
+	CycInt_UpdateTimeEvent((1000*1000)/(2*NEXT_VBL_FREQ), 0, EVENT_VIDEO_VBL);
 #endif
 }
