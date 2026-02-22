@@ -51,7 +51,7 @@ typedef struct {
 
 static cycint_event EventList[NUM_EVENTS];
 
-static int      nCheckCycles;
+static uint64_t nCheckCycles;
 static uint64_t nTimeNow;
 static event_id nCyclesFirst;
 static event_id nTimeFirst;
@@ -90,7 +90,7 @@ void CycInt_Reset(void) {
 
 	/* Reset counts */
 	nCyclesMainCounter = 0;
-	nCheckCycles       = 0;
+	nCheckCycles       = ConfigureParams.System.bRealtime ? 0 : UINT64_MAX;
 	nTimeNow           = 0;
 	
 	/* Reset entry points */
@@ -120,15 +120,13 @@ void CycInt_AddCycles(int Cycles) {
 		EventList[nCyclesFirst].prev = EVENT_NULL;
 		EventList[i].func();
 	}
-	if (nCheckCycles > 0) {
-		nCheckCycles -= Cycles;
-	} else {
+	if (nCheckCycles <= nCyclesMainCounter) {
 		nTimeNow = Timing_GetTime();
 		while (nTimeFirst) {
 			int64_t diff = EventList[nTimeFirst].time - nTimeNow;
 			if (diff > 0) {
 				if (diff < CHECK_INTERVAL) {
-					nCheckCycles = diff * ConfigureParams.System.nCpuFreq;
+					nCheckCycles = nCyclesMainCounter + diff * ConfigureParams.System.nCpuFreq;
 					return;
 				}
 				break;
@@ -140,7 +138,7 @@ void CycInt_AddCycles(int Cycles) {
 				EventList[i].func();
 			}
 		}
-		nCheckCycles = CHECK_INTERVAL * ConfigureParams.System.nCpuFreq;
+		nCheckCycles = nCyclesMainCounter + CHECK_INTERVAL * ConfigureParams.System.nCpuFreq;
 	}
 }
 
@@ -207,7 +205,7 @@ void CycInt_AddTimeEvent(uint64_t RealTime, uint64_t FastTime, event_id i) {
 		EventList[i].time = Timing_GetTime() + RealTime;
 		nTimeFirst = CycInt_AddEvent(nTimeFirst, i);
 		if (RealTime < CHECK_INTERVAL && i == nTimeFirst) {
-			nCheckCycles = RealTime * ConfigureParams.System.nCpuFreq;
+			nCheckCycles = nCyclesMainCounter + RealTime * ConfigureParams.System.nCpuFreq;
 		}
 	} else {
 		EventList[i].type = TYPE_CYCLES;
