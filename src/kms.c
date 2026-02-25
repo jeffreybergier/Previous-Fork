@@ -394,7 +394,7 @@ void kms_keydown(uint8_t modkeys, uint8_t keycode) {
     uint8_t  addr = kms.km_addr|KM_MASTER;
     uint16_t data = 0;
 
-    if (keycode==0x58) { /* Power key */
+    if (keycode == NEXTKEY_POWER) { /* Power key */
         rtc_request_power_down();
         return;
     }
@@ -410,7 +410,7 @@ void kms_keyup(uint8_t modkeys, uint8_t keycode) {
     uint8_t  addr = kms.km_addr|KM_MASTER;
     uint16_t data = 0;
 
-    if (keycode==0x58) {
+    if (keycode == NEXTKEY_POWER) {
         rtc_stop_pdown_request();
         return;
     }

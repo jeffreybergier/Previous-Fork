@@ -89,7 +89,7 @@ static bool adb_kbd_get(uint8_t* event) {
 }
 
 void adb_keyup(uint8_t key) {
-	if (key == 0x7f) {
+	if (key == APPLEKEY_POWER) {
 		rtc_stop_pdown_request();
 	} else if (key < 0x7f) {
 		adb_kbd_put(0x80 | key);
@@ -97,7 +97,7 @@ void adb_keyup(uint8_t key) {
 }
 
 void adb_keydown(uint8_t key) {
-	if (key == 0x7f) {
+	if (key == APPLEKEY_POWER) {
 		rtc_request_power_down();
 	} else if (key < 0x7f) {
 		adb_kbd_put(key);
