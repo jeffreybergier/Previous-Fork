@@ -247,12 +247,13 @@ static void Timing_ReportLimits(void) {
 #define TIME_LIMIT_SECONDS 0
 
 static void Timing_CheckUnixTime(void) {
-	struct tm* t = gmtime(&unixTimeStart);
-	char* s = asctime(t);
+	char s[32];
 	bool b = false;
+	struct tm* t = gmtime(&unixTimeStart);
 	
-	s[strlen(s)-1] = 0;
-	Log_Printf(LOG_WARN, "[Hosttime] Unix time start: %s GMT", s);
+	if (strftime(s, sizeof(s), NULL, t) > 0) {
+		Log_Printf(LOG_WARN, "[Hosttime] Unix time start: %s GMT", s);
+	}
 	Log_Printf(LOG_WARN, "[Hosttime] Unix time will overflow in %f days", difftime(NEXT_MAX_SEC, unixTimeStart)/(24*60*60));
 #if TIME_LIMIT_SECONDS
 	if (unixTimeStart < NEXT_MIN_SEC || unixTimeStart >= NEXT_LIMIT_SEC) {
@@ -268,11 +269,11 @@ static void Timing_CheckUnixTime(void) {
 	}
 #endif
 	if (b) {
-		s = asctime(t);
-		s[strlen(s)-1] = 0;
 		Log_Printf(LOG_WARN, "[Hosttime] Unix time is beyond valid range!");
 		Log_Printf(LOG_WARN, "[Hosttime] Unix time is valid from Thu Jan 1 00:00:00 1970 through Thu Dec 31 23:59:59 2037 GMT");
-		Log_Printf(LOG_WARN, "[Hosttime] Setting time to %s GMT", s);
+		if (strftime(s, sizeof(s), NULL, t) > 0) {
+			Log_Printf(LOG_WARN, "[Hosttime] Setting time to %s GMT", s);
+		}
 	}
 }
 
