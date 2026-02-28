@@ -1,6 +1,6 @@
 
 
-                                  Previous 4.0
+                                  Previous 4.1
 
 
 
@@ -459,7 +459,7 @@ Previous v4.0:
   > Improves reliability and error handling of ditool.
   > Fixes bug that could cause a crash when quitting Previous.
 
-Previous v4.1 (unreleased):
+Previous v4.1:
   > Improves behaviour of system timer under special conditions.
   > Improves efficiency and accuracy of timing system.
 
