@@ -210,73 +210,66 @@ const char* Timing_Report(uint64_t realTime, uint64_t hostTime) {
 static void Timing_ReportLimits(void) {
 	uint64_t cycleCounterLimit, perfCounterLimit, perfCounter;
 	
-	Log_Printf(LOG_WARN, "[Hosttime] Timing system reset:");
+	Log_Printf(LOG_WARN, "[Timing] Timing system reset:");
 	
 	cycleCounterLimit  = UINT64_MAX - nCyclesMainCounter;
 	cycleCounterLimit /= cycleDivisor;
 	cycleCounterLimit /= DAY_TO_US;
 	
-	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter value: %"PRIu64, nCyclesMainCounter);
-	Log_Printf(LOG_WARN, "[Hosttime] Cycle counter frequency: %"PRIu64" MHz", cycleDivisor);
-	Log_Printf(LOG_WARN, "[Hosttime] Cycle timer will overflow in %"PRIu64" days", cycleCounterLimit);
+	Log_Printf(LOG_WARN, "[Timing] Cycle counter value: %"PRIu64, nCyclesMainCounter);
+	Log_Printf(LOG_WARN, "[Timing] Cycle counter frequency: %"PRIu64" MHz", cycleDivisor);
+	Log_Printf(LOG_WARN, "[Timing] Cycle counter will overflow in %"PRIu64" days", cycleCounterLimit);
 	
 	perfCounter        = host_get_counter();
 	perfCounterLimit   = UINT64_MAX - perfCounter;
-	Log_Printf(LOG_WARN, "[Hosttime] Realtime counter value: %"PRIu64, perfCounter);
+	Log_Printf(LOG_WARN, "[Timing] Realtime counter value: %"PRIu64, perfCounter);
 	if (perfCounterFreqInt) {
 		perfCounterLimit /= perfDivisor;
 		if (perfCounterLimit > INT64_MAX)
 			perfCounterLimit = INT64_MAX;
 		perfCounterLimit /= DAY_TO_US;
-		Log_Printf(LOG_WARN, "[Hosttime] Realtime counter frequency: %"PRIu64" MHz", perfDivisor);
-		Log_Printf(LOG_WARN, "[Hosttime] Realtime timer will overflow in %"PRIu64" days", perfCounterLimit);
+		Log_Printf(LOG_WARN, "[Timing] Realtime counter frequency: %"PRIu64" MHz", perfDivisor);
+		Log_Printf(LOG_WARN, "[Timing] Realtime counter will overflow in %"PRIu64" days", perfCounterLimit);
 	} else {
 		if (perfCounterLimit > (1ULL<<DBL_MANT_DIG)-1)
 			perfCounterLimit = (1ULL<<DBL_MANT_DIG)-1;
 		if (perfMultiplicator < 1.0)
 			perfCounterLimit *= perfMultiplicator;
 		else
-			Log_Printf(LOG_WARN, "[Hosttime] Warning: Realtime counter cannot resolve microseconds.");
+			Log_Printf(LOG_WARN, "[Timing] Warning: Realtime counter cannot resolve microseconds.");
 		perfCounterLimit /= DAY_TO_US;
-		Log_Printf(LOG_WARN, "[Hosttime] Realtime counter frequency: %f MHz", 1.0/perfMultiplicator);
-		Log_Printf(LOG_WARN, "[Hosttime] Realtime timer will start losing precision in %"PRIu64" days", perfCounterLimit);
+		Log_Printf(LOG_WARN, "[Timing] Realtime counter frequency: %f MHz", 1.0/perfMultiplicator);
+		Log_Printf(LOG_WARN, "[Timing] Realtime timer will start losing precision in %"PRIu64" days", perfCounterLimit);
 	}
 }
 
 /* Check NeXT specific UNIX time limits and adjust time if needed */
-#define TIME_LIMIT_SECONDS 0
-
 static void Timing_CheckUnixTime(void) {
 	static const char* f = "%a %b %d %H:%M:%S %Y";
-	bool b = false;
-	char s[32];
 	struct tm* t;
+	char s[32];
 	
 	t = gmtime(&unixTimeStart);
-	if (strftime(s, sizeof(s), f, t) > 0) {
-		Log_Printf(LOG_WARN, "[Hosttime] Unix time start: %s GMT", s);
-	}
-	Log_Printf(LOG_WARN, "[Hosttime] Unix time will overflow in %f days", difftime(NEXT_MAX_SEC, unixTimeStart)/(24*60*60));
-#if TIME_LIMIT_SECONDS
-	if (unixTimeStart < NEXT_MIN_SEC || unixTimeStart >= NEXT_LIMIT_SEC) {
-		unixTimeStart = NEXT_START_SEC;
-		t = gmtime(&unixTimeStart);
-		b = true;
-	}
-#else
-	if (t->tm_year < NEXT_MIN_YEAR || t->tm_year >= NEXT_LIMIT_YEAR) {
-		t->tm_year = NEXT_START_YEAR;
-		unixTimeStart = timegm(t);
-		b = true;
-	}
-#endif
-	if (b) {
-		Log_Printf(LOG_WARN, "[Hosttime] Unix time is beyond valid range!");
-		Log_Printf(LOG_WARN, "[Hosttime] Unix time is valid from Thu Jan 1 00:00:00 1970 through Thu Dec 31 23:59:59 2037 GMT");
+	if (t) {
 		if (strftime(s, sizeof(s), f, t) > 0) {
-			Log_Printf(LOG_WARN, "[Hosttime] Setting time to %s GMT", s);
+			Log_Printf(LOG_WARN, "[Timing] Unix time: %s GMT", s);
 		}
+		if (t->tm_year < NEXT_MIN_YEAR || t->tm_year >= NEXT_LIMIT_YEAR) {
+			t->tm_year = NEXT_START_YEAR;
+			unixTimeStart = timegm(t);
+			Log_Printf(LOG_WARN, "[Timing] Unix time is beyond valid range");
+			Log_Printf(LOG_WARN, "[Timing] Unix time lower limit: Thu Jan  1 00:00:00 1970 GMT");
+			Log_Printf(LOG_WARN, "[Timing] Unix time upper limit: Thu Dec 31 23:59:59 2037 GMT");
+			if (strftime(s, sizeof(s), f, t) > 0) {
+				Log_Printf(LOG_WARN, "[Timing] Setting Unix time to %s GMT", s);
+			}
+		}
+	} else if (unixTimeStart < NEXT_MIN_SEC || unixTimeStart >= NEXT_LIMIT_SEC) {
+		unixTimeStart = NEXT_START_SEC;
+		Log_Printf(LOG_WARN, "[Timing] Unix time value is beyond valid range (%u through %u)", NEXT_MIN_SEC, NEXT_LIMIT_SEC);
+		Log_Printf(LOG_WARN, "[Timing] Setting Unix time to Thu Jul  2 12:00:00 1987 GMT");
 	}
+	Log_Printf(LOG_WARN, "[Timing] Unix time will overflow in %f days", difftime(NEXT_MAX_SEC, unixTimeStart)/(24*60*60));
 }
 
 void Timing_Reset(void) {
