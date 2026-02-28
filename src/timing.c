@@ -69,8 +69,6 @@ uint64_t Timing_GetTime(void) {
 	bool state;
 	uint64_t hostTime;
 	
-	host_lock(&timeLock);
-	
 	/* switch to realtime if...
 	 * 1) ...realtime mode is enabled and...
 	 * 2) ...either we are running darkmatter or the m68k CPU is in user mode */
@@ -101,11 +99,6 @@ uint64_t Timing_GetTime(void) {
 		currentIsRealtime = state;
 	}
 	
-	/* save hostTime to be read by other threads */
-	saveTime = hostTime;
-	
-	host_unlock(&timeLock);
-	
 	return hostTime;
 }
 
@@ -118,6 +111,9 @@ void Timing_Sync(void) {
 	int64_t realTimeOffset;
 	uint64_t realTime, hostTime;
 	Timing_GetTimes(&realTime, &hostTime);
+	host_lock(&timeLock);
+	saveTime = hostTime; /* save hostTime to be read by other threads */
+	host_unlock(&timeLock);
 	realTimeOffset = hostTime - realTime;
 	if (realTimeOffset > 0) {
 		host_sleep_us(realTimeOffset);
