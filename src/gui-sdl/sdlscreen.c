@@ -1,24 +1,25 @@
 /*
-  Previous - screen.c
+  Previous - sdlscreen.c
 
   This file is distributed under the GNU General Public License, version 2
   or at your option any later version. Read the file gpl.txt for details.
 
   This file contains the SDL interface for video output.
 */
-const char Screen_fileid[] = "Previous screen.c";
+const char SDLscreen_fileid[] = "Previous sdlscreen.c";
 
 #include "main.h"
-#include "host.h"
 #include "configuration.h"
 #include "log.h"
+#include "screen.h"
+#include "sdlscreen.h"
+#include "statusbar.h"
+#include "sdlstatusbar.h"
+#include "event.h"
 #include "dimension.hpp"
 #include "nd_sdl.hpp"
-#include "nd_mem.hpp"
-#include "paths.h"
-#include "screen.h"
-#include "statusbar.h"
 #include "video.h"
+#include "keymap.h"
 #include "m68000.h"
 
 
@@ -232,12 +233,23 @@ static int repainter(void* unused) {
 	/* Enter repaint loop */
 	while (doRepaint) {
 		if (!Screen_Repaint()) {
-			host_sleep_ms(10);
+			SDL_Delay(10);
 		}
 	}
 	return 0;
 }
 #endif
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Set Previous window title. Use NULL for default
+ */
+static void Screen_SetTitle(const char *title) {
+	if (title)
+		SDL_SetWindowTitle(sdlWindow, title);
+	else
+		SDL_SetWindowTitle(sdlWindow, PROG_NAME);
+}
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -336,8 +348,9 @@ void Screen_Init(void) {
 #endif
 
 	/* Configure some SDL stuff: */
-	Main_ShowCursor(false);
-	Main_SetMouseGrab(bGrabMouse);
+	Screen_SetTitle(NULL);
+	Screen_ShowCursor(false);
+	Screen_SetMouseGrab(bGrabMouse);
 
 	if (!ConfigureParams.Screen.bShowStatusbar) {
 		Screen_StatusbarChanged();
@@ -399,7 +412,7 @@ void Screen_EnterFullScreen(void) {
 		}
 
 		/* Always grab mouse pointer in full screen mode */
-		Main_SetMouseGrab(true);
+		Screen_SetMouseGrab(true);
 
 		/* Make sure screen is painted in case emulation is paused */
 		SDL_SetAtomicInt(&blitUI, 1);
@@ -436,11 +449,45 @@ void Screen_ReturnFromFullScreen(void) {
 		}
 
 		/* Go back to windowed mode mouse grab settings */
-		Main_SetMouseGrab(bGrabMouse);
+		Screen_SetMouseGrab(bGrabMouse);
 
 		/* Make sure screen is painted in case emulation is paused */
 		SDL_SetAtomicInt(&blitUI, 1);
 	}
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Set mouse grab.
+ */
+void Screen_SetMouseGrab(bool grab) {
+	/* If emulation is active, set the mouse cursor mode now: */
+	if (grab) {
+		if (bEmulationActive) {
+			Screen_CenterCursor(); /* Cursor must be inside window */
+			SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+			SDL_SetWindowKeyboardGrab(sdlWindow, true);
+			SDL_SetWindowMouseGrab(sdlWindow, true);
+			if (ConfigureParams.Mouse.bEnableAutoGrab) {
+				Screen_SetTitle("Mouse is locked. Ctrl-click to release.");
+			} else {
+				char message[64];
+				
+				snprintf(message, sizeof(message), "Mouse is locked. Press ctrl-alt-%s to release.", 
+						 Keymap_GetKeyName(ConfigureParams.Shortcut.withModifier[SHORTCUT_MOUSEGRAB]));
+				Screen_SetTitle(message);
+			}
+		}
+	} else {
+		SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+		SDL_SetWindowKeyboardGrab(sdlWindow, false);
+		SDL_SetWindowMouseGrab(sdlWindow, false);
+		Screen_SetTitle(NULL);
+	}
+}
+
+void Screen_StatusbarUpdate(void) {
+	Statusbar_Update(sdlscrn);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -530,11 +577,12 @@ void Screen_StatusbarChanged(void) {
 	SDL_GetWindowSize(sdlWindow, &w, NULL);
 	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
 	SDL_SetWindowSize(sdlWindow, w, (int)SDL_lroundf((float)(height*w)/width));
-	
+
 	/* Make sure screen is painted in case emulation is paused */
 	SDL_SetAtomicInt(&blitUI, 1);
 }
 
+/*-----------------------------------------------------------------------*/
 /**
  * Wrapper for Statusbar_AddMessage() and Statusbar_Update() in one go.
  */
@@ -546,7 +594,7 @@ void Screen_StatusbarMessage(const char *msg, uint32_t msecs)
 
 /*-----------------------------------------------------------------------*/
 /**
- * Draw screen to window/full-screen - (SC) Just status bar updates. Screen redraw is done in repaint thread.
+ * Update status bar and force screen repaint.
  */
 static void statusBarUpdate(void) {
 	SDL_LockSurface(sdlscrn);
@@ -557,10 +605,11 @@ static void statusBarUpdate(void) {
 	SDL_UnlockSurface(sdlscrn);
 }
 
-/*
- Copy UI SDL surface to uiBuffer and replace mask pixels with transparent pixels for
- UI blending with framebuffer texture.
-*/
+/*-----------------------------------------------------------------------*/
+/**
+ * Copy UI surface to buffer and replace mask pixels with transparent 
+ * pixels for UI blending with framebuffer texture.
+ */
 static void uiUpdate(void) {
 	SDL_LockSurface(sdlscrn);
 	int     count = sdlscrn->w * sdlscrn->h;
@@ -599,4 +648,31 @@ void Screen_UpdateRects(SDL_Surface *screen, int numrects, SDL_Rect *rects) {
 void Screen_UpdateRect(SDL_Surface *screen, int32_t x, int32_t y, int32_t w, int32_t h) {
 	SDL_Rect rect = { x, y, w, h };
 	Screen_UpdateRects(screen, 1, &rect);
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Set mouse cursor visibility and return if it was visible before.
+ */
+bool Screen_ShowCursor(bool show) {
+	bool bOldVisibility;
+	
+	bOldVisibility = SDL_CursorVisible();
+	if (bOldVisibility != show) {
+		if (show) {
+			SDL_ShowCursor();
+		} else {
+			SDL_HideCursor();
+		}
+	}
+	return bOldVisibility;
+}
+
+/* ----------------------------------------------------------------------- */
+/**
+ * Set mouse cursor to the center of the screen.
+ */
+void Screen_CenterCursor(void) {
+	SDL_WarpMouseInWindow(sdlWindow, sdlscrn->w/2, sdlscrn->h/2);
+	GuiEvent_WarpMouse();
 }
