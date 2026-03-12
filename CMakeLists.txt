@@ -118,12 +118,6 @@ if(Readline_FOUND)
 	set(HAVE_LIBREADLINE 1)
 endif(Readline_FOUND)
 
-find_package(ZLIB)
-if(ZLIB_FOUND)
-	set(HAVE_LIBZ 1)
-	set(HAVE_ZLIB_H 1)
-endif(ZLIB_FOUND)
-
 find_package(PNG)
 if(PNG_FOUND)
 	set(HAVE_LIBPNG 1)
