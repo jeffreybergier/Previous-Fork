@@ -463,6 +463,9 @@ Previous v4.1:
   > Improves behaviour of system timer under special conditions.
   > Improves efficiency and accuracy of timing system.
 
+Previous v4.2 (unreleased):
+  > Fixes bug that could cause system timer underflow.
+
 
  7) Running Previous
  -------------------

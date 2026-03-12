@@ -30,10 +30,6 @@ endif(WIN32)
 include_directories(includes debug dsp softfloat dimension slirp
 		    ${CMAKE_BINARY_DIR} ${SDL2_INCLUDE_DIRS} cpu)
 
-if(ZLIB_FOUND)
-	include_directories(${ZLIB_INCLUDE_DIR})
-endif(ZLIB_FOUND)
-
 if(PNG_FOUND)
 	include_directories(${PNG_INCLUDE_DIR})
 endif(PNG_FOUND)
@@ -133,10 +129,6 @@ endif()
 if(Readline_FOUND)
 	target_link_libraries(${APP_NAME} ${READLINE_LIBRARY})
 endif(Readline_FOUND)
-
-if(ZLIB_FOUND)
-	target_link_libraries(${APP_NAME} ${ZLIB_LIBRARY})
-endif(ZLIB_FOUND)
 
 if(PNG_FOUND)
 	target_link_libraries(${APP_NAME} ${PNG_LIBRARY})
