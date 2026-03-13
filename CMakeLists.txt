@@ -163,11 +163,8 @@ endif(PKG_CONFIG_FOUND)
 
 check_include_files(byteswap.h HAVE_BYTESWAP_H)
 check_include_files(strings.h HAVE_STRINGS_H)
-check_include_files(limits.h HAVE_LIMITS_H)
-check_include_files(sys/syslimits.h HAVE_SYS_SYSLIMITS_H)
-check_include_files(sys/types.h HAVE_SYS_TYPES_H)
+check_include_files(sys/time.h HAVE_SYS_TIME_H)
 check_include_files(sys/xattr.h HAVE_SYS_XATTR_H)
-check_include_files(tchar.h HAVE_TCHAR_H)
 check_include_files(arpa/inet.h HAVE_ARPA_INET_H)
 check_include_files(netinet/in.h HAVE_NETINET_IN_H)
 
