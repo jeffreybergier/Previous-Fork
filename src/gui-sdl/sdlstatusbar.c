@@ -56,7 +56,7 @@ static SDL_Rect FullRect;
 static struct {
 	drive_led_t state;
 	drive_led_t oldstate;
-	uint32_t expire;	/* when to disable led, valid only if >0 && state=TRUE */
+	uint64_t expire;	/* when to disable led, valid only if >0 && state=TRUE */
 	int offset;	/* led x-pos on screen */
 } Led[NUM_DEVICE_LEDS];
 
@@ -98,7 +98,7 @@ typedef struct msg_item {
 	struct msg_item *next;
 	char msg[MAX_MESSAGE_LEN+1];
 	uint32_t timeout;	/* msecs, zero=no timeout */
-	uint32_t expire;  /* when to expire message */
+	uint64_t expire;  /* when to expire message */
 	bool shown;
 } msg_item_t;
 
@@ -520,7 +520,7 @@ static SDL_Rect* Statusbar_DrawMessage(SDL_Surface *surf, const char *msg)
 	if (*msg)
 	{
 		SDLGui_GetFontSize(&fontw, &fonth);
-		offset = (MessageRect.w - strlen(msg) * fontw) / 2;
+		offset = (MessageRect.w - (int)strlen(msg) * fontw) / 2;
 		SDLGui_Text(MessageRect.x + offset, MessageRect.y, msg);
 	}
 	DEBUGPRINT(("Draw message: '%s'\n", msg));
@@ -534,7 +534,7 @@ static SDL_Rect* Statusbar_DrawMessage(SDL_Surface *surf, const char *msg)
  * 
  * Return updated area, or NULL if nothing drawn
  */
-static SDL_Rect* Statusbar_ShowMessage(SDL_Surface *surf, uint32_t ticks)
+static SDL_Rect* Statusbar_ShowMessage(SDL_Surface *surf, uint64_t ticks)
 {
 	msg_item_t *next;
 
@@ -645,7 +645,7 @@ static void Statusbar_OverlayDrawLed(SDL_Surface *surf, uint32_t color)
  */
 static SDL_Rect* Statusbar_OverlayDraw(SDL_Surface *surf)
 {
-	uint32_t currentticks = SDL_GetTicks();
+	uint64_t currentticks = SDL_GetTicks();
 	int i;
 
 	for (i = 0; i < NUM_DEVICE_LEDS; i++)
@@ -690,7 +690,8 @@ static SDL_Rect* Statusbar_OverlayDraw(SDL_Surface *surf)
  */
 void Statusbar_Update(SDL_Surface *surf)
 {
-	uint32_t color, currentticks;
+	uint32_t color;
+	uint64_t currentticks;
 	static SDL_Rect rect;
 	SDL_Rect *last_rect;
 	int i, updates;
