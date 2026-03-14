@@ -465,6 +465,7 @@ Previous v4.1:
 
 Previous v4.2 (unreleased):
   > Fixes bug that could cause system timer underflow.
+  > Fixes bug that caused the statusbar to fail after a certain period of time.
 
 
  7) Running Previous
