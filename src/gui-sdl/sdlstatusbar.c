@@ -40,6 +40,7 @@ const char SDLstatusbar_fileid[] = "Previous sdlstatusbar.c";
 #include "grab.h"
 #include "dimension.hpp"
 #include "str.h"
+#include "host.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -105,6 +106,7 @@ typedef struct msg_item {
 static msg_item_t DefaultMessage;
 static msg_item_t *MessageList = &DefaultMessage;
 static SDL_Rect MessageRect;
+static lock_t MessageLock;
 
 /* screen height above statusbar and height of statusbar below screen */
 static int ScreenHeight;
@@ -380,9 +382,6 @@ void Statusbar_AddMessage(const char *msg, uint32_t msecs)
 	item = calloc(1, sizeof(msg_item_t));
 	assert(item);
 
-	item->next = MessageList;
-	MessageList = item;
-
 	Str_Copy(item->msg, msg, sizeof(item->msg));
 	DEBUGPRINT(("Add message: '%s'\n", item->msg));
 
@@ -396,6 +395,11 @@ void Statusbar_AddMessage(const char *msg, uint32_t msecs)
 		item->timeout = 2500;
 	}
 	item->shown = false;
+
+	host_lock(&MessageLock);
+	item->next = MessageList;
+	MessageList = item;
+	host_unlock(&MessageLock);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -520,7 +524,7 @@ static SDL_Rect* Statusbar_DrawMessage(SDL_Surface *surf, const char *msg)
 	if (*msg)
 	{
 		SDLGui_GetFontSize(&fontw, &fonth);
-		offset = (MessageRect.w - (int)strlen(msg) * fontw) / 2;
+		offset = (MessageRect.w - strlen(msg) * fontw) / 2;
 		SDLGui_Text(MessageRect.x + offset, MessageRect.y, msg);
 	}
 	DEBUGPRINT(("Draw message: '%s'\n", msg));
@@ -723,7 +727,9 @@ void Statusbar_Update(SDL_Surface *surf)
 	assert(surf->h == ScreenHeight + StatusbarHeight);
 
 	currentticks = SDL_GetTicks();
+	host_lock(&MessageLock);
 	last_rect = Statusbar_ShowMessage(surf, currentticks);
+	host_unlock(&MessageLock);
 	updates = last_rect ? 1 : 0;
 
 	rect = LedRect;
@@ -745,8 +751,6 @@ void Statusbar_Update(SDL_Surface *surf)
 		last_rect = &rect;
 		updates++;
 	}
-
-	Statusbar_ShowMessage(surf, currentticks);
 
 	/* Draw DSP LED */
 	if (bDspLed != bOldDspLed)
