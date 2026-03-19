@@ -40,7 +40,6 @@ const char SDLstatusbar_fileid[] = "Previous sdlstatusbar.c";
 #include "grab.h"
 #include "dimension.hpp"
 #include "str.h"
-#include "host.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -106,7 +105,7 @@ typedef struct msg_item {
 static msg_item_t DefaultMessage;
 static msg_item_t *MessageList = &DefaultMessage;
 static SDL_Rect MessageRect;
-static lock_t MessageLock;
+static SDL_SpinLock MessageLock;
 
 /* screen height above statusbar and height of statusbar below screen */
 static int ScreenHeight;
@@ -396,10 +395,10 @@ void Statusbar_AddMessage(const char *msg, uint32_t msecs)
 	}
 	item->shown = false;
 
-	host_lock(&MessageLock);
+	SDL_LockSpinlock(&MessageLock);
 	item->next = MessageList;
 	MessageList = item;
-	host_unlock(&MessageLock);
+	SDL_UnlockSpinlock(&MessageLock);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -727,9 +726,9 @@ void Statusbar_Update(SDL_Surface *surf)
 	assert(surf->h == ScreenHeight + StatusbarHeight);
 
 	currentticks = SDL_GetTicks();
-	host_lock(&MessageLock);
+	SDL_LockSpinlock(&MessageLock);
 	last_rect = Statusbar_ShowMessage(surf, currentticks);
-	host_unlock(&MessageLock);
+	SDL_UnlockSpinlock(&MessageLock);
 	updates = last_rect ? 1 : 0;
 
 	rect = LedRect;
