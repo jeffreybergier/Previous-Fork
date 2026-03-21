@@ -107,15 +107,10 @@ const char* Symbols_GetByDspAddress(uint32_t addr, symtype_t type)
 /**
  * Load symbols for last opened program when symbol autoloading is enabled.
  *
- * When program section 'offsets' is NULL, basepage values are used instead.
- *
- * If there's file with same name as the program, but with '.sym'
- * extension, that overrides / is loaded instead of the symbol table
- * in the program.
- *
- * Called when debugger is invoked.
+ * Called when debugger is invoked and by GEMDOS HD when "exec" symload
+ * is requested.
  */
-void Symbols_LoadCurrentProgram(const uint32_t *offsets, uint32_t textEnd)
+void Symbols_AutoLoadCurrentProgram(const uint32_t *offsets, uint32_t maxaddr)
 {
 }
 
