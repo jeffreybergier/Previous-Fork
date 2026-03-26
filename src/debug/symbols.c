@@ -90,6 +90,20 @@ bool Symbols_GetDspAddress(symtype_t symtype, const char *name, uint32_t *addr)
 }
 
 /**
+ * Match (C++ method) symbol name substring, if it matches a specific
+ * part of it completely, i.e. is not surrounded by valid sym char(s).
+ *
+ * (See debugger manual for details.)
+ *
+ * If there's exactly one match, set symbol's address to 'addr'
+ * variable and return true, return false otherwise.
+ */
+bool Symbols_GetCpuMethodAddress(symtype_t symtype, const char *sub, uint32_t *addr)
+{
+	return false;
+}
+
+/**
  * Search symbol in given list by type & address.
  * Return symbol name if there's a match, NULL otherwise.
  * Code symbols will be matched before other symbol types.
