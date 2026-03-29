@@ -26,7 +26,6 @@ const char CycInt_fileid[] = "Previous cycInt.c";
 #include "floppy.h"
 #include "snd.h"
 #include "printer.h"
-#include "kms.h"
 #include "scc.h"
 #include "dimension.hpp"
 
@@ -71,7 +70,6 @@ static void (*const pEventHandlers[NUM_EVENTS])(void) =
 	Printer_IO_Handler,
 	SCC_IO_Handler,
 	DMA_M2M_IO_Handler,
-	KMS_Mouse_Motion_Handler,
 	SND_In_Handler,
 	SND_Out_Handler,
 	Video_VBL_Handler,
