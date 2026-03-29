@@ -23,7 +23,10 @@ const char SDLkeymap_fileid[] = "Previous sdlkeymap.c";
 /**
  * Initialization.
  */
-void Keymap_Init(void) {}
+void Keymap_Init(void)
+{
+	SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");
+}
 
 /**
  * Set defaults for shortcut keys

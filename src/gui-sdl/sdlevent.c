@@ -165,9 +165,6 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 	int   nDeltaX;
 	int   nDeltaY;
 
-	float fExp = bGrabMouse ? ConfigureParams.Mouse.fExpSpeedLocked : ConfigureParams.Mouse.fExpSpeedNormal;
-	float fLin = bGrabMouse ? ConfigureParams.Mouse.fLinSpeedLocked : ConfigureParams.Mouse.fLinSpeedNormal;
-
 	if (bIgnoreNextMouseMotion) {
 		bIgnoreNextMouseMotion = false;
 		return;
@@ -185,7 +182,12 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 	}
 
 	if ((fDeltaX != 0.0) || (fDeltaY != 0.0)) {
-		/* Exponential adjustmend */
+		float fExp, fLin;
+
+		fExp = bGrabMouse ? ConfigureParams.Mouse.fExpSpeedLocked : ConfigureParams.Mouse.fExpSpeedNormal;
+		fLin = bGrabMouse ? ConfigureParams.Mouse.fLinSpeedLocked : ConfigureParams.Mouse.fLinSpeedNormal;
+
+		/* Exponential adjustment */
 		if (fExp != 1.0) {
 			fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
 			fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
