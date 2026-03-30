@@ -14,11 +14,7 @@ const char SDLhost_fileid[] = "Previous sdlhost.c";
 
 #if HAVE_NANOSLEEP
 #include <errno.h>
-#ifdef __MINGW32__
-#include <unistd.h>
-#else
 #include <sys/time.h>
-#endif
 #endif
 #include "host.h"
 
