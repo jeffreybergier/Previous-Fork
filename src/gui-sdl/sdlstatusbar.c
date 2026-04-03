@@ -36,9 +36,6 @@ const char SDLstatusbar_fileid[] = "Previous sdlstatusbar.c";
 #include "statusbar.h"
 #include "sdlstatusbar.h"
 #include "sdlscreen.h"
-#include "video.h"
-#include "grab.h"
-#include "dimension.hpp"
 #include "str.h"
 
 #define DEBUG 0
@@ -403,110 +400,15 @@ void Statusbar_AddMessage(const char *msg, uint32_t msecs)
 
 /*-----------------------------------------------------------------------*/
 /**
- * Write given 'more' string to 'buffer' and return new end of 'buffer'
- */
-static char *Statusbar_AddString(char *buffer, const char *more)
-{
-	if (!more)
-		return buffer;
-	while (*more)
-		*buffer++ = *more++;
-	return buffer;
-}
-
-/*-----------------------------------------------------------------------*/
-/**
  * Retrieve/update default statusbar information
  */
 void Statusbar_UpdateInfo(void)
 {
-	char *end = DefaultMessage.msg;
-	char memsize[16];
-	char slot[16];
-	
-	/* Recording in progress */
-	if (bRecordingAiff)
-	{
-		end = Statusbar_AddString(end, "Recording sound");
-		*end = '\0';
-		assert(end - DefaultMessage.msg < MAX_MESSAGE_LEN);
-		DefaultMessage.shown = false;
-		return;
-	}
-	
-	/* Message for NeXTdimension */
-	if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DIMENSION)
-	{
-		end = Statusbar_AddString(end, "33MHz/i860XR/");
-		snprintf(memsize, sizeof(memsize), "%iMB/",
-		         Configuration_CheckDimensionMemory(ConfigureParams.Dimension.board[ConfigureParams.Screen.nMonitorNum].nMemoryBankSize));
-		end = Statusbar_AddString(end, memsize);
-		end = Statusbar_AddString(end, "NeXTdimension/");
-		snprintf(slot, sizeof(slot), "Slot%i", ND_SLOT(ConfigureParams.Screen.nMonitorNum));
-		end = Statusbar_AddString(end, slot);
-		*end = '\0';
-		assert(end - DefaultMessage.msg < MAX_MESSAGE_LEN);
-		DefaultMessage.shown = false;
-		return;
-	}
-	
-	/* CPU MHz */
-	end = Statusbar_AddString(end, Main_SpeedMsg());
+	int size = sizeof(DefaultMessage.msg);
 
-	/* CPU type */
-	if(ConfigureParams.System.nCpuLevel > 0)
-	{
-		*end++ = '6';
-		*end++ = '8';
-		*end++ = '0';
-		switch (ConfigureParams.System.nCpuLevel)
-		{
-			case 0: *end++ = '0'; break;
-			case 1: *end++ = '1'; break;
-			case 2: *end++ = '2'; break;
-			case 3: *end++ = '3'; break;
-			case 4: *end++ = '4'; break;
-			case 5: *end++ = '6'; break;
-			default: break;
-		}
-		*end++ = '0';
-		*end++ = '/';
-	}
+	int len = Configuration_SetInfoString(DefaultMessage.msg, size);
+	assert(len < size);
 
-	/* amount of memory */
-	snprintf(memsize, sizeof(memsize), "%iMB/",
-	         Configuration_CheckMemory(ConfigureParams.Memory.nMemoryBankSize));
-	end = Statusbar_AddString(end, memsize);
-
-	/* machine type */
-	switch (ConfigureParams.System.nMachineType)
-	{
-		case NEXT_CUBE030:
-			end = Statusbar_AddString(end, "NeXT Computer");
-			break;
-		case NEXT_CUBE040:
-			end = Statusbar_AddString(end, "NeXTcube");
-			break;
-		case NEXT_STATION:
-			end = Statusbar_AddString(end, "NeXTstation");
-			break;
-			
-		default:
-			break;
-	}
-	if (ConfigureParams.System.bTurbo)
-	{
-		end = Statusbar_AddString(end, (ConfigureParams.System.nCpuFreq==40)?" Nitro":" Turbo");
-	}
-
-	if (ConfigureParams.System.bColor)
-	{
-		end = Statusbar_AddString(end, " Color");
-	}
-
-	*end = '\0';
-
-	assert(end - DefaultMessage.msg < MAX_MESSAGE_LEN);
 	DEBUGPRINT(("Set default message: '%s'\n", DefaultMessage.msg));
 	/* make sure default message gets (re-)drawn when next checked */
 	DefaultMessage.shown = false;
