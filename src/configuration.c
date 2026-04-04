@@ -460,7 +460,7 @@ void Configuration_SetDefault(void)
 
 	/* Set defaults for Mouse */
 	ConfigureParams.Mouse.fLinScale = 1.0;
-	ConfigureParams.Mouse.fExpScale = 1.0;
+	ConfigureParams.Mouse.fExpScale = 0.75;
 	ConfigureParams.Mouse.bUseRawMotion = false;
 	ConfigureParams.Mouse.bEnableAutoGrab = true;
 	ConfigureParams.Mouse.bEnableMapToKey = false;
