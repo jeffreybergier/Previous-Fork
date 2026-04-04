@@ -14,35 +14,35 @@ const char DlgMouse_fileid[] = "Previous dlgMouse.c";
 #include "paths.h"
 
 
-#define DLGMOUSE_CUSTOMISE       3
-#define DLGMOUSE_UNLOCK_VERYSLOW 6
-#define DLGMOUSE_UNLOCK_SLOW     7
-#define DLGMOUSE_UNLOCK_NORMAL   8
-#define DLGMOUSE_UNLOCK_FAST     9
-#define DLGMOUSE_UNLOCK_VERYFAST 10
-#define DLGMOUSE_UNLOCK_CUSTOM   11
+#define DLGMOUSE_CUSTOMISE     3
+#define DLGMOUSE_LIN_VERYSLOW  6
+#define DLGMOUSE_LIN_SLOW      7
+#define DLGMOUSE_LIN_NORMAL    8
+#define DLGMOUSE_LIN_FAST      9
+#define DLGMOUSE_LIN_VERYFAST  10
+#define DLGMOUSE_LIN_CUSTOM    11
 
-#define DLGMOUSE_LOCK_VERYSLOW   14
-#define DLGMOUSE_LOCK_SLOW       15
-#define DLGMOUSE_LOCK_NORMAL     16
-#define DLGMOUSE_LOCK_FAST       17
-#define DLGMOUSE_LOCK_VERYFAST   18
-#define DLGMOUSE_LOCK_CUSTOM     19
+#define DLGMOUSE_EXP_VERYSLOW  14
+#define DLGMOUSE_EXP_SLOW      15
+#define DLGMOUSE_EXP_NORMAL    16
+#define DLGMOUSE_EXP_FAST      17
+#define DLGMOUSE_EXP_VERYFAST  18
+#define DLGMOUSE_EXP_CUSTOM    19
 
-#define DLGMOUSE_CTRLCLCK        21
-#define DLGMOUSE_MAPTOKEY        22
-#define DLGMOUSE_AUTOLOCK        23
-#define DLGMOUSE_EXIT            24
+#define DLGMOUSE_CTRLCLCK      21
+#define DLGMOUSE_MAPTOKEY      22
+#define DLGMOUSE_AUTOLOCK      23
+#define DLGMOUSE_EXIT          24
 
 /* The mouse options dialog: */
 static SGOBJ mousedlg[] =
 {
 	{ SGBOX, 0, 0, 0,0, 45,27, NULL },
 	{ SGTEXT, 0, 0, 16,1, 13,1, "Mouse options" },
-	
+
 	{ SGTEXT, 0, 0, 2,4, 30,1, "Mouse motion speed adjustment:" },
 	{ SGBUTTON, 0, 0, 33,4, 11,1, "Customise" },
-	
+
 	{ SGBOX, 0, 0, 1,6, 21,10, NULL },
 	{ SGTEXT, 0, 0, 2,7, 30,1, "Slow movement:" },
 	{ SGRADIOBUT, 0, 0, 3,9,  11,1, "Very slow" },
@@ -50,8 +50,8 @@ static SGOBJ mousedlg[] =
 	{ SGRADIOBUT, 0, 0, 3,11,  8,1, "Normal" },
 	{ SGRADIOBUT, 0, 0, 3,12,  6,1, "Fast" },
 	{ SGRADIOBUT, 0, 0, 3,13, 11,1, "Very fast" },
-	{ SGRADIOBUT, 0, 0, 3,14, 12,1, "Customised" },
-	
+	{ SGRADIOBUT, SG_EXIT, 0, 3,14, 8,1, "Custom" },
+
 	{ SGBOX, 0, 0, 23,6, 21,10, NULL },
 	{ SGTEXT, 0, 0, 24,7, 30,1, "Fast movement:" },
 	{ SGRADIOBUT, 0, 0, 25,9,  11,1, "Very slow" },
@@ -59,49 +59,40 @@ static SGOBJ mousedlg[] =
 	{ SGRADIOBUT, 0, 0, 25,11,  8,1, "Normal" },
 	{ SGRADIOBUT, 0, 0, 25,12,  6,1, "Fast" },
 	{ SGRADIOBUT, 0, 0, 25,13, 11,1, "Very fast" },
-	{ SGRADIOBUT, 0, 0, 25,14, 12,1, "Customised" },
-	
+	{ SGRADIOBUT, SG_EXIT, 0, 25,14, 8,1, "Custom" },
+
 	{ SGBOX, 0, 0, 1,17, 43,5, NULL },
 	{ SGCHECKBOX, 0, 0, 2,18, 34,1, "Map control-click to right-click" },
 	{ SGCHECKBOX, 0, 0, 2,19, 32,1, "Map scroll wheel to arrow keys" },
 	{ SGCHECKBOX, 0, 0, 2,20, 21,1, "Enable auto-locking" },
-	
+
 	{ SGBUTTON, SG_DEFAULT, 0, 12,24, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
 
-#define DLGSPEED_EXIT 18
+#define DLGSPEED_USERAW 9
+#define DLGSPEED_EXIT   10
 
-static char n_lin_string[8];
-static char n_exp_string[8];
-static char l_lin_string[8];
-static char l_exp_string[8];
+static char lin_string[8];
+static char exp_string[8];
 
 /* The mouse speed adjustment dialog */
 static SGOBJ speeddlg[] =
 {
-	{ SGBOX, 0, 0, 0,0, 48,25, NULL },
-	{ SGTEXT, 0, 0, 16,1, 13,1, "Mouse speed scale" },
-	
-	{ SGTEXT, 0, 0, 2,4, 32,1, "Unlocked window mode:" },
-	{ SGBOX, 0, 0, 1,6, 46,5, NULL },
-	{ SGTEXT, 0, 0, 2,7, 32,1, "Linear adjustment:" },
-	{ SGEDITFIELD, 0, 0, 26,7, 5,1, n_lin_string },
-	{ SGTEXT, 0, 0, 32,7, 32,1, "(0.01 to 10.0)" },
-	{ SGTEXT, 0, 0, 2,9, 38,1, "Exponential adjustment:" },
-	{ SGEDITFIELD, 0, 0, 26,9, 5,1, n_exp_string },
-	{ SGTEXT, 0, 0, 32,9, 32,1, "(0.50 to 1.00)" },
-	
-	{ SGTEXT, 0, 0, 2,13, 32,1, "Locked or fullscreen mode:" },
-	{ SGBOX, 0, 0, 1,15, 46,5, NULL },
-	{ SGTEXT, 0, 0, 2,16, 32,1, "Linear adjustment:" },
-	{ SGEDITFIELD, 0, 0, 26,16, 5,1, l_lin_string },
-	{ SGTEXT, 0, 0, 32,16, 32,1, "(0.01 to 10.0)" },
-	{ SGTEXT, 0, 0, 2,18, 38,1, "Exponential adjustment:" },
-	{ SGEDITFIELD, 0, 0, 26,18, 5,1, l_exp_string },
-	{ SGTEXT, 0, 0, 32,18, 32,1, "(0.50 to 1.00)" },
+	{ SGBOX, 0, 0, 0,0, 50,16, NULL },
+	{ SGTEXT, 0, 0, 17,1, 13,1, "Mouse speed scale" },
 
-	{ SGBUTTON, SG_DEFAULT, 0, 19,22, 10,1, "Done" },
+	{ SGBOX, 0, 0, 1,4, 48,5, NULL },
+	{ SGTEXT, 0, 0, 2,5, 32,1, "Linear adjustment:" },
+	{ SGEDITFIELD, 0, 0, 26,5, 6,1, lin_string },
+	{ SGTEXT, 0, 0, 34,5, 32,1, "(0.01 to 10.0)" },
+	{ SGTEXT, 0, 0, 2,7, 38,1, "Exponential adjustment:" },
+	{ SGEDITFIELD, 0, 0, 26,7, 6,1, exp_string },
+	{ SGTEXT, 0, 0, 34,7, 32,1, "(0.50 to 1.00)" },
+
+	{ SGCHECKBOX, 0, 0, 2,10, 37,1, "Use raw mouse motion when available" },
+
+	{ SGBUTTON, SG_DEFAULT, 0, 20,13, 10,1, "Done" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
 
@@ -147,33 +138,35 @@ static float read_float_string(char *s, float min, float max, int prec)
 		result=min;
 	if (result>max)
 		result=max;
-	
+
 	return result;
 }
 
 static void Dialog_SpeedDlg(float* lin, float* exp)
 {
 	int but;
-	
+
 	SDLGui_CenterDlg(speeddlg);
-	
+
 	/* Set up the dialog from actual values */
-	snprintf(n_lin_string, sizeof(n_lin_string), "%#.2f", ConfigureParams.Mouse.fLinSpeedNormal);	
-	snprintf(n_exp_string, sizeof(n_exp_string), "%#.2f", ConfigureParams.Mouse.fExpSpeedNormal);
-	snprintf(l_lin_string, sizeof(l_lin_string), "%#.2f", ConfigureParams.Mouse.fLinSpeedLocked);	
-	snprintf(l_exp_string, sizeof(l_exp_string), "%#.2f", ConfigureParams.Mouse.fExpSpeedLocked);
-	
+	snprintf(lin_string, sizeof(lin_string), "%#.3f", ConfigureParams.Mouse.fLinScale);	
+	snprintf(exp_string, sizeof(exp_string), "%#.3f", ConfigureParams.Mouse.fExpScale);
+	if (ConfigureParams.Mouse.bUseRawMotion) {
+		mousedlg[DLGSPEED_USERAW].state |= SG_SELECTED;
+	} else {
+		mousedlg[DLGSPEED_USERAW].state &= ~SG_SELECTED;
+	}
+
 	/* Draw and process the dialog */
 	do
 	{
 		but = SDLGui_DoDialog(speeddlg);
 	}
 	while (but != DLGSPEED_EXIT && but != SDLGUI_QUIT && but != SDLGUI_ERROR && !bQuitProgram);
-	
-	ConfigureParams.Mouse.fLinSpeedNormal = read_float_string(n_lin_string, MOUSE_LIN_MIN, MOUSE_LIN_MAX, 2);
-	ConfigureParams.Mouse.fExpSpeedNormal = read_float_string(n_exp_string, MOUSE_EXP_MIN, MOUSE_EXP_MAX, 2);
-	ConfigureParams.Mouse.fLinSpeedLocked = read_float_string(l_lin_string, MOUSE_LIN_MIN, MOUSE_LIN_MAX, 2);
-	ConfigureParams.Mouse.fExpSpeedLocked = read_float_string(l_exp_string, MOUSE_EXP_MIN, MOUSE_EXP_MAX, 2);
+
+	ConfigureParams.Mouse.fLinScale = read_float_string(lin_string, MOUSE_LIN_MIN, MOUSE_LIN_MAX, 3);
+	ConfigureParams.Mouse.fExpScale = read_float_string(exp_string, MOUSE_EXP_MIN, MOUSE_EXP_MAX, 3);
+	ConfigureParams.Mouse.bUseRawMotion = mousedlg[DLGSPEED_USERAW].state&SG_SELECTED ? true : false;
 }
 
 
@@ -195,45 +188,43 @@ static void Dialog_SpeedDlg(float* lin, float* exp)
 static void DlgMouseSetup(void)
 {
 	int i;
-	
-	for (i = DLGMOUSE_UNLOCK_VERYSLOW; i <= DLGMOUSE_UNLOCK_CUSTOM; i++) {
+
+	for (i = DLGMOUSE_LIN_VERYSLOW; i <= DLGMOUSE_LIN_CUSTOM; i++) {
 		mousedlg[i].state &= ~SG_SELECTED;
 	}
-	for (i = DLGMOUSE_LOCK_VERYSLOW; i <= DLGMOUSE_LOCK_CUSTOM; i++) {
+	for (i = DLGMOUSE_EXP_VERYSLOW; i <= DLGMOUSE_EXP_CUSTOM; i++) {
 		mousedlg[i].state &= ~SG_SELECTED;
 	}
 	mousedlg[DLGMOUSE_CTRLCLCK].state &= ~SG_SELECTED;
 	mousedlg[DLGMOUSE_MAPTOKEY].state &= ~SG_SELECTED;
 	mousedlg[DLGMOUSE_AUTOLOCK].state &= ~SG_SELECTED;
-	
-	if (ConfigureParams.Mouse.fLinSpeedLocked == LIN_VERYSLOW) {
-		mousedlg[DLGMOUSE_UNLOCK_VERYSLOW].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fLinSpeedLocked == LIN_SLOW) {
-		mousedlg[DLGMOUSE_UNLOCK_SLOW].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fLinSpeedLocked == LIN_NORMAL) {
-		mousedlg[DLGMOUSE_UNLOCK_NORMAL].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fLinSpeedLocked == LIN_FAST) {
-		mousedlg[DLGMOUSE_UNLOCK_FAST].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fLinSpeedLocked == LIN_VERYFAST) {
-		mousedlg[DLGMOUSE_UNLOCK_VERYFAST].state |= SG_SELECTED;
+
+	if (ConfigureParams.Mouse.fLinScale == LIN_VERYSLOW) {
+		mousedlg[DLGMOUSE_LIN_VERYSLOW].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fLinScale == LIN_SLOW) {
+		mousedlg[DLGMOUSE_LIN_SLOW].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fLinScale == LIN_NORMAL) {
+		mousedlg[DLGMOUSE_LIN_NORMAL].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fLinScale == LIN_FAST) {
+		mousedlg[DLGMOUSE_LIN_FAST].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fLinScale == LIN_VERYFAST) {
+		mousedlg[DLGMOUSE_LIN_VERYFAST].state |= SG_SELECTED;
 	} else {
-		mousedlg[DLGMOUSE_UNLOCK_CUSTOM].state |= SG_SELECTED;
+		mousedlg[DLGMOUSE_LIN_CUSTOM].state |= SG_SELECTED;
 	}
-	
-	if (ConfigureParams.Mouse.fExpSpeedLocked == EXP_VERYSLOW) {
-		mousedlg[DLGMOUSE_LOCK_VERYSLOW].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fExpSpeedLocked == EXP_SLOW) {
-		mousedlg[DLGMOUSE_LOCK_SLOW].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fExpSpeedLocked == EXP_NORMAL) {
-		mousedlg[DLGMOUSE_LOCK_NORMAL].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fExpSpeedLocked == EXP_FAST) {
-		mousedlg[DLGMOUSE_LOCK_FAST].state |= SG_SELECTED;
-	} else if (ConfigureParams.Mouse.fExpSpeedLocked == EXP_VERYFAST) {
-		mousedlg[DLGMOUSE_LOCK_VERYFAST].state |= SG_SELECTED;
+	if (ConfigureParams.Mouse.fExpScale == EXP_VERYSLOW) {
+		mousedlg[DLGMOUSE_EXP_VERYSLOW].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fExpScale == EXP_SLOW) {
+		mousedlg[DLGMOUSE_EXP_SLOW].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fExpScale == EXP_NORMAL) {
+		mousedlg[DLGMOUSE_EXP_NORMAL].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fExpScale == EXP_FAST) {
+		mousedlg[DLGMOUSE_EXP_FAST].state |= SG_SELECTED;
+	} else if (ConfigureParams.Mouse.fExpScale == EXP_VERYFAST) {
+		mousedlg[DLGMOUSE_EXP_VERYFAST].state |= SG_SELECTED;
 	} else {
-		mousedlg[DLGMOUSE_LOCK_CUSTOM].state |= SG_SELECTED;
+		mousedlg[DLGMOUSE_EXP_CUSTOM].state |= SG_SELECTED;
 	}
-	
 	if (ConfigureParams.Mouse.bEnableMacClick) {
 		mousedlg[DLGMOUSE_CTRLCLCK].state |= SG_SELECTED;
 	}
@@ -248,27 +239,27 @@ static void DlgMouseSetup(void)
 /* Read values from dialog */
 static void DlgMouseRead(void)
 {
-	if (mousedlg[DLGMOUSE_UNLOCK_VERYSLOW].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fLinSpeedLocked = LIN_VERYSLOW;
-	} else if (mousedlg[DLGMOUSE_UNLOCK_SLOW].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fLinSpeedLocked = LIN_SLOW;
-	} else if (mousedlg[DLGMOUSE_UNLOCK_NORMAL].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fLinSpeedLocked = LIN_NORMAL;
-	} else if (mousedlg[DLGMOUSE_UNLOCK_FAST].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fLinSpeedLocked = LIN_FAST;
-	} else if (mousedlg[DLGMOUSE_UNLOCK_VERYFAST].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fLinSpeedLocked = LIN_VERYFAST;
+	if (mousedlg[DLGMOUSE_LIN_VERYSLOW].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fLinScale = LIN_VERYSLOW;
+	} else if (mousedlg[DLGMOUSE_LIN_SLOW].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fLinScale = LIN_SLOW;
+	} else if (mousedlg[DLGMOUSE_LIN_NORMAL].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fLinScale = LIN_NORMAL;
+	} else if (mousedlg[DLGMOUSE_LIN_FAST].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fLinScale = LIN_FAST;
+	} else if (mousedlg[DLGMOUSE_LIN_VERYFAST].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fLinScale = LIN_VERYFAST;
 	}
-	if (mousedlg[DLGMOUSE_LOCK_VERYSLOW].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fExpSpeedLocked = EXP_VERYSLOW;
-	} else if (mousedlg[DLGMOUSE_LOCK_SLOW].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fExpSpeedLocked = EXP_SLOW;
-	} else if (mousedlg[DLGMOUSE_LOCK_NORMAL].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fExpSpeedLocked = EXP_NORMAL;
-	} else if (mousedlg[DLGMOUSE_LOCK_FAST].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fExpSpeedLocked = EXP_FAST;
-	} else if (mousedlg[DLGMOUSE_LOCK_VERYFAST].state&SG_SELECTED) {
-		ConfigureParams.Mouse.fExpSpeedLocked = EXP_VERYFAST;
+	if (mousedlg[DLGMOUSE_EXP_VERYSLOW].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fExpScale = EXP_VERYSLOW;
+	} else if (mousedlg[DLGMOUSE_EXP_SLOW].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fExpScale = EXP_SLOW;
+	} else if (mousedlg[DLGMOUSE_EXP_NORMAL].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fExpScale = EXP_NORMAL;
+	} else if (mousedlg[DLGMOUSE_EXP_FAST].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fExpScale = EXP_FAST;
+	} else if (mousedlg[DLGMOUSE_EXP_VERYFAST].state&SG_SELECTED) {
+		ConfigureParams.Mouse.fExpScale = EXP_VERYFAST;
 	}
 	ConfigureParams.Mouse.bEnableMacClick = mousedlg[DLGMOUSE_CTRLCLCK].state&SG_SELECTED ? true : false;
 	ConfigureParams.Mouse.bEnableMapToKey = mousedlg[DLGMOUSE_MAPTOKEY].state&SG_SELECTED ? true : false;
@@ -294,8 +285,15 @@ void Dialog_MouseDlg(void)
 		
 		DlgMouseRead();
 		
-		if (but == DLGMOUSE_CUSTOMISE) {
-			Dialog_SpeedDlg(NULL, NULL);
+		switch (but) {
+			case DLGMOUSE_CUSTOMISE:
+			case DLGMOUSE_LIN_CUSTOM:
+			case DLGMOUSE_EXP_CUSTOM:
+				Dialog_SpeedDlg(NULL, NULL);
+				break;
+				
+			default:
+				break;
 		}
 	}
 	while (but != DLGMOUSE_EXIT && but != SDLGUI_QUIT && but != SDLGUI_ERROR && !bQuitProgram);

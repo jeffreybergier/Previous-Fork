@@ -184,8 +184,9 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 	if (nDeltaX || nDeltaY) {
 		float fExp, fLin;
 
-		fExp = bGrabMouse ? ConfigureParams.Mouse.fExpSpeedLocked : ConfigureParams.Mouse.fExpSpeedNormal;
-		fLin = bGrabMouse ? ConfigureParams.Mouse.fLinSpeedLocked : ConfigureParams.Mouse.fLinSpeedNormal;
+		/* Sensitivity of the ADB mouse is 100 CPI, sensitivity of the non-ADB mouse is unknown. */
+		fExp = ConfigureParams.Mouse.fExpScale;
+		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.6);
 
 		/* Adjust values only if necessary */
 		if ((fExp != 1.0) || (fLin != 0.0)) {
@@ -195,8 +196,8 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 
 			/* Exponential adjustment */
 			if (fExp != 1.0) {
-				fDeltaX = (fDeltaX < 0.0) ? -pow(-fDeltaX, fExp) : pow(fDeltaX, fExp);
-				fDeltaY = (fDeltaY < 0.0) ? -pow(-fDeltaY, fExp) : pow(fDeltaY, fExp);
+				fDeltaX = (fDeltaX < 0.0) ? -powf(-fDeltaX, fExp) : powf(fDeltaX, fExp);
+				fDeltaY = (fDeltaY < 0.0) ? -powf(-fDeltaY, fExp) : powf(fDeltaY, fExp);
 			}
 
 			/* Linear adjustment */
@@ -205,17 +206,9 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 				fDeltaY *= fLin;
 			}
 
-			/* Add residuals */
-			if ((fDeltaX < 0.0) == (fSavedDeltaX < 0.0)) {
-				fSavedDeltaX += fDeltaX;
-			} else {
-				fSavedDeltaX  = fDeltaX;
-			}
-			if ((fDeltaY < 0.0) == (fSavedDeltaY < 0.0)) {
-				fSavedDeltaY += fDeltaY;
-			} else {
-				fSavedDeltaY  = fDeltaY;
-			}
+			/* Add to residuals */
+			fSavedDeltaX += fDeltaX;
+			fSavedDeltaY += fDeltaY;
 
 			/* Convert to integer and save residuals */
 			nDeltaX = (int)fSavedDeltaX;

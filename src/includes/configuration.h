@@ -123,10 +123,9 @@ typedef struct
   bool bEnableAutoGrab;
   bool bEnableMapToKey;
   bool bEnableMacClick;
-  float fLinSpeedNormal;
-  float fLinSpeedLocked;
-  float fExpSpeedNormal;
-  float fExpSpeedLocked;
+  bool bUseRawMotion;
+  float fLinScale;
+  float fExpScale;
 } CNF_MOUSE;
 
 

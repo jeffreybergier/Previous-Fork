@@ -25,7 +25,11 @@ const char SDLkeymap_fileid[] = "Previous sdlkeymap.c";
  */
 void Keymap_Init(void)
 {
-	SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");
+	if (ConfigureParams.Mouse.bUseRawMotion) {
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "0");
+	} else {
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");
+	}
 }
 
 /**

@@ -29,6 +29,7 @@ const char Change_fileid[] = "Previous change.c";
 #include "floppy.h"
 #include "ethernet.h"
 #include "snd.h"
+#include "keymap.h"
 
 #define DEBUG 1
 #if DEBUG
@@ -236,6 +237,7 @@ bool Change_DoNeedReset(CNF_PARAMS *current, CNF_PARAMS *changed)
 void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *changed, bool bForceReset)
 {
 	bool NeedReset;
+	bool bReInitKeymap = false;
 	bool bReInitEnetEmu = false;
 	bool bReInitSoundEmu = false;
 	bool bScreenModeChange = false;
@@ -251,6 +253,11 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 
 	if (!NeedReset) {
 		int i;
+
+		/* Do we need to change Keymap configuration? */
+		if (current->Mouse.bUseRawMotion != changed->Mouse.bUseRawMotion) {
+			bReInitKeymap = true;
+		}
 
 		/* Do we need to change Ethernet configuration? */
 		for (i = 0; i < EN_MAX_SHARES; i++) {
@@ -298,6 +305,12 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 	if (bReInitSoundEmu) {
 		Dprintf("- Sound\n");
 		Sound_Reset();
+	}
+
+	/* Re-init Keymap? */
+	if (bReInitKeymap) {
+		Dprintf("- Keymap\n");
+		Keymap_Init();
 	}
 
 	/* Force things associated with screen change */
