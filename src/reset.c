@@ -34,6 +34,7 @@ const char Reset_fileid[] = "Hatari reset.c";
 #include "printer.h"
 #include "dsp.h"
 #include "kms.h"
+#include "keymap.h"
 #include "NextBus.hpp"
 
 /*-----------------------------------------------------------------------*/
@@ -47,6 +48,7 @@ static int Reset_NeXT(bool bCold)
 		if (ret) {
 			return ret;
 		}
+		Keymap_Init();            /* Reset keymap */
 		Timing_Reset();           /* Reset timing system */
 		CycInt_Reset();           /* Reset interrupts */
 		Video_Reset();            /* Reset video */

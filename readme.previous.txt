@@ -464,6 +464,9 @@ Previous v4.1:
   > Improves efficiency and accuracy of timing system.
 
 Previous v4.2 (unreleased):
+  > Adds option to enable raw mouse input.
+  > Improves mouse dialog to be more user friendly.
+  > Improves mouse movement handling once again.
   > Fixes bug that could cause system timer underflow.
   > Fixes bug that caused the statusbar to fail after a certain period of time.
 
@@ -510,6 +513,15 @@ S: Disables sound output and re-enables it when pressed again.
 Q: Requests to quit Previous. All unsaved changes will be lost.
 
 Shortcuts can be changed from the keyboard preferences dialog.
+
+Mouse motion is normally derived from scaled host mouse motion values which is
+not ideal for the simulated mouse. You might want use the mouse preferences to 
+compensate for host mouse acceleration curves. Under custom mouse settings you 
+can choose to use raw mouse motion values which might make it easier to obtain 
+good results. Divide 100 by the CPI of your physical mouse to obtain the value 
+to be used for linear adjustment and set exponential adjustment to 1.
+Note that raw mouse input is only available while the cursor is locked to the 
+window or in fullscreen mode. Raw mouse input is unavailable on some hosts.
 
 Previous comes with some empty disk images of different types and sizes. The 
 suffix of the respective file name indicates the image type:

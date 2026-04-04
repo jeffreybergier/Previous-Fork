@@ -90,10 +90,9 @@ static const struct Config_Tag configs_Mouse[] =
 	{ "bEnableAutoGrab", Bool_Tag, &ConfigureParams.Mouse.bEnableAutoGrab },
 	{ "bEnableMapToKey", Bool_Tag, &ConfigureParams.Mouse.bEnableMapToKey },
 	{ "bEnableMacClick", Bool_Tag, &ConfigureParams.Mouse.bEnableMacClick },
-	{ "fLinSpeedNormal", Float_Tag, &ConfigureParams.Mouse.fLinSpeedNormal },
-	{ "fLinSpeedLocked", Float_Tag, &ConfigureParams.Mouse.fLinSpeedLocked },
-	{ "fExpSpeedNormal", Float_Tag, &ConfigureParams.Mouse.fExpSpeedNormal },
-	{ "fExpSpeedLocked", Float_Tag, &ConfigureParams.Mouse.fExpSpeedLocked },
+	{ "bUseRawMotion",   Bool_Tag, &ConfigureParams.Mouse.bUseRawMotion },
+	{ "fLinScale",       Float_Tag, &ConfigureParams.Mouse.fLinScale },
+	{ "fExpScale",       Float_Tag, &ConfigureParams.Mouse.fExpScale },
 	{ NULL , Error_Tag, NULL }
 };
 
@@ -460,10 +459,9 @@ void Configuration_SetDefault(void)
 	strcpy(ConfigureParams.Keyboard.szMappingFileName, "");
 
 	/* Set defaults for Mouse */
-	ConfigureParams.Mouse.fLinSpeedNormal = 1.0;
-	ConfigureParams.Mouse.fLinSpeedLocked = 1.0;
-	ConfigureParams.Mouse.fExpSpeedNormal = 1.0;
-	ConfigureParams.Mouse.fExpSpeedLocked = 1.0;
+	ConfigureParams.Mouse.fLinScale = 1.0;
+	ConfigureParams.Mouse.fExpScale = 1.0;
+	ConfigureParams.Mouse.bUseRawMotion = false;
 	ConfigureParams.Mouse.bEnableAutoGrab = true;
 	ConfigureParams.Mouse.bEnableMapToKey = false;
 	ConfigureParams.Mouse.bEnableMacClick = false;
@@ -746,10 +744,8 @@ void Configuration_Apply(bool bReset)
 	if (ConfigureParams.Mouse.bEnableMacClick) {
 		ConfigureParams.Mouse.bEnableAutoGrab = false;
 	}
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedNormal, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinSpeedLocked, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedNormal, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
-	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpSpeedLocked, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fLinScale, MOUSE_LIN_MIN, MOUSE_LIN_MAX);
+	Configuration_CheckFloatMinMax(&ConfigureParams.Mouse.fExpScale, MOUSE_EXP_MIN, MOUSE_EXP_MAX);
 
 	/* Check/constrain CPU settings and change corresponding
 	 * cpu_model/cpu_compatible/cpu_cycle_exact/... variables
