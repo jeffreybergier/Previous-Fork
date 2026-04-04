@@ -152,9 +152,9 @@ static void Dialog_SpeedDlg(float* lin, float* exp)
 	snprintf(lin_string, sizeof(lin_string), "%#.3f", ConfigureParams.Mouse.fLinScale);	
 	snprintf(exp_string, sizeof(exp_string), "%#.3f", ConfigureParams.Mouse.fExpScale);
 	if (ConfigureParams.Mouse.bUseRawMotion) {
-		mousedlg[DLGSPEED_USERAW].state |= SG_SELECTED;
+		speeddlg[DLGSPEED_USERAW].state |= SG_SELECTED;
 	} else {
-		mousedlg[DLGSPEED_USERAW].state &= ~SG_SELECTED;
+		speeddlg[DLGSPEED_USERAW].state &= ~SG_SELECTED;
 	}
 
 	/* Draw and process the dialog */
@@ -166,7 +166,7 @@ static void Dialog_SpeedDlg(float* lin, float* exp)
 
 	ConfigureParams.Mouse.fLinScale = read_float_string(lin_string, MOUSE_LIN_MIN, MOUSE_LIN_MAX, 3);
 	ConfigureParams.Mouse.fExpScale = read_float_string(exp_string, MOUSE_EXP_MIN, MOUSE_EXP_MAX, 3);
-	ConfigureParams.Mouse.bUseRawMotion = mousedlg[DLGSPEED_USERAW].state&SG_SELECTED ? true : false;
+	ConfigureParams.Mouse.bUseRawMotion = speeddlg[DLGSPEED_USERAW].state&SG_SELECTED ? true : false;
 }
 
 
