@@ -186,7 +186,7 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 
 		/* Sensitivity of the ADB mouse is 100 CPI, sensitivity of the non-ADB mouse is unknown. */
 		fExp = ConfigureParams.Mouse.fExpScale;
-		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.6);
+		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.75);
 
 		/* Adjust values only if necessary */
 		if ((fExp != 1.0) || (fLin != 0.0)) {

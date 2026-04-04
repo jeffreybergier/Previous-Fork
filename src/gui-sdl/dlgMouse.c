@@ -90,7 +90,7 @@ static SGOBJ speeddlg[] =
 	{ SGEDITFIELD, 0, 0, 26,7, 6,1, exp_string },
 	{ SGTEXT, 0, 0, 34,7, 32,1, "(0.50 to 1.00)" },
 
-	{ SGCHECKBOX, 0, 0, 2,10, 37,1, "Use raw mouse motion when available" },
+	{ SGCHECKBOX, 0, 0, 2,10, 42,1, "Use raw mouse movement data if available" },
 
 	{ SGBUTTON, SG_DEFAULT, 0, 20,13, 10,1, "Done" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
@@ -171,11 +171,11 @@ static void Dialog_SpeedDlg(float* lin, float* exp)
 
 
 #define LIN_BASE     0.125
-#define LIN_VERYFAST (8.0 * LIN_BASE)
-#define LIN_FAST     (7.0 * LIN_BASE)
-#define LIN_NORMAL   (6.0 * LIN_BASE)
-#define LIN_SLOW     (5.0 * LIN_BASE)
-#define LIN_VERYSLOW (4.0 * LIN_BASE)
+#define LIN_VERYFAST (10.0 * LIN_BASE)
+#define LIN_FAST     (9.0 * LIN_BASE)
+#define LIN_NORMAL   (8.0 * LIN_BASE)
+#define LIN_SLOW     (7.0 * LIN_BASE)
+#define LIN_VERYSLOW (6.0 * LIN_BASE)
 
 #define EXP_BASE     0.125
 #define EXP_VERYFAST (8.0 * EXP_BASE)
