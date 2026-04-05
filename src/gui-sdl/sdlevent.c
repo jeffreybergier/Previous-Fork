@@ -182,22 +182,22 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 	}
 
 	if (nDeltaX || nDeltaY) {
-		float fExp, fLin;
+		float fExp, fLin, fSum;
 
 		/* Sensitivity of the ADB mouse is 100 CPI, sensitivity of the non-ADB mouse is unknown. */
 		fExp = ConfigureParams.Mouse.fExpScale;
 		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.75);
 
 		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 0.0)) {
-			/* Initialize float values from integers */
+		if ((fExp != 1.0) || (fLin != 1.0)) {
+			/* Initialise float values from integers */
 			fDeltaX = (float)nDeltaX;
 			fDeltaY = (float)nDeltaY;
 
 			/* Exponential adjustment */
 			if (fExp != 1.0) {
-				fDeltaX = (fDeltaX < 0.0) ? -powf(-fDeltaX, fExp) : powf(fDeltaX, fExp);
-				fDeltaY = (fDeltaY < 0.0) ? -powf(-fDeltaY, fExp) : powf(fDeltaY, fExp);
+				fSum = fabsf(fDeltaX) + fabsf(fDeltaY);
+				fLin *= powf(fSum, fExp) / fSum;
 			}
 
 			/* Linear adjustment */
