@@ -189,34 +189,37 @@ static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.75);
 
 		/* Adjust values only if necessary */
-		if ((fExp != 1.0) || (fLin != 1.0)) {
-			/* Initialise float values from integers */
-			fDeltaX = (float)nDeltaX;
-			fDeltaY = (float)nDeltaY;
-
-			/* Exponential adjustment */
-			if (fExp != 1.0) {
-				fSum = fabsf(fDeltaX) + fabsf(fDeltaY);
-				fLin *= powf(fSum, fExp) / fSum;
-			}
-
-			/* Linear adjustment */
-			if (fLin != 1.0) {
-				fDeltaX *= fLin;
-				fDeltaY *= fLin;
-			}
-
-			/* Add to residuals */
-			fSavedDeltaX += fDeltaX;
-			fSavedDeltaY += fDeltaY;
-
-			/* Convert to integer and save residuals */
-			nDeltaX = (int)fSavedDeltaX;
-			nDeltaY = (int)fSavedDeltaY;
-			fSavedDeltaX -= (float)nDeltaX;
-			fSavedDeltaY -= (float)nDeltaY;
+		if ((fExp == 1.0) && (fLin == 1.0)) {
+			goto done;
 		}
 
+		/* Initialise float values from integers */
+		fDeltaX = (float)nDeltaX;
+		fDeltaY = (float)nDeltaY;
+
+		/* Exponential adjustment */
+		if (fExp != 1.0) {
+			fSum = fabsf(fDeltaX) + fabsf(fDeltaY);
+			fLin *= powf(fSum, fExp) / fSum;
+		}
+
+		/* Linear adjustment */
+		if (fLin != 1.0) {
+			fDeltaX *= fLin;
+			fDeltaY *= fLin;
+		}
+
+		/* Add to residuals */
+		fSavedDeltaX += fDeltaX;
+		fSavedDeltaY += fDeltaY;
+
+		/* Convert to integer and save residuals */
+		nDeltaX = (int)fSavedDeltaX;
+		nDeltaY = (int)fSavedDeltaY;
+		fSavedDeltaX -= (float)nDeltaX;
+		fSavedDeltaY -= (float)nDeltaY;
+
+	done:
 		/* Done */
 #ifdef ENABLE_RENDERING_THREAD
 		Keymap_MouseMove(nDeltaX, nDeltaY);

@@ -406,8 +406,7 @@ void Statusbar_UpdateInfo(void)
 {
 	int size = sizeof(DefaultMessage.msg);
 
-	int len = Configuration_SetInfoString(DefaultMessage.msg, size);
-	assert(len < size);
+	Configuration_SetInfoString(DefaultMessage.msg, size);
 
 	DEBUGPRINT(("Set default message: '%s'\n", DefaultMessage.msg));
 	/* make sure default message gets (re-)drawn when next checked */
