@@ -12,6 +12,8 @@
 #include "disasm.h"
 #include "profile.h"
 
+#define DIASM_BUFFER_SIZE 2000
+
 int disasm_flags = DISASM_FLAG_LC_MNEMO | DISASM_FLAG_LC_REG | DISASM_FLAG_LC_SIZE | DISASM_FLAG_LC_HEX |
 	DISASM_FLAG_CC | DISASM_FLAG_EA | DISASM_FLAG_VAL | DISASM_FLAG_WORDS | DISASM_FLAG_ABSSHORTLONG;
 int disasm_min_words = 5;
@@ -1943,6 +1945,8 @@ static void add_disasm_word(uaecptr *pcp, uae_u16 **bufpcp, int *bufpcsizep, int
 
 uae_u32 m68k_disasm_2(TCHAR *buf, int bufsize, uaecptr pc, uae_u16 *bufpc, int bufpcsize, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr, uaecptr lastpc, int safemode)
 {
+	TCHAR instrname[DIASM_BUFFER_SIZE];
+	TCHAR segout[DIASM_BUFFER_SIZE], segname[DIASM_BUFFER_SIZE];
 	uae_u32 seaddr2;
 	uae_u32 deaddr2;
 	int actualea_src = 0;
@@ -1954,8 +1958,7 @@ uae_u32 m68k_disasm_2(TCHAR *buf, int bufsize, uaecptr pc, uae_u16 *bufpc, int b
 	if (!table68k)
 		return 0;
 	while (cnt-- > 0) {
-		TCHAR instrname[256], *ccpt;
-		TCHAR segout[256], segname[256];
+		TCHAR *ccpt;
 		int i;
 		uae_u32 opcode;
 		uae_u16 extra;
