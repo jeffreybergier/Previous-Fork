@@ -19,6 +19,7 @@ const char SDLevent_fileid[] = "Previous sdlevent.c";
 #include "sdlkeymap.h"
 #include "sdlscreen.h"
 #include "sdlstatusbar.h"
+#include "tablet.h"
 #include "dimension.hpp"
 
 
@@ -96,7 +97,7 @@ void GuiEvent_EventQueueHandler(void) {
 	if (GuiEvent_GetEventQueue(&event)) {
 		switch (event.type) {
 			case SDL_MOUSEMOTION:
-				Keymap_MouseMove(event.motion.xrel, event.motion.yrel);
+				Keymap_MouseMove(&event.motion);
 				break;
 			case SDL_MOUSEBUTTONDOWN:
 				Keymap_MouseDown(event.button.button == SDL_BUTTON_LEFT);
@@ -154,79 +155,78 @@ void GuiEvent_WarpMouse(void) {
  */
 static void GuiEvent_HandleMouseMotion(SDL_Event *pEvent) {
 	static SDL_Event mouse_event[100];
+	static float fSavedFracX = 0.0;
+	static float fSavedFracY = 0.0;
 
 	int i, nEvents;
-
-	static float fSavedDeltaX = 0.0;
-	static float fSavedDeltaY = 0.0;
-
-	float fDeltaX;
-	float fDeltaY;
-	int   nDeltaX;
-	int   nDeltaY;
 
 	if (bIgnoreNextMouseMotion) {
 		bIgnoreNextMouseMotion = false;
 		return;
 	}
 
-	nDeltaX = pEvent->motion.xrel;
-	nDeltaY = pEvent->motion.yrel;
-
 	/* Get all mouse event to clean the queue and sum them */
 	nEvents = SDL_PeepEvents(mouse_event, 100, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION);
 
 	for (i = 0; i < nEvents; i++) {
-		nDeltaX += mouse_event[i].motion.xrel;
-		nDeltaY += mouse_event[i].motion.yrel;
+		pEvent->motion.xrel += mouse_event[i].motion.xrel;
+		pEvent->motion.yrel += mouse_event[i].motion.yrel;
 	}
 
-	if (nDeltaX || nDeltaY) {
-		float fExp, fLin, fSum;
+	if (pEvent->motion.xrel || pEvent->motion.yrel) {
+		if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
+			/* Get last absolute position */
+			if (nEvents > 0) {
+				pEvent->motion.x = mouse_event[nEvents - 1].motion.x;
+				pEvent->motion.y = mouse_event[nEvents - 1].motion.y;
+			}
+		} else {
+			float fExp, fLin, fSum;
+			float xrel, yrel;
 
-		/* Sensitivity of the ADB mouse is 100 CPI, sensitivity of the non-ADB mouse is unknown. */
-		fExp = ConfigureParams.Mouse.fExpScale;
-		fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.75);
+			/* Sensitivity of the ADB mouse is 100 CPI, sensitivity of the non-ADB mouse is unknown. */
+			fExp = ConfigureParams.Mouse.fExpScale;
+			fLin = ConfigureParams.Mouse.fLinScale * (ConfigureParams.System.bADB ? 1.0 : 0.75);
 
-		/* Adjust values only if necessary */
-		if ((fExp == 1.0) && (fLin == 1.0)) {
-			goto done;
+			/* Adjust values only if necessary */
+			if ((fExp == 1.0) && (fLin == 1.0)) {
+				goto done;
+			}
+
+			/* Initialise float values from integers */
+			xrel = (float)pEvent->motion.xrel;
+			yrel = (float)pEvent->motion.yrel;
+
+			/* Exponential adjustment */
+			if (fExp != 1.0) {
+				fSum = fabsf(xrel) + fabsf(yrel);
+				fLin *= powf(fSum, fExp) / fSum;
+			}
+
+			/* Linear adjustment */
+			if (fLin != 1.0) {
+				xrel *= fLin;
+				yrel *= fLin;
+			}
+
+			/* Add saved fraction */
+			xrel += fSavedFracX;
+			yrel += fSavedFracY;
+
+			/* Write back modified integer */
+			pEvent->motion.xrel = (int)xrel;
+			pEvent->motion.yrel = (int)yrel;
+
+			/* Save new fraction */
+			fSavedFracX = xrel - (float)pEvent->motion.xrel;
+			fSavedFracY = yrel - (float)pEvent->motion.yrel;
 		}
-
-		/* Initialise float values from integers */
-		fDeltaX = (float)nDeltaX;
-		fDeltaY = (float)nDeltaY;
-
-		/* Exponential adjustment */
-		if (fExp != 1.0) {
-			fSum = fabsf(fDeltaX) + fabsf(fDeltaY);
-			fLin *= powf(fSum, fExp) / fSum;
-		}
-
-		/* Linear adjustment */
-		if (fLin != 1.0) {
-			fDeltaX *= fLin;
-			fDeltaY *= fLin;
-		}
-
-		/* Add to residuals */
-		fSavedDeltaX += fDeltaX;
-		fSavedDeltaY += fDeltaY;
-
-		/* Convert to integer and save residuals */
-		nDeltaX = (int)fSavedDeltaX;
-		nDeltaY = (int)fSavedDeltaY;
-		fSavedDeltaX -= (float)nDeltaX;
-		fSavedDeltaY -= (float)nDeltaY;
 
 	done:
 		/* Done */
 #ifdef ENABLE_RENDERING_THREAD
-		Keymap_MouseMove(nDeltaX, nDeltaY);
+		Keymap_MouseMove(&pEvent->motion);
 #else
-		pEvent->motion.xrel = nDeltaX;
-		pEvent->motion.yrel = nDeltaY;
-
 		GuiEvent_PutEventQueue(pEvent);
 #endif
 	}

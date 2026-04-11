@@ -96,6 +96,13 @@ static const struct Config_Tag configs_Mouse[] =
 	{ NULL , Error_Tag, NULL }
 };
 
+/* Used to load/save tablet options */
+static const struct Config_Tag configs_Tablet[] =
+{
+	{ "nTabletType", Int_Tag, &ConfigureParams.Tablet.nTabletType },
+	{ NULL , Error_Tag, NULL }
+};
+
 /* Used to load/save shortcut key bindings with modifiers options */
 static const struct Config_Tag configs_ShortCutWithMod[] =
 {
@@ -465,6 +472,9 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Mouse.bEnableAutoGrab = true;
 	ConfigureParams.Mouse.bEnableMapToKey = false;
 	ConfigureParams.Mouse.bEnableMacClick = false;
+
+	/* Set defaults for Tablet */
+	ConfigureParams.Tablet.nTabletType = TABLET_NONE;
 
 	/* Set defaults for Shortcuts */
 	Keymap_InitShortcutDefaultKeys();
@@ -930,6 +940,7 @@ void Configuration_Load(const char *psFileName)
 	Configuration_LoadSection(psFileName, configs_ShortCutWithMod, "[ShortcutsWithModifiers]");
 	Configuration_LoadSection(psFileName, configs_ShortCutWithoutMod, "[ShortcutsWithoutModifiers]");
 	Configuration_LoadSection(psFileName, configs_Mouse, "[Mouse]");
+	Configuration_LoadSection(psFileName, configs_Tablet, "[Tablet]");
 	Configuration_LoadSection(psFileName, configs_Sound, "[Sound]");
 	Configuration_LoadSection(psFileName, configs_Memory, "[Memory]");
 	Configuration_LoadSection(psFileName, configs_Boot, "[Boot]");
@@ -980,6 +991,7 @@ void Configuration_Save(void)
 	Configuration_SaveSection(sConfigFileName, configs_ShortCutWithMod, "[ShortcutsWithModifiers]");
 	Configuration_SaveSection(sConfigFileName, configs_ShortCutWithoutMod, "[ShortcutsWithoutModifiers]");
 	Configuration_SaveSection(sConfigFileName, configs_Mouse, "[Mouse]");
+	Configuration_SaveSection(sConfigFileName, configs_Tablet, "[Tablet]");
 	Configuration_SaveSection(sConfigFileName, configs_Sound, "[Sound]");
 	Configuration_SaveSection(sConfigFileName, configs_Memory, "[Memory]");
 	Configuration_SaveSection(sConfigFileName, configs_Boot, "[Boot]");

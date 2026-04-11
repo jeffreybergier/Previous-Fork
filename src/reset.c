@@ -15,6 +15,7 @@ const char Reset_fileid[] = "Hatari reset.c";
 #include "m68000.h"
 #include "reset.h"
 #include "scc.h"
+#include "tablet.h"
 #include "screen.h"
 #include "tmc.h"
 #include "ncc.h"
@@ -70,6 +71,7 @@ static int Reset_NeXT(bool bCold)
 	MO_Reset();                   /* Reset MO disks */
 	Floppy_Reset();               /* Reset Floppy disks */
 	SCC_Reset();                  /* Reset SCC */
+	Tablet_Reset();               /* Reset Tablet */
 	Ethernet_Reset(true);         /* Reset Ethernet */
 	KMS_Reset();                  /* Reset KMS */
 	Sound_Reset();                /* Reset Sound */

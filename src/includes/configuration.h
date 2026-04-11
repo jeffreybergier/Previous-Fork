@@ -129,6 +129,20 @@ typedef struct
 } CNF_MOUSE;
 
 
+/* Tablet configuration */
+
+typedef enum
+{
+  TABLET_NONE,
+  TABLET_MM961,
+  TABLET_MM1201
+} TABLET_TYPE;
+
+typedef struct
+{
+  TABLET_TYPE nTabletType;
+} CNF_TABLET;
+
 /* Memory configuration */
 
 typedef enum
@@ -377,6 +391,7 @@ typedef struct
   CNF_KEYBOARD  Keyboard;
   CNF_SHORTCUT  Shortcut;
   CNF_MOUSE     Mouse;
+  CNF_TABLET    Tablet;
   CNF_SOUND     Sound;
   CNF_MEMORY    Memory;
   CNF_BOOT      Boot;
