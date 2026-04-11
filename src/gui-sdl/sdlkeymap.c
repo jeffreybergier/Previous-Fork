@@ -16,6 +16,7 @@ const char SDLkeymap_fileid[] = "Previous sdlkeymap.c";
 #include "log.h"
 #include "kms.h"
 #include "adb.h"
+#include "tablet.h"
 
 #define  LOG_KEYMAP_LEVEL   LOG_DEBUG
 
@@ -615,12 +616,14 @@ void Keymap_KeyUp(const SDL_KeyboardEvent *sdlkey)
 /**
  * User moved the mouse
  */
-void Keymap_MouseMove(int dx, int dy)
+void Keymap_MouseMove(const SDL_MouseMotionEvent *sdlmotion)
 {
-	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
-		adb_mouse_move(dx, dy);
+	if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
+		tablet_pen_move(sdlmotion->xrel, sdlmotion->yrel, sdlmotion->x, sdlmotion->y);
+	} else if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+		adb_mouse_move(sdlmotion->xrel, sdlmotion->yrel);
 	} else {
-		kms_mouse_move(dx, dy);
+		kms_mouse_move(sdlmotion->xrel, sdlmotion->yrel);
 	}
 }
 
@@ -631,7 +634,9 @@ void Keymap_MouseMove(int dx, int dy)
  */
 void Keymap_MouseDown(bool left)
 {
-	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+	if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
+		tablet_pen_tip(left);
+	} else if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
 		adb_mouse_button(left, true);
 	} else {
 		kms_mouse_button(left, true);
@@ -645,7 +650,9 @@ void Keymap_MouseDown(bool left)
  */
 void Keymap_MouseUp(bool left)
 {
-	if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
+	if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
+		tablet_pen_tip(false);
+	} else if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
 		adb_mouse_button(left, false);
 	} else {
 		kms_mouse_button(left, false);

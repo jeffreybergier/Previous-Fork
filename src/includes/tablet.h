@@ -9,7 +9,12 @@
 #define PREV_TABLET_H
 
 extern void tablet_receive(uint8_t val);
+extern void tablet_pen_move(int xrel, int yrel, int x, int y);
+extern void tablet_pen_tip(int pressed);
 
-extern void tablet_reset(void);
+extern void Tablet_IO_Handler(void);
+extern void Tablet_Reset(void);
+
+extern bool bTabletEnabled;
 
 #endif /* PREV_TABLET_H */

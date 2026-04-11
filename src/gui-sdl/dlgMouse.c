@@ -31,13 +31,14 @@ const char DlgMouse_fileid[] = "Previous dlgMouse.c";
 
 #define DLGMOUSE_CTRLCLCK      21
 #define DLGMOUSE_MAPTOKEY      22
-#define DLGMOUSE_AUTOLOCK      23
-#define DLGMOUSE_EXIT          24
+#define DLGMOUSE_TABLET        23
+#define DLGMOUSE_AUTOLOCK      24
+#define DLGMOUSE_EXIT          25
 
 /* The mouse options dialog: */
 static SGOBJ mousedlg[] =
 {
-	{ SGBOX, 0, 0, 0,0, 45,27, NULL },
+	{ SGBOX, 0, 0, 0,0, 45,28, NULL },
 	{ SGTEXT, 0, 0, 16,1, 13,1, "Mouse options" },
 
 	{ SGTEXT, 0, 0, 2,4, 30,1, "Mouse motion speed adjustment:" },
@@ -61,12 +62,13 @@ static SGOBJ mousedlg[] =
 	{ SGRADIOBUT, 0, 0, 25,13, 11,1, "Very fast" },
 	{ SGRADIOBUT, SG_EXIT, 0, 25,14, 8,1, "Custom" },
 
-	{ SGBOX, 0, 0, 1,17, 43,5, NULL },
+	{ SGBOX, 0, 0, 1,17, 43,6, NULL },
 	{ SGCHECKBOX, 0, 0, 2,18, 34,1, "Map control-click to right-click" },
 	{ SGCHECKBOX, 0, 0, 2,19, 32,1, "Map scroll wheel to arrow keys" },
-	{ SGCHECKBOX, 0, 0, 2,20, 21,1, "Enable auto-locking" },
+	{ SGCHECKBOX, 0, 0, 2,20, 25,1, "Use tablet if available" },
+	{ SGCHECKBOX, 0, 0, 2,21, 21,1, "Enable auto-locking" },
 
-	{ SGBUTTON, SG_DEFAULT, 0, 12,24, 21,1, "Back to main menu" },
+	{ SGBUTTON, SG_DEFAULT, 0, 12,25, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
 };
 
@@ -197,6 +199,7 @@ static void DlgMouseSetup(void)
 	}
 	mousedlg[DLGMOUSE_CTRLCLCK].state &= ~SG_SELECTED;
 	mousedlg[DLGMOUSE_MAPTOKEY].state &= ~SG_SELECTED;
+	mousedlg[DLGMOUSE_TABLET].state   &= ~SG_SELECTED;
 	mousedlg[DLGMOUSE_AUTOLOCK].state &= ~SG_SELECTED;
 
 	if (ConfigureParams.Mouse.fLinScale == LIN_VERYSLOW) {
@@ -231,6 +234,9 @@ static void DlgMouseSetup(void)
 	if (ConfigureParams.Mouse.bEnableMapToKey) {
 		mousedlg[DLGMOUSE_MAPTOKEY].state |= SG_SELECTED;
 	}
+	if (ConfigureParams.Tablet.nTabletType != TABLET_NONE) {
+		mousedlg[DLGMOUSE_TABLET].state |= SG_SELECTED;
+	}
 	if (ConfigureParams.Mouse.bEnableAutoGrab) {
 		mousedlg[DLGMOUSE_AUTOLOCK].state |= SG_SELECTED;
 	}
@@ -264,6 +270,7 @@ static void DlgMouseRead(void)
 	ConfigureParams.Mouse.bEnableMacClick = mousedlg[DLGMOUSE_CTRLCLCK].state&SG_SELECTED ? true : false;
 	ConfigureParams.Mouse.bEnableMapToKey = mousedlg[DLGMOUSE_MAPTOKEY].state&SG_SELECTED ? true : false;
 	ConfigureParams.Mouse.bEnableAutoGrab = mousedlg[DLGMOUSE_AUTOLOCK].state&SG_SELECTED ? true : false;
+	ConfigureParams.Tablet.nTabletType = mousedlg[DLGMOUSE_TABLET].state&SG_SELECTED ? TABLET_MM1201 : TABLET_NONE;
 }
 
 /*-----------------------------------------------------------------------*/
