@@ -234,11 +234,11 @@ static void DlgMouseSetup(void)
 	if (ConfigureParams.Mouse.bEnableMapToKey) {
 		mousedlg[DLGMOUSE_MAPTOKEY].state |= SG_SELECTED;
 	}
-	if (ConfigureParams.Tablet.nTabletType != TABLET_NONE) {
-		mousedlg[DLGMOUSE_TABLET].state |= SG_SELECTED;
-	}
 	if (ConfigureParams.Mouse.bEnableAutoGrab) {
 		mousedlg[DLGMOUSE_AUTOLOCK].state |= SG_SELECTED;
+	}
+	if (ConfigureParams.Tablet.nTabletType != TABLET_NONE) {
+		mousedlg[DLGMOUSE_TABLET].state |= SG_SELECTED;
 	}
 }
 

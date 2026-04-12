@@ -10,7 +10,7 @@
 
 extern void tablet_receive(uint8_t val);
 extern void tablet_pen_move(int xrel, int yrel, int x, int y);
-extern void tablet_pen_tip(int pressed);
+extern void tablet_pen_button(int tip, int pressed);
 
 extern void Tablet_IO_Handler(void);
 extern void Tablet_Reset(void);

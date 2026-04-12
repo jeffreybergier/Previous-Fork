@@ -635,7 +635,7 @@ void Keymap_MouseMove(const SDL_MouseMotionEvent *sdlmotion)
 void Keymap_MouseDown(bool left)
 {
 	if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
-		tablet_pen_tip(left);
+		tablet_pen_button(left, true);
 	} else if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
 		adb_mouse_button(left, true);
 	} else {
@@ -651,7 +651,7 @@ void Keymap_MouseDown(bool left)
 void Keymap_MouseUp(bool left)
 {
 	if (ConfigureParams.Tablet.nTabletType && bTabletEnabled) {
-		tablet_pen_tip(false);
+		tablet_pen_button(left, false);
 	} else if (ConfigureParams.System.bADB && ConfigureParams.System.bTurbo) {
 		adb_mouse_button(left, false);
 	} else {
