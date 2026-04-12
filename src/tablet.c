@@ -100,13 +100,13 @@ bool bTabletEnabled = false;
 #define SUMMA_COORD_SHIFT 7
 
 /* Orientation */
-#define SUMMA_ORIG_VERT_LL 0
-#define SUMMA_ORIG_HORI_UL 1
+#define SUMMA_ORIG_LOWER  0
+#define SUMMA_ORIG_UPPER  1
 
 /* Tablet size in tenth of an inch (avoid decimal numbers) */
-#define SUMMA_1201_SIZE    117  /* 11.7 inch */
-#define SUMMA_961_XSIZE    60   /* 6 inch */
-#define SUMMA_961_YSIZE    90   /* 9 inch */
+#define SUMMA_1201_SIZE   117  /* 11.7 inch */
+#define SUMMA_961_XSIZE   60   /* 6 inch */
+#define SUMMA_961_YSIZE   90   /* 9 inch */
 
 static struct summa_tablet {
 	int enabled;
@@ -134,7 +134,12 @@ static struct summa_tablet {
 	int32_t ymax;
 	int32_t xpos;
 	int32_t ypos;
+	int32_t xdelta;
+	int32_t ydelta;
 	uint8_t flags;
+	
+	int32_t xscreen;
+	int32_t yscreen;
 } tablet;
 
 static void tablet_set_bounds(void) {
@@ -151,7 +156,7 @@ static void tablet_reset(void) {
 	tablet.mode        = SUMMA_SWITCHSTREAM;
 	tablet.increment   = 0;
 	tablet.axisupdate  = 0;
-	tablet.origin      = SUMMA_ORIG_VERT_LL;
+	tablet.origin      = SUMMA_ORIG_LOWER;
 	tablet.selftest    = 0x4F;
 	tablet.id          = 0;
 	tablet.baudrate    = 9600;
@@ -164,6 +169,8 @@ static void tablet_reset(void) {
 		tablet.xsize = SUMMA_1201_SIZE;
 		tablet.ysize = SUMMA_1201_SIZE;
 	}
+	tablet.xscreen = 1120;
+	tablet.yscreen = 832;
 	tablet_set_bounds();
 	
 	/* Set constant flags: */
@@ -183,15 +190,14 @@ static void tablet_send_data(int size) {
 	CycInt_AddTimeEvent(1000, 0, EVENT_TABLET_IO);
 }
 
-static void tablet_set_origin(int origin) {
-	tablet.origin = origin;
+static void tablet_set_origin(uint8_t origin) {
 	if (ConfigureParams.Tablet.nTabletType == TABLET_MM961) {
-		if (origin == SUMMA_ORIG_VERT_LL) {
-			tablet.xsize = SUMMA_961_XSIZE;
-			tablet.ysize = SUMMA_961_YSIZE;
+		tablet.origin = SUMMA_ORIG_LOWER;
+	} else {
+		if (origin == SUMMA_LOWERLEFT) {
+			tablet.origin = SUMMA_ORIG_LOWER;
 		} else {
-			tablet.xsize = SUMMA_961_YSIZE;
-			tablet.ysize = SUMMA_961_XSIZE;
+			tablet.origin = SUMMA_ORIG_UPPER;
 		}
 	}
 	tablet_set_bounds();
@@ -252,9 +258,10 @@ static void tablet_send_configuration(void) {
 static void tablet_send_state(void) {
 	tablet.data[0] = tablet.flags;
 	if (tablet.mode == SUMMA_DELTA) {
-		tablet.data[1] = tablet.xpos & SUMMA_COORD_MASK;
-		tablet.data[2] = tablet.ypos & SUMMA_COORD_MASK;
+		tablet.data[1] = tablet.xdelta & SUMMA_COORD_MASK;
+		tablet.data[2] = tablet.ydelta & SUMMA_COORD_MASK;
 		tablet_send_data(3);
+		tablet.xdelta = tablet.ydelta = 0;
 	} else {
 		tablet.data[1] = tablet.xpos & SUMMA_COORD_MASK;
 		tablet.data[2] = (tablet.xpos >> SUMMA_COORD_SHIFT) & SUMMA_COORD_MASK;
@@ -304,7 +311,7 @@ void tablet_receive(uint8_t val) {
 			} else { /* MM1201 */
 				Log_Printf(LOG_TABLET_LEVEL, "[Tablet] Tablet origin: upper left");
 			}
-			tablet_set_origin(SUMMA_ORIG_HORI_UL);
+			tablet_set_origin(SUMMA_HORIZONTAL);
 			break;
 		case SUMMA_VERTICAL:
 			if (ConfigureParams.Tablet.nTabletType == TABLET_MM961) {
@@ -312,7 +319,7 @@ void tablet_receive(uint8_t val) {
 			} else { /* MM1201 */
 				Log_Printf(LOG_TABLET_LEVEL, "[Tablet] Tablet origin: lower left");
 			}
-			tablet_set_origin(SUMMA_ORIG_VERT_LL);
+			tablet_set_origin(SUMMA_VERTICAL);
 			break;
 		case SUMMA_STREAM:
 			Log_Printf(LOG_TABLET_LEVEL, "[Tablet] Data collection mode: stream");
@@ -467,6 +474,9 @@ void tablet_receive(uint8_t val) {
 
 void tablet_pen_move(int xrel, int yrel, int x, int y) {
 	if (tablet.mode == SUMMA_DELTA) {
+		if (tablet.origin == SUMMA_ORIG_LOWER) {
+			yrel = -yrel;
+		}
 		if (xrel >= 0) {
 			tablet.flags |= SUMMA_X_SIGN;
 		} else {
@@ -479,23 +489,26 @@ void tablet_pen_move(int xrel, int yrel, int x, int y) {
 			tablet.flags &= ~SUMMA_Y_SIGN;
 			yrel = -yrel;
 		}
-		tablet.xpos = (xrel * tablet.xmax) / 1120;
-		tablet.ypos = (yrel * tablet.ymax) / 832;
-		if (tablet.xpos > SUMMA_COORD_MASK) {
-			tablet.xpos = SUMMA_COORD_MASK;
+		tablet.xdelta = (xrel * tablet.xmax) / tablet.xscreen;
+		tablet.ydelta = (yrel * tablet.xmax) / tablet.xscreen; /* yes, really */
+		if (tablet.xdelta > SUMMA_COORD_MASK) {
+			tablet.xdelta = SUMMA_COORD_MASK;
 		}
-		if (tablet.ypos > SUMMA_COORD_MASK) {
-			tablet.ypos = SUMMA_COORD_MASK;
+		if (tablet.ydelta > SUMMA_COORD_MASK) {
+			tablet.ydelta = SUMMA_COORD_MASK;
 		}
 	} else {
 		x++;
 		y++;
-		if (x > 1120) x = 1120;
-		if (x < 0)    x = 0;
-		if (y > 832)  y = 832;
-		if (y < 0)    y = 0;
-		tablet.xpos = (x * tablet.xmax) / 1120;
-		tablet.ypos = (y * tablet.ymax) / 832;
+		if (x > tablet.xscreen) x = tablet.xscreen;
+		else if (x < 0)         x = 0;
+		if (y > tablet.yscreen) y = tablet.yscreen;
+		else if (y < 0)         y = 0;
+		tablet.xpos = (x * tablet.xmax) / tablet.xscreen;
+		tablet.ypos = (y * tablet.ymax) / tablet.yscreen;
+		if (tablet.origin == SUMMA_ORIG_LOWER) {
+			tablet.ypos = tablet.ymax - tablet.ypos;
+		}
 		tablet.flags |= SUMMA_X_SIGN | SUMMA_Y_SIGN;
 	}
 	if (tablet.mode != SUMMA_REMOTEREQ) {
