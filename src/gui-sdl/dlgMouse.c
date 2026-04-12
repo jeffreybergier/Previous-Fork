@@ -31,9 +31,10 @@ const char DlgMouse_fileid[] = "Previous dlgMouse.c";
 
 #define DLGMOUSE_CTRLCLCK      21
 #define DLGMOUSE_MAPTOKEY      22
-#define DLGMOUSE_TABLET        23
-#define DLGMOUSE_AUTOLOCK      24
-#define DLGMOUSE_EXIT          25
+#define DLGMOUSE_AUTOLOCK      23
+#define DLGMOUSE_TABLET        24
+#define DLGMOUSE_TABLETCONF    25
+#define DLGMOUSE_EXIT          26
 
 /* The mouse options dialog: */
 static SGOBJ mousedlg[] =
@@ -65,8 +66,9 @@ static SGOBJ mousedlg[] =
 	{ SGBOX, 0, 0, 1,17, 43,6, NULL },
 	{ SGCHECKBOX, 0, 0, 2,18, 34,1, "Map control-click to right-click" },
 	{ SGCHECKBOX, 0, 0, 2,19, 32,1, "Map scroll wheel to arrow keys" },
-	{ SGCHECKBOX, 0, 0, 2,20, 25,1, "Use tablet if available" },
-	{ SGCHECKBOX, 0, 0, 2,21, 21,1, "Enable auto-locking" },
+	{ SGCHECKBOX, 0, 0, 2,20, 21,1, "Enable auto-locking" },
+	{ SGCHECKBOX, SG_EXIT, 0, 2,21, 25,1, "Use tablet if available" },
+	{ SGBUTTON, 0, 0, 30,21, 11,1, "Configure" },
 
 	{ SGBUTTON, SG_DEFAULT, 0, 12,25, 21,1, "Back to main menu" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
@@ -144,7 +146,7 @@ static float read_float_string(char *s, float min, float max, int prec)
 	return result;
 }
 
-static void Dialog_SpeedDlg(float* lin, float* exp)
+static void Dialog_SpeedDlg(void)
 {
 	int but;
 
@@ -169,6 +171,75 @@ static void Dialog_SpeedDlg(float* lin, float* exp)
 	ConfigureParams.Mouse.fLinScale = read_float_string(lin_string, MOUSE_LIN_MIN, MOUSE_LIN_MAX, 3);
 	ConfigureParams.Mouse.fExpScale = read_float_string(exp_string, MOUSE_EXP_MIN, MOUSE_EXP_MAX, 3);
 	ConfigureParams.Mouse.bUseRawMotion = speeddlg[DLGSPEED_USERAW].state&SG_SELECTED ? true : false;
+}
+
+#define DLGTABLET_NONE   3
+#define DLGTABLET_SD420  4
+#define DLGTABLET_MM961  5
+#define DLGTABLET_MM1201 6
+#define DLGTABLET_EXIT   7
+
+/* The tablet dialog */
+static SGOBJ tabletdlg[] =
+{
+	{ SGBOX, 0, 0, 0,0, 30,15, NULL },
+	{ SGTEXT, 0, 0, 8,1, 14,1, "Tablet options" },
+	
+	{ SGBOX, 0, 0, 1,4, 28,6, NULL },
+	{ SGRADIOBUT, 0, 0, 2,5, 11,1, "No tablet" },
+	{ SGRADIOBUT, 0, 0, 2,6, 20,1, "WACOM SD-420 MM961" },
+	{ SGRADIOBUT, 0, 0, 2,7, 21,1, "SummaGraphics MM961" },
+	{ SGRADIOBUT, 0, 0, 2,8, 22,1, "SummaGraphics MM1201" },
+	
+	{ SGBUTTON, SG_DEFAULT, 0, 10,12, 10,1, "Done" },
+	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
+};
+
+static void Dialog_TabletDlg(void)
+{
+	int but;
+	
+	SDLGui_CenterDlg(tabletdlg);
+	
+	/* Set up the dialog from actual values */
+	tabletdlg[DLGTABLET_NONE].state   &= ~SG_SELECTED;
+	tabletdlg[DLGTABLET_SD420].state  &= ~SG_SELECTED;
+	tabletdlg[DLGTABLET_MM961].state  &= ~SG_SELECTED;
+	tabletdlg[DLGTABLET_MM1201].state &= ~SG_SELECTED;
+
+	switch (ConfigureParams.Tablet.nTabletType) {
+		case TABLET_NONE:
+			tabletdlg[DLGTABLET_NONE].state |= SG_SELECTED;
+			break;
+		case TABLET_SD420:
+			tabletdlg[DLGTABLET_SD420].state |= SG_SELECTED;
+			break;
+		case TABLET_MM961:
+			tabletdlg[DLGTABLET_MM961].state |= SG_SELECTED;
+			break;
+		case TABLET_MM1201:
+			tabletdlg[DLGTABLET_MM1201].state |= SG_SELECTED;
+			break;
+		default:
+			break;
+	}
+	
+	/* Draw and process the dialog */
+	do
+	{
+		but = SDLGui_DoDialog(tabletdlg);
+	}
+	while (but != DLGTABLET_EXIT && but != SDLGUI_QUIT && but != SDLGUI_ERROR && !bQuitProgram);
+	
+	if (tabletdlg[DLGTABLET_NONE].state & SG_SELECTED) {
+		ConfigureParams.Tablet.nTabletType = TABLET_NONE;
+	} else if (tabletdlg[DLGTABLET_SD420].state & SG_SELECTED) {
+		ConfigureParams.Tablet.nTabletType = TABLET_SD420;
+	} else if (tabletdlg[DLGTABLET_MM961].state & SG_SELECTED) {
+		ConfigureParams.Tablet.nTabletType = TABLET_MM961;
+	} else if (tabletdlg[DLGTABLET_MM1201].state & SG_SELECTED) {
+		ConfigureParams.Tablet.nTabletType = TABLET_MM1201;
+	}
 }
 
 
@@ -270,7 +341,13 @@ static void DlgMouseRead(void)
 	ConfigureParams.Mouse.bEnableMacClick = mousedlg[DLGMOUSE_CTRLCLCK].state&SG_SELECTED ? true : false;
 	ConfigureParams.Mouse.bEnableMapToKey = mousedlg[DLGMOUSE_MAPTOKEY].state&SG_SELECTED ? true : false;
 	ConfigureParams.Mouse.bEnableAutoGrab = mousedlg[DLGMOUSE_AUTOLOCK].state&SG_SELECTED ? true : false;
-	ConfigureParams.Tablet.nTabletType = mousedlg[DLGMOUSE_TABLET].state&SG_SELECTED ? TABLET_MM1201 : TABLET_NONE;
+	if (mousedlg[DLGMOUSE_TABLET].state&SG_SELECTED) {
+		if (ConfigureParams.Tablet.nTabletType == TABLET_NONE) {
+			ConfigureParams.Tablet.nTabletType = TABLET_MM1201;
+		}
+	} else {
+		ConfigureParams.Tablet.nTabletType = TABLET_NONE;
+	}
 }
 
 /*-----------------------------------------------------------------------*/
@@ -296,7 +373,10 @@ void Dialog_MouseDlg(void)
 			case DLGMOUSE_CUSTOMISE:
 			case DLGMOUSE_LIN_CUSTOM:
 			case DLGMOUSE_EXP_CUSTOM:
-				Dialog_SpeedDlg(NULL, NULL);
+				Dialog_SpeedDlg();
+				break;
+			case DLGMOUSE_TABLETCONF:
+				Dialog_TabletDlg();
 				break;
 				
 			default:
