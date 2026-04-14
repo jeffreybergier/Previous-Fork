@@ -10,8 +10,7 @@ const char DlgMouse_fileid[] = "Previous dlgMouse.c";
 #include "configuration.h"
 #include "dialog.h"
 #include "sdlgui.h"
-#include "file.h"
-#include "paths.h"
+#include "tablet.h"
 
 
 #define DLGMOUSE_CUSTOMISE     3
@@ -198,6 +197,7 @@ static SGOBJ tabletdlg[] =
 static void Dialog_TabletDlg(void)
 {
 	int but;
+	TABLET_TYPE before, after;
 	
 	SDLGui_CenterDlg(tabletdlg);
 	
@@ -207,7 +207,8 @@ static void Dialog_TabletDlg(void)
 	tabletdlg[DLGTABLET_MM961].state  &= ~SG_SELECTED;
 	tabletdlg[DLGTABLET_MM1201].state &= ~SG_SELECTED;
 
-	switch (ConfigureParams.Tablet.nTabletType) {
+	before = ConfigureParams.Tablet.nTabletType;
+	switch (before) {
 		case TABLET_NONE:
 			tabletdlg[DLGTABLET_NONE].state |= SG_SELECTED;
 			break;
@@ -232,14 +233,22 @@ static void Dialog_TabletDlg(void)
 	while (but != DLGTABLET_EXIT && but != SDLGUI_QUIT && but != SDLGUI_ERROR && !bQuitProgram);
 	
 	if (tabletdlg[DLGTABLET_NONE].state & SG_SELECTED) {
-		ConfigureParams.Tablet.nTabletType = TABLET_NONE;
+		after = TABLET_NONE;
 	} else if (tabletdlg[DLGTABLET_SD420].state & SG_SELECTED) {
-		ConfigureParams.Tablet.nTabletType = TABLET_SD420;
+		after = TABLET_SD420;
 	} else if (tabletdlg[DLGTABLET_MM961].state & SG_SELECTED) {
-		ConfigureParams.Tablet.nTabletType = TABLET_MM961;
+		after = TABLET_MM961;
 	} else if (tabletdlg[DLGTABLET_MM1201].state & SG_SELECTED) {
-		ConfigureParams.Tablet.nTabletType = TABLET_MM1201;
+		after = TABLET_MM1201;
 	}
+	
+	if (bTabletEnabled && (after != before)) {
+		if (!DlgAlert_Query("Make sure tablet is disabled or uninstalled before changing model. "
+							"Save changes anyway?")) {
+			return;
+		}
+	}
+	ConfigureParams.Tablet.nTabletType = after;
 }
 
 
