@@ -29,6 +29,7 @@ const char Change_fileid[] = "Previous change.c";
 #include "floppy.h"
 #include "ethernet.h"
 #include "snd.h"
+#include "tablet.h"
 #include "keymap.h"
 
 #define DEBUG 1
@@ -238,6 +239,7 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 {
 	bool NeedReset;
 	bool bReInitKeymap = false;
+	bool bReInitTablet = false;
 	bool bReInitEnetEmu = false;
 	bool bReInitSoundEmu = false;
 	bool bScreenModeChange = false;
@@ -257,6 +259,11 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 		/* Do we need to change Keymap configuration? */
 		if (current->Mouse.bUseRawMotion != changed->Mouse.bUseRawMotion) {
 			bReInitKeymap = true;
+		}
+
+		/* Do we need to change Tablet configuration? */
+		if (current->Tablet.nTabletType != changed->Tablet.nTabletType) {
+			bReInitTablet = true;
 		}
 
 		/* Do we need to change Ethernet configuration? */
@@ -311,6 +318,12 @@ void Change_CopyChangedParamsToConfiguration(CNF_PARAMS *current, CNF_PARAMS *ch
 	if (bReInitKeymap) {
 		Dprintf("- Keymap\n");
 		Keymap_Init();
+	}
+
+	/* Re-init Tablet? */
+	if (bReInitTablet) {
+		Dprintf("- Tablet\n");
+		Tablet_Reset();
 	}
 
 	/* Force things associated with screen change */

@@ -518,8 +518,8 @@ static void summa_pen_move(int xrel, int yrel, int x, int y) {
 			tablet.flags &= ~SUMMA_Y_SIGN;
 			yrel = -yrel;
 		}
-		tablet.xdelta = (xrel * tablet.xmax) / tablet.xscreen;
-		tablet.ydelta = (yrel * tablet.xmax) / tablet.xscreen; /* yes, really */
+		tablet.xdelta = xrel * 4; /* customised for mouse input */
+		tablet.ydelta = yrel * 4;
 		if (tablet.xdelta > SUMMA_COORD_MASK) {
 			tablet.xdelta = SUMMA_COORD_MASK;
 		}
@@ -769,8 +769,8 @@ static void wacom_receive(uint8_t val) {
 
 static void wacom_pen_move(int xrel, int yrel, int x, int y) {
 	if (tablet.relative == WACOM_RELATIVE) {
-		tablet.xpos = (xrel * tablet.xmax) / tablet.xscreen;
-		tablet.ypos = (yrel * tablet.xmax) / tablet.xscreen; /* yes, really */
+		tablet.xpos = xrel * 4;
+		tablet.ypos = yrel * 4;
 	} else {
 		x++;
 		y++;
