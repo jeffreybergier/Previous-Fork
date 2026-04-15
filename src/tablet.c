@@ -5,7 +5,8 @@
   or at your option any later version. Read the file gpl.txt for details.
 
   This file contains a simulation of the SummaGraphics MM 1201 and MM 961 
-  digitizers (later models also known as SummaSketch graphics tablets).
+  digitizers (later models also known as SummaSketch graphics tablets) and
+  several SD series WACOM digitizers.
 */
 const char Tablet_fileid[] = "Previous tablet.c";
 
@@ -630,19 +631,19 @@ static void wacom_reset(void) {
 	tablet.enabled  = 1;
 	tablet.received = 0;
 	switch (ConfigureParams.Tablet.nTabletType) {
-		case TABLET_SD210: /* 3.0 and later */
+		case TABLET_SD210L: /* 3.0 and later */
 			tablet.xmax = 31750;
 			tablet.ymax = 23100;
 			break;
-		case TABLET_SD310: /* 3.0 and later */
+		case TABLET_SD310E: /* 3.0 and later */
 			tablet.xmax = 21200;
 			tablet.ymax = 15000;
 			break;
-		case TABLET_SD320: /* 3.0 and later */
+		case TABLET_SD320E: /* 3.0 and later */
 			tablet.xmax = 19050;
 			tablet.ymax = 19050;
 			break;
-		case TABLET_SD510: /* 3.0 and later */
+		case TABLET_SD510C: /* 3.0 and later */
 			tablet.xmax = 4640;
 			tablet.ymax = 3020;
 			break;
@@ -666,16 +667,16 @@ static void wacom_send_config(void) {
 	const char* type;
 	
 	switch (ConfigureParams.Tablet.nTabletType) {
-		case TABLET_SD210:
+		case TABLET_SD210L:
 			type = "210";
 			break;
-		case TABLET_SD310:
+		case TABLET_SD310E:
 			type = "310";
 			break;
-		case TABLET_SD320:
+		case TABLET_SD320E:
 			type = "320";
 			break;
-		case TABLET_SD510:
+		case TABLET_SD510C:
 			type = "SD51C";
 			break;
 		default:
