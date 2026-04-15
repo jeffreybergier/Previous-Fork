@@ -464,6 +464,7 @@ Previous v4.1:
   > Improves efficiency and accuracy of timing system.
 
 Previous v4.2 (unreleased):
+  > Adds support for tablet input via the host's mouse.
   > Adds option to enable raw mouse input.
   > Improves mouse dialog to be more user friendly.
   > Improves mouse movement handling once again.
@@ -522,6 +523,14 @@ good results. Divide 100 by the CPI of your physical mouse to obtain the value
 to be used for linear adjustment and set exponential adjustment to 1.
 Note that raw mouse input is only available while the cursor is locked to the 
 window or in fullscreen mode. Raw mouse input is unavailable on some hosts.
+
+You can select to use simulated tablet input to get different cursor movement
+behaviour. If you select the corresponding option in the mouse options dialog
+tablet input will be enabled automatically after installing the tablet driver
+using InstallTablet.app (you find it in the NextAdmin directory). Use absolute
+mode for synced mouse movement in window mode without NeXTdimension screens.
+Note that tablet input is only available under NeXTstep 2.0 and later and the 
+driver needs to be re-installed after every boot of the guest system.
 
 Previous comes with some empty disk images of different types and sizes. The 
 suffix of the respective file name indicates the image type:

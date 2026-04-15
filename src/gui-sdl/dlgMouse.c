@@ -186,9 +186,9 @@ static SGOBJ tabletdlg[] =
 	
 	{ SGBOX, 0, 0, 1,4, 28,6, NULL },
 	{ SGRADIOBUT, 0, 0, 2,5, 11,1, "No tablet" },
-	{ SGRADIOBUT, 0, 0, 2,6, 20,1, "WACOM SD-420 MM961" },
-	{ SGRADIOBUT, 0, 0, 2,7, 21,1, "SummaGraphics MM961" },
-	{ SGRADIOBUT, 0, 0, 2,8, 22,1, "SummaGraphics MM1201" },
+	{ SGRADIOBUT, 0, 0, 2,6, 15,1, "WACOM SD-420E" },
+	{ SGRADIOBUT, 0, 0, 2,7, 22,1, "SummaGraphics MM 961" },
+	{ SGRADIOBUT, 0, 0, 2,8, 23,1, "SummaGraphics MM 1201" },
 	
 	{ SGBUTTON, SG_DEFAULT, 0, 10,12, 10,1, "Done" },
 	{ SGSTOP, 0, 0, 0,0, 0,0, NULL }
@@ -212,7 +212,7 @@ static void Dialog_TabletDlg(void)
 		case TABLET_NONE:
 			tabletdlg[DLGTABLET_NONE].state |= SG_SELECTED;
 			break;
-		case TABLET_SD420:
+		case TABLET_SD420E:
 			tabletdlg[DLGTABLET_SD420].state |= SG_SELECTED;
 			break;
 		case TABLET_MM961:
@@ -235,7 +235,7 @@ static void Dialog_TabletDlg(void)
 	if (tabletdlg[DLGTABLET_NONE].state & SG_SELECTED) {
 		after = TABLET_NONE;
 	} else if (tabletdlg[DLGTABLET_SD420].state & SG_SELECTED) {
-		after = TABLET_SD420;
+		after = TABLET_SD420E;
 	} else if (tabletdlg[DLGTABLET_MM961].state & SG_SELECTED) {
 		after = TABLET_MM961;
 	} else if (tabletdlg[DLGTABLET_MM1201].state & SG_SELECTED) {
