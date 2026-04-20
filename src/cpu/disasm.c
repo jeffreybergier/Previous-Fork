@@ -218,6 +218,8 @@ static void showea_val(TCHAR *buffer, uae_u16 opcode, uaecptr addr, int size)
 		goto skip;
 #endif
 #endif
+#else
+	TCHAR *buf_orig = buffer;
 #endif
 
 	if (!(disasm_flags & (DISASM_FLAG_VAL_FORCE | DISASM_FLAG_VAL))) {
@@ -308,7 +310,8 @@ skip:
 		const char *name;
 		if ((name = Symbols_GetByCpuAddress(addr + i, SYMTYPE_TEXT))) {
 			int len = _tcslen(buffer);
-			snprintf(buffer + len, LINE_BUF_SIZE - len, _T(" %s"), name);
+			int maxlen = LINE_BUF_SIZE - (buffer - buf_orig) - len;
+			snprintf(buffer + len, maxlen, _T(" %s"), name);
 #endif
 		}
 	}
