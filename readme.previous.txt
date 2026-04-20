@@ -1,6 +1,6 @@
 
 
-                                  Previous 4.1
+                                  Previous 4.2
 
 
 
@@ -463,7 +463,7 @@ Previous v4.1:
   > Improves behaviour of system timer under special conditions.
   > Improves efficiency and accuracy of timing system.
 
-Previous v4.2 (unreleased):
+Previous v4.2:
   > Adds support for tablet input via the host's mouse.
   > Adds option to enable raw mouse input.
   > Improves mouse dialog to be more user friendly.
