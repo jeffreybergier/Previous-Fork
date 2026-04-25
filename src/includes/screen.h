@@ -15,6 +15,9 @@ extern "C" {
 extern volatile bool bGrabMouse;
 extern volatile bool bInFullScreen;
 
+extern int screen_x;
+extern int screen_y;
+
 /* These functions must be provided through host or cross-platform API. */
 extern void Screen_EnterFullScreen(void);
 extern void Screen_ReturnFromFullScreen(void);
@@ -27,6 +30,7 @@ extern void Screen_StatusbarMessage(const char *msg, uint32_t msecs);
 extern void Screen_StatusbarUpdate(void);
 extern bool Screen_ShowCursor(bool show);
 extern void Screen_CenterCursor(void);
+extern void Screen_Reset(void);
 
 #ifdef __cplusplus
 }

@@ -67,7 +67,7 @@ void NDSDL::init(void) {
         SDL_SetWindowPosition(ndWindow, x+14*slot, y+14*slot);
     }
     
-    if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
+    if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
         titlebar(ConfigureParams.Screen.bShowTitlebar);
         if (!ndRenderer) {
             ndRenderer = SDL_CreateRenderer(ndWindow, NULL);

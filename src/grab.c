@@ -39,8 +39,8 @@ static bool Grab_FillBuffer(uint8_t* buf) {
 	uint8_t* fb;
 	int i, j;
 	
-	if (ConfigureParams.Screen.nMonitorType==MONITOR_TYPE_DIMENSION) {
-		fb = (uint8_t*)(nd_vram_for_slot(ND_SLOT(ConfigureParams.Screen.nMonitorNum)));
+	if (Configuration_SingleColorScreen()) {
+		fb = (uint8_t*)(nd_vram_for_slot(ConfigureParams.Screen.nSingleModeSlot));
 		if (fb) {
 			for (i = 0, j = ND_OFFSET; i < (NEXT_SCREEN_WIDTH*NEXT_SCREEN_HEIGHT*4); i+=4, j+=4) {		
 				if (i && (i%(NEXT_SCREEN_WIDTH*4))==0)

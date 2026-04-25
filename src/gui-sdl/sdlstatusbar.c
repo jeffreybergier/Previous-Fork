@@ -322,7 +322,8 @@ void Statusbar_Init(SDL_Surface *surf)
 		Led[i].offset = xoffset;
 		xoffset += LedRect.w + fontw;
 	}
-	MessageRect.x = xoffset + fontw;
+	MessageRect.x = (FullRect.w - MAX_MESSAGE_LEN*fontw) / 2;
+	MessageRect.x += 2*fontw; /* Compensate for asymmetric LED arrangement */
 	MessageRect.w = MAX_MESSAGE_LEN * fontw;
 	MessageRect.h = fonth;
 	for (item = MessageList; item; item = item->next) {
@@ -331,7 +332,7 @@ void Statusbar_Init(SDL_Surface *surf)
 
 	/* draw i860 led box */
 	NdLedRect = LedRect;
-	NdLedRect.x = surf->w - 15*fontw - NdLedRect.w;
+	NdLedRect.x = FullRect.w - 15*fontw - NdLedRect.w;
 	ledbox.x = NdLedRect.x - 1;
 	SDLGui_Text(ledbox.x - 3*fontw - fontw/2, MessageRect.y, "ND:");
 	SDL_FillSurfaceRect(surf, &ledbox, LedColorBg);
@@ -340,7 +341,7 @@ void Statusbar_Init(SDL_Surface *surf)
 
 	/* draw dsp led box */
 	DspLedRect = LedRect;
-	DspLedRect.x = surf->w - 8*fontw - DspLedRect.w;
+	DspLedRect.x = FullRect.w - 8*fontw - DspLedRect.w;
 	ledbox.x = DspLedRect.x - 1;
 	SDLGui_Text(ledbox.x - 4*fontw - fontw/2, MessageRect.y, "DSP:");
 	SDL_FillSurfaceRect(surf, &ledbox, LedColorBg);
@@ -349,7 +350,7 @@ void Statusbar_Init(SDL_Surface *surf)
 
 	/* draw system led box */
 	SystemLedRect = LedRect;
-	SystemLedRect.x = surf->w - fontw - SystemLedRect.w;
+	SystemLedRect.x = FullRect.w - fontw - SystemLedRect.w;
 	ledbox.x = SystemLedRect.x - 1;
 	SDLGui_Text(ledbox.x - 4*fontw - fontw/2, MessageRect.y, "LED:");
 	SDL_FillSurfaceRect(surf, &ledbox, LedColorBg);
