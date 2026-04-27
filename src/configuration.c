@@ -613,9 +613,9 @@ static void Configuration_CheckDimensionSettings(void) {
  * to be valid. Check for duplicates and screens without board.
  */
 static void Configuration_Check_ScreenSettings(void) {
-	int i, j, n;
+	int i, j, n, s;
 	if (ConfigureParams.Screen.nMode == SCREEN_GROUP) {
-		for (i = 0, n = 0; i < NUM_MONITORS; i++) {
+		for (i = 0, n = 0, s = 0; i < NUM_MONITORS; i++) {
 			if (ConfigureParams.Screen.nGroupModePos[i] >= 0) {
 				for (j = i + 1; j < NUM_MONITORS; j++) {
 					if (ConfigureParams.Screen.nGroupModePos[j] >= 0) {
@@ -631,12 +631,14 @@ static void Configuration_Check_ScreenSettings(void) {
 					ConfigureParams.Screen.nGroupModePos[i] = -1;
 				}
 				if (ConfigureParams.Screen.nGroupModePos[i] >= 0) {
+					s = 2 * i;
 					n++;
 				}
 			}
 		}
 		if (n < 2) {
 			ConfigureParams.Screen.nMode = SCREEN_SINGLE;
+			ConfigureParams.Screen.nSingleModeSlot = s;
 		}
 	}
 }
