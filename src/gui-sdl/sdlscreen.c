@@ -305,6 +305,28 @@ static void Screen_SetTitle(const char *title) {
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Force things associated with changing between single and all screens.
+ */
+static void Screen_ModeChanged(void) {
+	if (!sdlscrn) {
+		/* screen not yet initialized */
+		return;
+	}
+
+	/* Do not use multiple windows in full screen mode */
+	if (ConfigureParams.Screen.nMode == SCREEN_ALL && bInFullScreen) {
+		saveScreenMode = ConfigureParams.Screen.nMode;
+		ConfigureParams.Screen.nMode = SCREEN_SINGLE;
+	}
+	if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
+		nd_sdl_show();
+	} else {
+		nd_sdl_hide();
+	}
+}
+
+/*-----------------------------------------------------------------------*/
+/**
  * Create texture with default parameters.
  */
 static SDL_Texture* Screen_CreateFramebufferTexture(SDL_PixelFormat format, int w, int h) {
@@ -392,27 +414,25 @@ void Screen_Reset(void) {
 
 	/* Set new video mode only if necessary */
 	if (screen_x != initScreenX || screen_y != initScreenY) {
-		SDL_RendererLogicalPresentation mode;
 		uint32_t r, g, b, a;
 
 		fprintf(stderr, "SDL screen request: %d x %d (%s)\n", width, height, bInFullScreen ? "fullscreen" : "windowed");
 
-		/* If we are in full screen change saved window sizes */
+		SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
+
 		if (bInFullScreen) {
+			/* If we are in full screen change saved window sizes */
 			saveWindowBounds.x = SDL_WINDOWPOS_CENTERED;
 			saveWindowBounds.y = SDL_WINDOWPOS_CENTERED;
 			saveWindowBounds.w = width;
 			saveWindowBounds.h = height;
-			mode = SDL_LOGICAL_PRESENTATION_LETTERBOX;
+			SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 		} else {
-			mode = SDL_LOGICAL_PRESENTATION_STRETCH;
+			/* Set new window size */
+			SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, SDL_LOGICAL_PRESENTATION_STRETCH);
+			SDL_SetWindowSize(sdlWindow, width, height);
+			SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 		}
-
-		/* Set new window size */
-		SDL_SetRenderLogicalPresentation(sdlRenderer, width, height, mode);
-		SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
-		SDL_SetWindowSize(sdlWindow, width, height);
-		SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
 		/* (Re-)initialise UI texture */
 		if (uiTexture) {
@@ -446,9 +466,6 @@ void Screen_Reset(void) {
 			uiBuffer = NULL;
 		}
 		uiBuffer = calloc(1, sdlscrn->h * sdlscrn->pitch);
-
-		/* Initialise statusbar */
-		Statusbar_Init(sdlscrn);
 	}
 
 	/* Create framebuffer textures and start with blank screen */
@@ -483,8 +500,9 @@ void Screen_Reset(void) {
 	initScreenX    = screen_x;
 	initScreenY    = screen_y;
 
-	/* Make sure message is shown in statusbar if emulation is paused */
-	Screen_StatusbarMessage("Emulation paused", 100);
+	/* Initialise statusbar with new sizes and show it */
+	Statusbar_Init(sdlscrn);
+	Statusbar_Update(sdlscrn);
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread */
@@ -702,30 +720,6 @@ void Screen_SizeChanged(void) {
 	/* Make sure screen is painted in case emulation is paused */
 	SDL_SetAtomicInt(&blitUI, 1);
 }
-
-
-/*-----------------------------------------------------------------------*/
-/**
- * Force things associated with changing between fullscreen/windowed
- */
-void Screen_ModeChanged(void) {
-	if (!sdlscrn) {
-		/* screen not yet initialized */
-		return;
-	}
-
-	/* Do not use multiple windows in full screen mode */
-	if (ConfigureParams.Screen.nMode == SCREEN_ALL && bInFullScreen) {
-		saveScreenMode = ConfigureParams.Screen.nMode;
-		ConfigureParams.Screen.nMode = SCREEN_SINGLE;
-	}
-	if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
-		nd_sdl_show();
-	} else {
-		nd_sdl_hide();
-	}
-}
-
 
 /*-----------------------------------------------------------------------*/
 /**

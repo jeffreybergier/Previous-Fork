@@ -23,7 +23,6 @@ extern void Screen_EnterFullScreen(void);
 extern void Screen_ReturnFromFullScreen(void);
 extern void Screen_SetMouseGrab(bool grab);
 extern void Screen_ShowMainWindow(void);
-extern void Screen_ModeChanged(void);
 extern void Screen_TitlebarChanged(void);
 extern void Screen_StatusbarChanged(void);
 extern void Screen_StatusbarMessage(const char *msg, uint32_t msecs);
