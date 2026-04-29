@@ -10,7 +10,6 @@ const char SDLscreen_fileid[] = "Previous sdlscreen.c";
 
 #include "main.h"
 #include "configuration.h"
-#include "log.h"
 #include "screen.h"
 #include "sdlscreen.h"
 #include "statusbar.h"
@@ -490,19 +489,18 @@ void Screen_Reset(void) {
 		Screen_Blank(fbTexture);
 	}
 
-	/* Set statusbar visibility */
-	if (!ConfigureParams.Screen.bShowStatusbar) {
-		Screen_StatusbarChanged();
-	}
-
 	/* Save mode and sizes */
 	initScreenMode = ConfigureParams.Screen.nMode;
 	initScreenX    = screen_x;
 	initScreenY    = screen_y;
 
-	/* Initialise statusbar with new sizes and show it */
-	Statusbar_Init(sdlscrn);
-	Statusbar_Update(sdlscrn);
+	/* Initialise statusbar and set visibility */
+	if (ConfigureParams.Screen.bShowStatusbar) {
+		Statusbar_Init(sdlscrn);
+		Statusbar_Update(sdlscrn);
+	} else {
+		Screen_StatusbarChanged();
+	}
 
 #ifdef ENABLE_RENDERING_THREAD
 	/* Start repaint thread */
@@ -690,10 +688,6 @@ void Screen_SetMouseGrab(bool grab) {
 	}
 }
 
-void Screen_StatusbarUpdate(void) {
-	Statusbar_Update(sdlscrn);
-}
-
 /*-----------------------------------------------------------------------*/
 /**
  * Show main window
@@ -732,7 +726,6 @@ void Screen_TitlebarChanged(void) {
 	}
 }
 
-
 /*-----------------------------------------------------------------------*/
 /**
  * Force things associated with changing statusbar visibility
@@ -757,9 +750,19 @@ void Screen_StatusbarChanged(void) {
 	SDL_GetWindowSize(sdlWindow, &w, NULL);
 	SDL_SetWindowAspectRatio(sdlWindow, (float)width/height, (float)width/height);
 	SDL_SetWindowSize(sdlWindow, w, (int)SDL_lroundf((float)(height*w)/width));
-
-	/* Make sure screen is painted in case emulation is paused */
-	SDL_SetAtomicInt(&blitUI, 1);
+	
+	/* Draw statusbar if it is visible */
+	if (ConfigureParams.Screen.bShowStatusbar) {
+		Statusbar_Init(sdlscrn);
+		Statusbar_Update(sdlscrn);
+	}
+#ifndef ENABLE_RENDERING_THREAD
+	/* Make sure screen is repainted in case emulation is paused */
+	if (!bEmulationActive) {
+		SDL_SetAtomicInt(&blitUI, 1);
+		Screen_Repaint();
+	}
+#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -769,6 +772,14 @@ void Screen_StatusbarChanged(void) {
 void Screen_StatusbarMessage(const char *msg, uint32_t msecs)
 {
 	Statusbar_AddMessage(msg, msecs);
+	Statusbar_Update(sdlscrn);
+}
+
+/*-----------------------------------------------------------------------*/
+/**
+ * Wrapper for Statusbar_Update().
+ */
+void Screen_StatusbarUpdate(void) {
 	Statusbar_Update(sdlscrn);
 }
 

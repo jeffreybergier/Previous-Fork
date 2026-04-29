@@ -75,7 +75,6 @@ static const struct Config_Tag configs_Screen[] =
 	{ "bFullScreen", Bool_Tag, &ConfigureParams.Screen.bFullScreen },
 	{ "bShowStatusbar", Bool_Tag, &ConfigureParams.Screen.bShowStatusbar },
 	{ "bShowTitlebar", Bool_Tag, &ConfigureParams.Screen.bShowTitlebar },
-	{ "bShowDriveLed", Bool_Tag, &ConfigureParams.Screen.bShowDriveLed },
 	{ NULL , Error_Tag, NULL }
 };
 
@@ -504,7 +503,6 @@ void Configuration_SetDefault(void)
 	ConfigureParams.Screen.bFullScreen = false;
 	ConfigureParams.Screen.bShowStatusbar = true;
 	ConfigureParams.Screen.bShowTitlebar = true;
-	ConfigureParams.Screen.bShowDriveLed = false;
 
 	/* Set defaults for Sound */
 	ConfigureParams.Sound.bEnableMicrophone = true;
@@ -805,9 +803,6 @@ void Configuration_Apply(bool bReset)
 
 	/* Make sure NBIC is only used on Cubes and ADB only on Turbo */
 	Configuration_CheckPeripheralSettings();
-
-	/* Make sure the overlay drive LED is disabled for Previous */
-	ConfigureParams.Screen.bShowDriveLed = false;
 
 	/* Clean file and directory names */
 	File_MakeAbsoluteName(ConfigureParams.Rom.szRom030FileName);

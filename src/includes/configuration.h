@@ -287,7 +287,6 @@ typedef struct
   bool bFullScreen;
   bool bShowStatusbar;
   bool bShowTitlebar;
-  bool bShowDriveLed;
 } CNF_SCREEN;
 
 
