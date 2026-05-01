@@ -92,13 +92,13 @@ static int StatusbarHeight;
 /**
  * Return statusbar height for given width and height
  */
-static int Statusbar_GetHeightForSize(int width, int height, bool force)
+static int Statusbar_GetHeightForSize(int width, int height)
 {
 	int h = 0;
 	/* Must arrive at same conclusion about font size as SDLGui_SetScreen(),
 	 * and max size returned by this must correspond to STATUSBAR_MAX_HEIGHT
 	 */
-	if (ConfigureParams.Screen.bShowStatusbar || force)
+	if (ConfigureParams.Screen.bShowStatusbar)
 	{
 		/* smaller SDL GUI font height = 8, larger = 16 */
 		h = 8;
@@ -120,7 +120,7 @@ static int Statusbar_GetHeightForSize(int width, int height, bool force)
  * height when screen is (re-)created, or zero if statusbar will
  * not be shown
  */
-int Statusbar_SetHeight(int width, int height, bool force)
+int Statusbar_SetHeight(int width, int height)
 {
 #if DEBUG
 	/* find out from where the set height is called */
@@ -129,7 +129,7 @@ int Statusbar_SetHeight(int width, int height, bool force)
 	backtrace_symbols_fd(addr, count, fileno(stderr));
 #endif
 	ScreenHeight = height;
-	StatusbarHeight = Statusbar_GetHeightForSize(width, height, force);
+	StatusbarHeight = Statusbar_GetHeightForSize(width, height);
 	DEBUGPRINT(("Statusbar_SetHeight(%d, %d) -> %d\n", width, height, StatusbarHeight));
 	return StatusbarHeight;
 }

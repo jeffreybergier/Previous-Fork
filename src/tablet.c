@@ -528,12 +528,12 @@ static void summa_pen_move(int xrel, int yrel, int x, int y) {
 	} else {
 		x++;
 		y++;
-		if (x > screen_x) x = screen_x;
+		if (x > screen_w) x = screen_w;
 		else if (x < 0)   x = 0;
-		if (y > screen_y) y = screen_y;
+		if (y > screen_h) y = screen_h;
 		else if (y < 0)   y = 0;
-		tablet.xpos = (x * tablet.xmax) / screen_x;
-		tablet.ypos = (y * tablet.ymax) / screen_y;
+		tablet.xpos = (x * tablet.xmax) / screen_w;
+		tablet.ypos = (y * tablet.ymax) / screen_h;
 		if (tablet.origin == SUMMA_ORIG_LOWER) {
 			tablet.ypos = tablet.ymax - tablet.ypos;
 		}
@@ -773,12 +773,12 @@ static void wacom_pen_move(int xrel, int yrel, int x, int y) {
 	} else {
 		x++;
 		y++;
-		if (x > screen_x) x = screen_x;
+		if (x > screen_w) x = screen_w;
 		else if (x < 0)   x = 0;
-		if (y > screen_y) y = screen_y;
+		if (y > screen_h) y = screen_h;
 		else if (y < 0)   y = 0;
-		tablet.xpos = (x * tablet.xmax) / screen_x;
-		tablet.ypos = (y * tablet.ymax) / screen_y;
+		tablet.xpos = (x * tablet.xmax) / screen_w;
+		tablet.ypos = (y * tablet.ymax) / screen_h;
 	}
 	if (tablet.xpos > INT16_MAX) {
 		tablet.xpos = INT16_MAX;

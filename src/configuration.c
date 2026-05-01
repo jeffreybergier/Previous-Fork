@@ -639,6 +639,13 @@ static void Configuration_Check_ScreenSettings(void) {
 			ConfigureParams.Screen.nSingleModeSlot = s;
 		}
 	}
+	if (ConfigureParams.Screen.nMode == SCREEN_SINGLE) {
+		if (ConfigureParams.Screen.nSingleModeSlot > 0) {
+			if (!ConfigureParams.Dimension.board[ND_NUM(ConfigureParams.Screen.nSingleModeSlot)].bEnabled) {
+				ConfigureParams.Screen.nSingleModeSlot = 0;
+			}
+		}
+	}
 }
 
 /*-----------------------------------------------------------------------*/

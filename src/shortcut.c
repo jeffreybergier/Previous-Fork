@@ -133,7 +133,7 @@ static void ShortCut_Dimension(void)
 static void ShortCut_StatusBar(void)
 {
 	ConfigureParams.Screen.bShowStatusbar = !ConfigureParams.Screen.bShowStatusbar;
-	Screen_StatusbarChanged();
+	Screen_Reset();
 }
 
 /**
