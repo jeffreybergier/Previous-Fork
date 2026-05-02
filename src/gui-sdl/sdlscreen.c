@@ -329,9 +329,11 @@ static void Screen_ModeChanged(void) {
 	}
 
 	/* Do not use multiple windows in full screen mode */
-	if (ConfigureParams.Screen.nMode == SCREEN_ALL && bInFullScreen) {
+	if (bInFullScreen) {
 		saveScreenMode = ConfigureParams.Screen.nMode;
-		ConfigureParams.Screen.nMode = SCREEN_SINGLE;
+		if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
+			ConfigureParams.Screen.nMode = SCREEN_SINGLE;
+		}
 	}
 	if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
 		nd_sdl_show();
@@ -429,7 +431,7 @@ void Screen_Reset(void) {
 		doRepaint = false;
 		SDL_WaitThread(repaintThread, &d);
 	}
-#endif	
+#endif
 
 	/* Set initial window resolution */
 	if (ConfigureParams.Screen.nMode == SCREEN_GROUP) {
@@ -678,11 +680,7 @@ void Screen_EnterFullScreen(void) {
 		SDL_SyncWindow(sdlWindow); /* To give monitor time to change to new resolution */
 
 		/* If using multiple screen windows, save and go to single window mode */
-		saveScreenMode = ConfigureParams.Screen.nMode;
-		if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
-			ConfigureParams.Screen.nMode = SCREEN_SINGLE;
-			Screen_ModeChanged();
-		}
+		Screen_ModeChanged();
 
 		if (bWasRunning) {
 			/* And off we go... */
