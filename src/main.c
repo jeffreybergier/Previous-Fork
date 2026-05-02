@@ -379,6 +379,9 @@ static void Main_UnInit(void) {
 	Log_UnInit();
 
 	Paths_UnInit();
+
+	/* Quit UI API as late as possible */
+	UI_Quit();
 }
 
 

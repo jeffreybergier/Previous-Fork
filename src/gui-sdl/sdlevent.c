@@ -478,7 +478,9 @@ void UI_Init(void) {
 void UI_UnInit(void) {
 	SDLGui_UnInit();
 	Screen_UnInit();
+}
 
-	/* SDL uninit: */
+void UI_Quit(void) {
+	/* All rendering has to be stopped before calling this */
 	SDL_Quit();
 }
