@@ -23,8 +23,8 @@ const char SDLscreen_fileid[] = "Previous sdlscreen.c";
 
 
 /* NeXT screen resolution */
-static const int NeXT_SCRN_WIDTH  = 1120;
-static const int NeXT_SCRN_HEIGHT = 832;
+const int NeXT_SCRN_W = 1120;
+const int NeXT_SCRN_H = 832;
 
 SDL_Window*   sdlWindow;
 SDL_Surface*  sdlscrn = NULL;        /* The SDL screen surface */
@@ -34,11 +34,11 @@ volatile bool bGrabMouse    = false; /* Grab the mouse cursor in the window */
 volatile bool bInFullScreen = false; /* true if in full screen */
 
 /* extern for tablet */
-int screen_w = NeXT_SCRN_WIDTH;
-int screen_h = NeXT_SCRN_HEIGHT;
+int screen_w = NeXT_SCRN_W;
+int screen_h = NeXT_SCRN_H;
 
-static int width  = NeXT_SCRN_WIDTH;
-static int height = NeXT_SCRN_HEIGHT;
+static int width  = NeXT_SCRN_W;
+static int height = NeXT_SCRN_H;
 
 static SDL_Renderer* sdlRenderer;
 static SDL_Texture*  uiTexture;
@@ -91,12 +91,12 @@ static void blitBW(SDL_Texture* tex) {
 	uint32_t* dst;
 	int src, idx, src_pitch, dst_pitch, x, y;
 
-	src_pitch = (NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
+	src_pitch = (NeXT_SCRN_W + (ConfigureParams.System.bTurbo ? 0 : 32)) / 4;
 	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
-	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+	for (y = 0; y < NeXT_SCRN_H; y++) {
 		src = y * src_pitch;
 		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
-		for (x = 0; x < NeXT_SCRN_WIDTH / 4; x++) {
+		for (x = 0; x < NeXT_SCRN_W / 4; x++) {
 			idx = NEXTVideo[src++] * 4;
 			*dst++ = BW2RGB[idx+0];
 			*dst++ = BW2RGB[idx+1];
@@ -116,12 +116,12 @@ static void blitColor(SDL_Texture* tex) {
 	uint32_t* dst;
 	int src_pitch, dst_pitch, x, y;
 
-	src_pitch = NeXT_SCRN_WIDTH + (ConfigureParams.System.bTurbo ? 0 : 32);
+	src_pitch = NeXT_SCRN_W + (ConfigureParams.System.bTurbo ? 0 : 32);
 	SDL_LockTexture(tex, NULL, &pixels, &dst_pitch);
-	for (y = 0; y < NeXT_SCRN_HEIGHT; y++) {
+	for (y = 0; y < NeXT_SCRN_H; y++) {
 		src = (uint16_t*)NEXTVideo + (y * src_pitch);
 		dst = (uint32_t*)((uint8_t*)pixels + (y * dst_pitch));
-		for (x = 0; x < NeXT_SCRN_WIDTH; x++) {
+		for (x = 0; x < NeXT_SCRN_W; x++) {
 			*dst++ = COL2RGB[*src++];
 		}
 	}
@@ -142,12 +142,12 @@ void Screen_BlitDimension(uint32_t* vram, SDL_Texture* tex) {
 #else
 	src = &vram[4];
 #endif
-	src_pitch  = (NeXT_SCRN_WIDTH + 32) * 4;
+	src_pitch  = (NeXT_SCRN_W + 32) * 4;
 	src_format = SDL_PIXELFORMAT_BGRA32;
 	dst_format = tex->format;
 
 	SDL_LockTexture(tex, NULL, &dst, &dst_pitch);
-	SDL_ConvertPixels(NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT, src_format, src, src_pitch, dst_format, dst, dst_pitch);
+	SDL_ConvertPixels(NeXT_SCRN_W, NeXT_SCRN_H, src_format, src, src_pitch, dst_format, dst, dst_pitch);
 	SDL_UnlockTexture(tex);
 }
 
@@ -158,7 +158,7 @@ void Screen_Blank(SDL_Texture* tex) {
 	void* pixels;
 	int   pitch;
 	SDL_LockTexture(tex, NULL, &pixels, &pitch);
-	SDL_memset4(pixels, COL2RGB[0], pitch * NeXT_SCRN_HEIGHT / 4);
+	SDL_memset4(pixels, COL2RGB[0], pitch * NeXT_SCRN_H / 4);
 	SDL_UnlockTexture(tex);
 }
 
@@ -296,6 +296,19 @@ static int repainter(void* unused) {
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Force repaint after window size or full screen change
+ */
+static void Screen_ForceRepaint(void) {
+	SDL_SetAtomicInt(&blitUI, 1);
+#ifndef ENABLE_RENDERING_THREAD
+	if (!bEmulationActive) {
+		Screen_Repaint();
+	}
+#endif
+}
+
+/*-----------------------------------------------------------------------*/
+/**
  * Set Previous window title. Use NULL for default
  */
 static void Screen_SetTitle(const char *title) {
@@ -345,7 +358,7 @@ static void Screen_GetWindowBounds(SDL_Rect* r) {
 	r->w = width;
 	r->h = height;
 
-	if (width == initScreenWidth && abs(height - initScreenHeight) < NeXT_SCRN_HEIGHT) {
+	if (width == initScreenWidth && abs(height - initScreenHeight) < NeXT_SCRN_H) {
 		int x, y, w, h;
 		if (bInFullScreen) {
 			r->x = saveWindowBounds.x;
@@ -409,9 +422,6 @@ static SDL_Texture* Screen_CreateFramebufferTexture(SDL_PixelFormat format, int 
 void Screen_Reset(void) {
 	int d, i;
 
-	const int w = NeXT_SCRN_WIDTH;
-	const int h = NeXT_SCRN_HEIGHT;
-
 	SDL_PixelFormat format = SDL_PIXELFORMAT_BGRA32;
 
 #ifdef ENABLE_RENDERING_THREAD
@@ -438,22 +448,22 @@ void Screen_Reset(void) {
 				xmax = xpos > xmax ? xpos : xmax;
 				ymax = ypos > ymax ? ypos : ymax;
 
-				groupRect[i].w = w;
-				groupRect[i].h = h;
-				groupRect[i].x = xpos * w;
-				groupRect[i].y = ypos * h;
+				groupRect[i].w = NeXT_SCRN_W;
+				groupRect[i].h = NeXT_SCRN_H;
+				groupRect[i].x = xpos * NeXT_SCRN_W;
+				groupRect[i].y = ypos * NeXT_SCRN_H;
 			}
 		}
-		screen_w = (xmax + 1) * w;
-		screen_h = (ymax + 1) * h;
+		screen_w = (xmax + 1) * NeXT_SCRN_W;
+		screen_h = (ymax + 1) * NeXT_SCRN_H;
 	} else {
 		fbRect.x = 0;
 		fbRect.y = 0;
-		fbRect.w = w;
-		fbRect.h = h;
+		fbRect.w = NeXT_SCRN_W;
+		fbRect.h = NeXT_SCRN_H;
 
-		screen_w = w;
-		screen_h = h;
+		screen_w = NeXT_SCRN_W;
+		screen_h = NeXT_SCRN_H;
 	}
 
 	width  = screen_w;
@@ -473,11 +483,6 @@ void Screen_Reset(void) {
 	uiRect.y = 0;
 	uiRect.w = width;
 	uiRect.h = height;
-
-	/* Handle mode change */
-	if (ConfigureParams.Screen.nMode != initScreenMode) {
-		Screen_ModeChanged();
-	}
 
 	/* Set new video mode only if necessary */
 	if (width != initScreenWidth || height != initScreenHeight) {
@@ -512,6 +517,10 @@ void Screen_Reset(void) {
 		}
 		SDL_SetTextureBlendMode(uiTexture, SDL_BLENDMODE_BLEND);
 
+		/* Get color masks */
+		SDL_GetMasksForPixelFormat(format, &d, &r, &g, &b, &a);
+		mask = g | a;
+
 		/* (Re-)initialise UI surface */
 		if (sdlscrn) {
 			SDL_DestroySurface(sdlscrn);
@@ -523,8 +532,6 @@ void Screen_Reset(void) {
 		}
 
 		/* Clear UI with mask */
-		SDL_GetMasksForPixelFormat(format, &d, &r, &g, &b, &a);
-		mask = g | a;
 		SDL_FillSurfaceRect(sdlscrn, NULL, mask);
 
 		/* Allocate buffer for copy routines */
@@ -535,6 +542,11 @@ void Screen_Reset(void) {
 		uiBuffer = calloc(1, sdlscrn->h * sdlscrn->pitch);
 	}
 
+	/* Handle mode change */
+	if (ConfigureParams.Screen.nMode != initScreenMode) {
+		Screen_ModeChanged();
+	}
+
 	/* Create framebuffer textures and start with blank screen */
 	for (i = 0; i < NUM_MONITORS; i++) {
 		if (ConfigureParams.Screen.nGroupModePos[i] < 0 || ConfigureParams.Screen.nMode != SCREEN_GROUP) {
@@ -543,7 +555,7 @@ void Screen_Reset(void) {
 				groupTexture[i] = NULL;
 			}
 		} else if (groupTexture[i] == NULL) {
-			groupTexture[i] = Screen_CreateFramebufferTexture(format, NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
+			groupTexture[i] = Screen_CreateFramebufferTexture(format, NeXT_SCRN_W, NeXT_SCRN_H);
 			Screen_Blank(groupTexture[i]);
 		}
 	}
@@ -553,7 +565,7 @@ void Screen_Reset(void) {
 			fbTexture = NULL;
 		}
 	} else if (fbTexture == NULL) {
-		fbTexture = Screen_CreateFramebufferTexture(format, NeXT_SCRN_WIDTH, NeXT_SCRN_HEIGHT);
+		fbTexture = Screen_CreateFramebufferTexture(format, NeXT_SCRN_W, NeXT_SCRN_H);
 		Screen_Blank(fbTexture);
 	}
 
@@ -572,13 +584,10 @@ void Screen_Reset(void) {
 	/* Start repaint thread */
 	doRepaint = true;
 	repaintThread = SDL_CreateThread(repainter, "[Previous] Screen at slot 0", NULL);
-#else
-	/* Make sure screen is painted in case emulation is paused */
-	if (!bEmulationActive) {
-		SDL_SetAtomicInt(&blitUI, 1);
-		Screen_Repaint();
-	}
 #endif
+
+	/* Make sure screen is painted in case emulation is paused */
+	Screen_ForceRepaint();
 }
 
 /*-----------------------------------------------------------------------*/
@@ -684,7 +693,7 @@ void Screen_EnterFullScreen(void) {
 		Screen_SetMouseGrab(true);
 
 		/* Make sure screen is painted in case emulation is paused */
-		SDL_SetAtomicInt(&blitUI, 1);
+		Screen_ForceRepaint();
 	}
 }
 
@@ -721,7 +730,7 @@ void Screen_ReturnFromFullScreen(void) {
 		Screen_SetMouseGrab(bGrabMouse);
 
 		/* Make sure screen is painted in case emulation is paused */
-		SDL_SetAtomicInt(&blitUI, 1);
+		Screen_ForceRepaint();
 	}
 }
 
@@ -777,9 +786,6 @@ void Screen_SizeChanged(void) {
 		SDL_GetWindowSize(sdlWindow, NULL, &h);
 		nd_sdl_resize((float)h/height);
 	}
-
-	/* Make sure screen is painted in case emulation is paused */
-	SDL_SetAtomicInt(&blitUI, 1);
 }
 
 /*-----------------------------------------------------------------------*/
