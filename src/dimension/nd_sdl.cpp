@@ -51,54 +51,41 @@ void NDSDL::repaint(void) {
 void NDSDL::init(void) {
     int x, y, w, h;
     char name[32];
-    SDL_Rect r = {0,0,1120,832};
 
-#ifdef ENABLE_RENDERING_THREAD
-    SDL_RendererFlags vsync_flag = SDL_RENDERER_PRESENTVSYNC;
-#else
-    uint32_t vsync_flag = 0;
-#endif
-
-    if (!ndWindow) {
+    if (ConfigureParams.Screen.nMode == SCREEN_ALL) {
         SDL_GetWindowPosition(sdlWindow, &x, &y);
         SDL_GetWindowSize(sdlWindow, &w, &h);
-        h = (w * 832) / 1120;
-        snprintf(name, sizeof(name), "NeXTdimension (Slot %i)", slot);
-        ndWindow = SDL_CreateWindow(name, x+14*slot, y+14*slot, w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI);
-        
+        h = (w * NeXT_SCRN_H) / NeXT_SCRN_W;
+
         if (!ndWindow) {
-            fprintf(stderr,"[ND] Slot %i: Failed to create window! (%s)\n", slot, SDL_GetError());
-            exit(-1);
-        }
-    }
-    
-    if (ConfigureParams.Screen.nMonitorType == MONITOR_TYPE_DUAL) {
-        titlebar(ConfigureParams.Screen.bShowTitlebar);
-        if (!ndRenderer) {
-            ndRenderer = SDL_CreateRenderer(ndWindow, -1, SDL_RENDERER_ACCELERATED | vsync_flag);
-            if (!ndRenderer) {
-                fprintf(stderr,"[ND] Slot %i: Failed to create accelerated renderer! (%s)\n", slot, SDL_GetError());
-                ndRenderer = SDL_CreateRenderer(ndWindow, -1, vsync_flag);
-                if (!ndRenderer) {
-                    fprintf(stderr,"[ND] Slot %i: Failed to create renderer! (%s)\n", slot, SDL_GetError());
-                    exit(-1);
-                }
+            snprintf(name, sizeof(name), "NeXTdimension (Slot %i)", slot);
+
+            if (SDL_CreateWindowAndRenderer(w, h, SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI, &ndWindow, &ndRenderer) < 0) {
+                fprintf(stderr,"[ND] Slot %i: Failed to create window and renderer! (%s)\n", slot, SDL_GetError());
+                return;
             }
-            SDL_RenderSetLogicalSize(ndRenderer, r.w, r.h);
-            ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, r.w, r.h);
+            SDL_SetWindowTitle(ndWindow, name);
+            SDL_SetWindowPosition(ndWindow, x+14*slot, y+14*slot);
+            SDL_RenderSetLogicalSize(ndRenderer, NeXT_SCRN_W, NeXT_SCRN_H);
+            ndTexture = SDL_CreateTexture(ndRenderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, NeXT_SCRN_W, NeXT_SCRN_H);
+            SDL_SetTextureBlendMode(ndTexture, SDL_BLENDMODE_NONE);
 #ifdef ENABLE_RENDERING_THREAD
+            SDL_RenderSetVSync(ndRenderer, 1);
 
             snprintf(name, sizeof(name), "[Previous] Screen at slot %d", slot);
             repaintThread = SDL_CreateThread(NDSDL::repainter, name, this);
 #endif
+        } else {
+            SDL_SetWindowPosition(ndWindow, x+14*slot, y+14*slot);
+            SDL_SetWindowSize(ndWindow, w, h);
         }
+
+        titlebar(ConfigureParams.Screen.bShowTitlebar);
 
         SDL_ShowWindow(ndWindow);
 #ifdef ENABLE_RENDERING_THREAD
         SDL_AtomicSet(&blitNDFB, 1);
 #endif
-    } else {
-        SDL_HideWindow(ndWindow);
     }
 }
 
@@ -122,7 +109,7 @@ void NDSDL::destroy(void) {
 
 void NDSDL::resize(float scale) {
     if (ndWindow) {
-        SDL_SetWindowSize(ndWindow, 1120*scale, 832*scale);
+        SDL_SetWindowSize(ndWindow, NeXT_SCRN_W*scale, NeXT_SCRN_H*scale);
     }
 }
 

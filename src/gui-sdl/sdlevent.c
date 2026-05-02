@@ -322,7 +322,6 @@ void GuiEvent_EventHandler(void) {
 
 			case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
 				GuiEvent_HandleMouseMotion(&event);
-				bContinueProcessing = false;
 				break;
 
 			case SDL_MOUSEBUTTONDOWN:

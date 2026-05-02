@@ -18,7 +18,6 @@ const char SDLaudio_fileid[] = "Previous sdlaudio.c";
 #include "dma.h"
 #include "grab.h"
 #include "statusbar.h"
-#include "host.h"
 
 
 static SDL_AudioDeviceID Audio_Input_Device  = 0;
@@ -74,10 +73,10 @@ void Audio_Output_Queue_Clear(void) {
 
 #define REC_BUFFER_SIZE (1<<16)
 #define REC_BUFFER_MASK (REC_BUFFER_SIZE-1)
-static uint8_t  recBuffer[REC_BUFFER_SIZE];
-static uint32_t recBufferWr = 0;
-static uint32_t recBufferRd = 0;
-static lock_t   recBufferLock;
+static uint8_t      recBuffer[REC_BUFFER_SIZE];
+static uint32_t     recBufferWr = 0;
+static uint32_t     recBufferRd = 0;
+static SDL_SpinLock recBufferLock;
 
 static void Audio_Input_InitBuf(void) {
 	Log_Printf(LOG_WARN, "[Audio] Initializing input buffer with %d ms of silence.", AUDIO_RECBUF_INIT>>4);
@@ -126,11 +125,11 @@ static void Audio_Input_CallBack(void *userdata, uint8_t *stream, int len) {
 }
 
 void Audio_Input_Lock(void) {
-	host_lock(&recBufferLock);
+	SDL_AtomicLock(&recBufferLock);
 }
 
 void Audio_Input_Unlock(void) {
-	host_unlock(&recBufferLock);
+	SDL_AtomicUnlock(&recBufferLock);
 }
 
 static bool check_audio(int requested, int granted, const char* attribute) {

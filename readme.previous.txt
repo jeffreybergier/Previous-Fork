@@ -471,6 +471,10 @@ Previous v4.2:
   > Fixes bug that could cause system timer underflow.
   > Fixes bug that caused the statusbar to fail after a certain period of time.
 
+Previous v4.3 (unreleased):
+  > Adds support for drawing multiple screens to a single window.
+  > Fixes bug that could cause artifacts on the screen until a dialog is shown.
+
 
  7) Running Previous
  -------------------
