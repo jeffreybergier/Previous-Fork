@@ -474,6 +474,7 @@ Previous v4.2:
 Previous v4.3 (unreleased):
   > Adds support for drawing multiple screens to a single window.
   > Fixes bug that could cause artifacts on the screen until a dialog is shown.
+  > Fixes bug that could cause a late crash while quitting.
 
 
  7) Running Previous
