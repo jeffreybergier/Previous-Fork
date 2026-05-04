@@ -15,6 +15,9 @@ extern "C" {
 extern volatile bool bGrabMouse;
 extern volatile bool bInFullScreen;
 
+extern const int NeXT_SCRN_W;
+extern const int NeXT_SCRN_H;
+
 extern int screen_w;
 extern int screen_h;
 

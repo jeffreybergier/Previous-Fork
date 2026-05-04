@@ -10,7 +10,7 @@
 #include "configuration.h"
 #include "dimension.hpp"
 #include "sdlscreen.h"
-#include "cycInt.h"
+#include "screen.h"
 
 
 #ifdef ENABLE_RENDERING_THREAD
