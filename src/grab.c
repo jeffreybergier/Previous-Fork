@@ -41,15 +41,16 @@ static bool Grab_FillBuffer(uint8_t* buf) {
 	int m, x, y;
 	
 	for (m = 0; m < NUM_MONITORS; m++) {
+		slot = m * 2;
 		if (ConfigureParams.Screen.nMode == SCREEN_GROUP) {
-			slot = m > 0 ? ND_SLOT(m - 1) : 0;
+			if (ConfigureParams.Screen.nGroupModePos[m] < 0) {
+				continue;
+			}
 			xoff = (ConfigureParams.Screen.nGroupModePos[m] % NUM_MONITORS) * NeXT_SCRN_W;
 			yoff = (ConfigureParams.Screen.nGroupModePos[m] / NUM_MONITORS) * NeXT_SCRN_H;
 		} else if (m == 0) {
 			if (ConfigureParams.Screen.nMode == SCREEN_SINGLE) {
 				slot = ConfigureParams.Screen.nSingleModeSlot;
-			} else {
-				slot = 0;
 			}
 			xoff = 0;
 			yoff = 0;
@@ -117,7 +118,7 @@ static bool Grab_MakePNG(FILE* fp) {
 	bool        result   = false;
 	
 	uint8_t*    src_ptr  = NULL;
-	uint8_t*    buf      = malloc(screen_w * screen_h * 4);
+	uint8_t*    buf      = calloc(1, screen_w * screen_h * 4);
 	
 	if (buf) {
 		if (Grab_FillBuffer(buf)) {
