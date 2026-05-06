@@ -824,36 +824,10 @@ void Screen_StatusbarUpdate(void) {
 
 /*-----------------------------------------------------------------------*/
 /**
- * Update status bar and force screen repaint.
+ * Check if we need to update full user interface or just the statusbar 
+ * and copy user interface surface to buffer. Replace mask pixels with 
+ * transparent pixels for blending with framebuffer texture.
  */
-static void statusBarUpdate(void) {
-	SDL_LockSurface(sdlscrn);
-	SDL_AtomicLock(&uiBufferLock);
-	memcpy(&((uint8_t*)uiBuffer)[statusBar.y*sdlscrn->pitch], &((uint8_t*)sdlscrn->pixels)[statusBar.y*sdlscrn->pitch], statusBar.h * sdlscrn->pitch);
-	SDL_AtomicSet(&blitUI, 1);
-	SDL_AtomicUnlock(&uiBufferLock);
-	SDL_UnlockSurface(sdlscrn);
-}
-
-/*-----------------------------------------------------------------------*/
-/**
- * Copy UI surface to buffer and replace mask pixels with transparent 
- * pixels for UI blending with framebuffer texture.
- */
-static void uiUpdate(void) {
-	SDL_LockSurface(sdlscrn);
-	int     count = sdlscrn->w * sdlscrn->h;
-	uint32_t* dst = (uint32_t*)uiBuffer;
-	uint32_t* src = (uint32_t*)sdlscrn->pixels;
-	SDL_AtomicLock(&uiBufferLock);
-	/* poor man's green-screen - would be nice if SDL had more blending modes... */
-	for(int i = count; --i >= 0; src++)
-		*dst++ = *src == mask ? 0 : *src;
-	SDL_AtomicSet(&blitUI, 1);
-	SDL_AtomicUnlock(&uiBufferLock);
-	SDL_UnlockSurface(sdlscrn);
-}
-
 void Screen_UpdateRects(SDL_Surface *screen, int numrects, SDL_Rect *rects) {
 	bool doUIblit = true;
 
@@ -864,11 +838,26 @@ void Screen_UpdateRects(SDL_Surface *screen, int numrects, SDL_Rect *rects) {
 		}
 		rects++;
 	}
+
+	SDL_LockSurface(sdlscrn);
+	SDL_AtomicLock(&uiBufferLock);
 	if (doUIblit) {
-		uiUpdate();
+		/* Copy user interface surface and replace mask pixels. */
+		int i;
+		uint32_t* src = (uint32_t*)sdlscrn->pixels;
+		uint32_t* dst = (uint32_t*)uiBuffer;
+		/* Primitive green-screen - would be nice if SDL had more blending modes. */
+		for (i = sdlscrn->w * sdlscrn->h; --i >= 0; src++) *dst++ = *src == mask ? 0 : *src;
 	} else {
-		statusBarUpdate();
+		/* Copy statusbar without transparent pixels. */
+		void* src = (uint8_t*)sdlscrn->pixels + statusBar.y * sdlscrn->pitch;
+		void* dst = (uint8_t*)uiBuffer + statusBar.y * sdlscrn->pitch;
+		memcpy(dst, src, statusBar.h * sdlscrn->pitch);
 	}
+	SDL_AtomicSet(&blitUI, 1);
+	SDL_AtomicUnlock(&uiBufferLock);
+	SDL_UnlockSurface(sdlscrn);
+
 #ifndef ENABLE_RENDERING_THREAD
 	if (!bEmulationActive) {
 		Screen_Repaint();

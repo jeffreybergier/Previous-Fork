@@ -274,7 +274,10 @@ void Statusbar_Init(SDL_Surface *surf)
 		xoffset += LedRect.w + fontw;
 	}
 	MessageRect.x = (FullRect.w - MAX_MESSAGE_LEN*fontw) / 2;
-	MessageRect.x += 2*fontw; /* Compensate for asymmetric LED arrangement */
+	/* on narrow windows compensate for asymmetric led arrangement */
+	if (FullRect.w < 1600) {
+		MessageRect.x += 2*fontw;
+	}
 	MessageRect.w = MAX_MESSAGE_LEN * fontw;
 	MessageRect.h = fonth;
 	for (item = MessageList; item; item = item->next) {
