@@ -649,6 +649,11 @@ void Printer_IO_Handler(void) {
     }
 }
 
+/* Free printing buffer */
+void Printer_UnInit(void) {
+    lp_print_finish();
+}
+
 /* Printer reset function */
 void Printer_Reset(void) {
     lp_interface_off();
