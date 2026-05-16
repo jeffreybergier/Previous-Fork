@@ -195,7 +195,7 @@ static void tiff_write32(struct tif_t* tif, uint32_t val) {
 	tif->write += 4;
 }
 
-static void tiff_write_ifd_data(struct tif_t* tif, int count, int size, uint8_t* data) {
+static void tiff_write_field_data(struct tif_t* tif, int count, int size, uint8_t* data) {
 	struct ifd_t* ifd = tif->ifd;
 	
 	if (count * size > 4) {
@@ -222,20 +222,20 @@ static void tiff_write_ifd_data(struct tif_t* tif, int count, int size, uint8_t*
 	}
 }
 
-static void tiff_write_ifd_entry(struct tif_t* tif, uint16_t tag, uint16_t type, int count, uint8_t* data) {
+static void tiff_write_field(struct tif_t* tif, uint16_t tag, uint16_t type, int count, uint8_t* data) {
 	tiff_write16(tif, tag);
 	tiff_write16(tif, type);
 	tiff_write32(tif, count);
 	
 	switch (type) {
 		case 3:
-			tiff_write_ifd_data(tif, count, 2, data);
+			tiff_write_field_data(tif, count, 2, data);
 			break;
 			
 		case 5:
 			count *= 2;
 		case 4:
-			tiff_write_ifd_data(tif, count, 4, data);
+			tiff_write_field_data(tif, count, 4, data);
 			break;
 			
 		default:
@@ -248,20 +248,20 @@ static void tiff_write_ifd(struct tif_t* tif) {
 	
 	tiff_write16(tif, ifd->num_entries);
 	
-	tiff_write_ifd_entry(tif, 0x0100, 3, 1, (uint8_t*)&ifd->width);
-	tiff_write_ifd_entry(tif, 0x0101, 3, 1, (uint8_t*)&ifd->height);
-	tiff_write_ifd_entry(tif, 0x0102, 3, ifd->samples_per_pixel, (uint8_t*)&ifd->bits_per_sample);
-	tiff_write_ifd_entry(tif, 0x0103, 3, 1, (uint8_t*)&ifd->compression);
-	tiff_write_ifd_entry(tif, 0x0106, 3, 1, (uint8_t*)&ifd->photometric_interpretation);
-	tiff_write_ifd_entry(tif, 0x0111, 4, 1, (uint8_t*)&ifd->strip_offset);
-	tiff_write_ifd_entry(tif, 0x0115, 3, 1, (uint8_t*)&ifd->samples_per_pixel);
-	tiff_write_ifd_entry(tif, 0x0117, 4, 1, (uint8_t*)&ifd->strip_byte_count);
-	tiff_write_ifd_entry(tif, 0x011A, 5, 1, (uint8_t*)&ifd->x_resolution);
-	tiff_write_ifd_entry(tif, 0x011B, 5, 1, (uint8_t*)&ifd->y_resolution);
-	tiff_write_ifd_entry(tif, 0x011C, 3, 1, (uint8_t*)&ifd->planar_configuration);
-	tiff_write_ifd_entry(tif, 0x0128, 3, 1, (uint8_t*)&ifd->resolution_unit);
+	tiff_write_field(tif, 0x0100, 3, 1, (uint8_t*)&ifd->width);
+	tiff_write_field(tif, 0x0101, 3, 1, (uint8_t*)&ifd->height);
+	tiff_write_field(tif, 0x0102, 3, ifd->samples_per_pixel, (uint8_t*)&ifd->bits_per_sample);
+	tiff_write_field(tif, 0x0103, 3, 1, (uint8_t*)&ifd->compression);
+	tiff_write_field(tif, 0x0106, 3, 1, (uint8_t*)&ifd->photometric_interpretation);
+	tiff_write_field(tif, 0x0111, 4, 1, (uint8_t*)&ifd->strip_offset);
+	tiff_write_field(tif, 0x0115, 3, 1, (uint8_t*)&ifd->samples_per_pixel);
+	tiff_write_field(tif, 0x0117, 4, 1, (uint8_t*)&ifd->strip_byte_count);
+	tiff_write_field(tif, 0x011A, 5, 1, (uint8_t*)&ifd->x_resolution);
+	tiff_write_field(tif, 0x011B, 5, 1, (uint8_t*)&ifd->y_resolution);
+	tiff_write_field(tif, 0x011C, 3, 1, (uint8_t*)&ifd->planar_configuration);
+	tiff_write_field(tif, 0x0128, 3, 1, (uint8_t*)&ifd->resolution_unit);
 	if (ifd->extra_samples) {
-		tiff_write_ifd_entry(tif, 0x0152, 3, 1, (uint8_t*)&ifd->extra_samples);
+		tiff_write_field(tif, 0x0152, 3, 1, (uint8_t*)&ifd->extra_samples);
 	}
 	
 	if (ifd->next) {
@@ -270,7 +270,7 @@ static void tiff_write_ifd(struct tif_t* tif) {
 		tiff_write32(tif, 0);
 	}
 	
-	/* jump over IFD data as it is already present in write buffer */
+	/* jump over field data as it is already present in write buffer */
 	tif->write += ifd->datasize;
 }
 
@@ -347,7 +347,7 @@ static bool Grab_MakeTIFF(FILE* fp, uint8_t* buf, struct grab_format* format) {
 			ifd->x_resolution[1] = ifd->y_resolution[1] = 10000;
 			ifd->planar_configuration = format->rgb ? 1 : 2;
 			ifd->resolution_unit = 2;
-			ifd->extra_samples = format->alpha;
+			ifd->extra_samples = format->alpha ? 2 : 0;
 			
 			/* only one IFD for now */
 			ifd->next = NULL;
