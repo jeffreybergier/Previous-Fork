@@ -104,7 +104,7 @@ Optional:
   > The zlib compression library (https://www.zlib.net)
     This is required for using libpng.
   > The libpng PNG reference library (http://www.libpng.org)
-    This is required for printing to files.
+    This is required for printing to PNG files.
   > The pcap library (https://www.tcpdump.org or https://www.winpcap.org)
     This is required if networking via PCAP is preferred over SLiRP.
 
@@ -474,8 +474,12 @@ Previous v4.2:
 Previous v4.3:
   > Adds support for drawing multiple screens to a single window.
   > Improves behaviour when creating large windows on small screens.
-  > Fixes bug that could cause artifacts on the screen until a dialog is shown.
+  > Fixes bug that could cause artefacts on the screen until a dialog is shown.
   > Fixes bug that could cause a late crash while quitting.
+
+Previous v4.4 (unreleased):
+  > Adds support for saving prints and screen contents to TIFF files.
+  > Improves generated PNG files to have smaller file sizes.
 
 
  7) Running Previous
@@ -509,7 +513,7 @@ C: Initiates a cold reset. All unsaved changes will be lost.
 M: Locks the mouse cursor to the window and releases it when pressed again.
 N: Switches between screens if multiple screens are used in single window or 
    fullscreen mode.
-G: Grabs the screen contents and saves them to a PNG file. The file is saved 
+G: Grabs the screen contents and saves them to an image file. The file is saved 
    inside the directory specified for printer output.
 R: Records all sound output to an AIFF file and stops recording when pressed 
    again. The file is saved inside the directory specified for printer output.
