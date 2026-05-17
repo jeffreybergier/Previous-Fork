@@ -44,7 +44,7 @@ struct grab_format {
 /**
  * Create PNG file.
  */
-static bool Grab_MakePNG(FILE* fp, uint8_t* buf, struct grab_format* format) {
+static bool Grab_MakePNG(FILE* fp, uint8_t* src_ptr, struct grab_format* format) {
 	png_structp png_ptr    = NULL;
 	png_infop   info_ptr   = NULL;
 	png_text    pngtext;
@@ -57,7 +57,6 @@ static bool Grab_MakePNG(FILE* fp, uint8_t* buf, struct grab_format* format) {
 	uint32_t    res        = 0;
 	uint32_t    y          = 0;
 	bool        result     = false;
-	uint8_t*    src_ptr    = NULL;
 	
 	/* Setup variable parameters from requested format */
 	res = (format->dpi * 10000) / 254;
@@ -79,7 +78,7 @@ static bool Grab_MakePNG(FILE* fp, uint8_t* buf, struct grab_format* format) {
 		bpp = format->depth;
 	}
 
-	if (buf) {
+	if (src_ptr) {
 		/* Create and initialize the png_struct with error handler functions. */
 		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 		if (png_ptr) {
@@ -122,8 +121,8 @@ static bool Grab_MakePNG(FILE* fp, uint8_t* buf, struct grab_format* format) {
 					
 					/* write image data */
 					for (y = 0; y < format->h; y++) {
-						src_ptr = buf + (y * format->w * bpp) / 8;
 						png_write_row(png_ptr, src_ptr);
+						src_ptr += (format->w * bpp) / 8;
 					}
 					
 					/* write the additional chunks to the PNG file */
@@ -442,26 +441,92 @@ static bool Grab_ScreenFormat(int slot, uint8_t* buf, struct grab_format* format
 	
 	int x, y;
 	
+	format->w     = screen_w;
+	format->h     = screen_h;
 	format->dpi   = 72; /* Better use MegaPixel Display resolution (92 dpi)? */
 	format->print = 0;
-
-	if (slot >= 0) {
-		format->w = NeXT_SCRN_W;
-		format->h = NeXT_SCRN_H;
+	
+	if (slot < 0) {
+		int m, xoff, yoff;
+		
+		format->rgb   = 1;
+		format->alpha = 1;
+		format->depth = 8;
+		
+		for (m = 0; m < NUM_MONITORS; m++) {
+			if (ConfigureParams.Screen.nGroupModePos[m] < 0) {
+				continue;
+			}
+			xoff = (ConfigureParams.Screen.nGroupModePos[m] % NUM_MONITORS) * NeXT_SCRN_W;
+			yoff = (ConfigureParams.Screen.nGroupModePos[m] / NUM_MONITORS) * NeXT_SCRN_H;
+			slot = m * 2;
+			
+			dst = buf + screen_w * yoff * 4;
+			src = (slot > 0) ? (uint8_t*)(nd_vram_for_slot(slot)) : NEXTVideo;
+			if (!src || (xoff + NeXT_SCRN_W) > screen_w || (yoff + NeXT_SCRN_H) > screen_h) {
+				return false;
+			}
+			
+			src += (slot > 0) ? ND_OFFSET : 0;
+			
+			for (y = 0; y < NeXT_SCRN_H; y++) {
+				dst += xoff * 4;
+				if (slot > 0) {
+					for (x = 0; x < NeXT_SCRN_W; x++, src += 4, dst += 4) {
+						dst[0] = src[2]; /* r */
+						dst[1] = src[1]; /* g */
+						dst[2] = src[0]; /* b */
+						dst[3] = 0xff;   /* a */
+					}
+					src += 32 * 4;
+				} else if (ConfigureParams.System.bColor) {
+					for (x = 0; x < NeXT_SCRN_W; x++, src += 2, dst += 4) {
+						dst[0] = ((src[0] & 0xf0) >> 4) * 0x11; /* r */
+						dst[1] = ((src[0] & 0x0f) >> 0) * 0x11; /* g */
+						dst[2] = ((src[1] & 0xf0) >> 4) * 0x11; /* b */
+						dst[3] = 0xff;                          /* a */
+					}
+					src += ConfigureParams.System.bTurbo ? 0 : (32 * 2);
+				} else {
+					for (x = 0; x < NeXT_SCRN_W; x += 4, src++, dst += 4 * 4) {
+						dst[0]  = dst[1]  = dst[2]  = (~(*src >> 6) & 3) * 0x55; dst[3]  = 0xff; /* rgba */
+						dst[4]  = dst[5]  = dst[6]  = (~(*src >> 4) & 3) * 0x55; dst[7]  = 0xff; /* rgba */
+						dst[8]  = dst[9]  = dst[10] = (~(*src >> 2) & 3) * 0x55; dst[11] = 0xff; /* rgba */
+						dst[12] = dst[13] = dst[14] = (~(*src >> 0) & 3) * 0x55; dst[15] = 0xff; /* rgba */
+					}
+					src += ConfigureParams.System.bTurbo ? 0 : (32 / 4);
+				}
+				dst += (screen_w - (xoff + NeXT_SCRN_W)) * 4;
+			}
+		}
+	} else {
 		src = (slot > 0) ? (uint8_t*)(nd_vram_for_slot(slot)) : NEXTVideo;
 		dst = buf;
-		if (!src) {
+		if (!src || NeXT_SCRN_W > screen_w || NeXT_SCRN_H > screen_h) {
 			return false;
 		}
-	}
-	
-	if (slot == 0) {
-		if (ConfigureParams.System.bColor) {
+		
+		if (slot > 0) {
+			format->rgb   = 1;
+			format->alpha = 0;
+			format->depth = 8;
+			
+			src += ND_OFFSET;
+			
+			for (y = 0; y < NeXT_SCRN_H; y++) {
+				for (x = 0; x < NeXT_SCRN_W; x++, src += 4, dst += 3) {
+					dst[0] = src[2]; /* r */
+					dst[1] = src[1]; /* g */
+					dst[2] = src[0]; /* b */
+				}
+				src += 32 * 4;
+			}
+		} else if (ConfigureParams.System.bColor) {
 			format->rgb   = 1;
 			format->alpha = 0;
 			format->depth = 4;
 #if HAVE_LIBPNG
-			/* PNG does not support 4 bit per color RGB */
+			/* PNG does not support RGB444 */
 			if (ConfigureParams.Printer.nFileFormat == FORMAT_PNG) {
 				format->depth = 8;
 				
@@ -495,90 +560,6 @@ static bool Grab_ScreenFormat(int slot, uint8_t* buf, struct grab_format* format
 					*dst++ = ~*src++; /* 2-bit gray */
 				}
 				src += ConfigureParams.System.bTurbo ? 0 : (32 / 4);
-			}
-		}
-	} else if (slot > 0) {
-		format->rgb   = 1;
-		format->alpha = 0;
-		format->depth = 8;
-
-		src += ND_OFFSET;
-
-		for (y = 0; y < NeXT_SCRN_H; y++) {
-			for (x = 0; x < NeXT_SCRN_W; x++, src += 4, dst += 3) {
-				dst[0] = src[2]; /* r */
-				dst[1] = src[1]; /* g */
-				dst[2] = src[0]; /* b */
-			}
-			src += 32 * 4;
-		}
-	} else {
-		int m, xoff, yoff;
-		
-		for (m = 0; m < NUM_MONITORS; m++) {
-			slot = m * 2;
-			if (ConfigureParams.Screen.nMode == SCREEN_GROUP) {
-				if (ConfigureParams.Screen.nGroupModePos[m] < 0) {
-					continue;
-				}
-				xoff = (ConfigureParams.Screen.nGroupModePos[m] % NUM_MONITORS) * NeXT_SCRN_W;
-				yoff = (ConfigureParams.Screen.nGroupModePos[m] / NUM_MONITORS) * NeXT_SCRN_H;
-			} else if (m == 0) {
-				if (ConfigureParams.Screen.nMode == SCREEN_SINGLE) {
-					slot = ConfigureParams.Screen.nSingleModeSlot;
-				}
-				xoff = 0;
-				yoff = 0;
-			} else {
-				break;
-			}
-			
-			if ((xoff + NeXT_SCRN_W) > screen_w || (yoff + NeXT_SCRN_H) > screen_h) {
-				return false;
-			}
-			
-			dst = buf + screen_w * yoff * 4;
-			src = (slot > 0) ? (uint8_t*)(nd_vram_for_slot(slot)) : NEXTVideo;
-			if (!src) {
-				return false;
-			}
-			
-			src += (slot > 0) ? ND_OFFSET : 0;
-			
-			format->w     = screen_w;
-			format->h     = screen_h;
-			format->rgb   = 1;
-			format->alpha = 1;
-			format->depth = 8;
-
-			for (y = 0; y < NeXT_SCRN_H; y++) {
-				dst += xoff * 4;
-				if (slot > 0) {
-					for (x = 0; x < NeXT_SCRN_W; x++, src += 4, dst += 4) {
-						dst[0] = src[2]; /* r */
-						dst[1] = src[1]; /* g */
-						dst[2] = src[0]; /* b */
-						dst[3] = 0xff;   /* a */
-					}
-					src += 32 * 4;
-				} else if (ConfigureParams.System.bColor) {
-					for (x = 0; x < NeXT_SCRN_W; x++, src += 2, dst += 4) {
-						dst[0] = ((src[0] & 0xf0) >> 4) * 0x11; /* r */
-						dst[1] = ((src[0] & 0x0f) >> 0) * 0x11; /* g */
-						dst[2] = ((src[1] & 0xf0) >> 4) * 0x11; /* b */
-						dst[3] = 0xff;                          /* a */
-					}
-					src += ConfigureParams.System.bTurbo ? 0 : (32 * 2);
-				} else {
-					for (x = 0; x < NeXT_SCRN_W; x += 4, src++, dst += 4 * 4) {
-						dst[0]  = dst[1]  = dst[2]  = (~(*src >> 6) & 3) * 0x55; dst[3]  = 0xff; /* rgba */
-						dst[4]  = dst[5]  = dst[6]  = (~(*src >> 4) & 3) * 0x55; dst[7]  = 0xff; /* rgba */
-						dst[8]  = dst[9]  = dst[10] = (~(*src >> 2) & 3) * 0x55; dst[11] = 0xff; /* rgba */
-						dst[12] = dst[13] = dst[14] = (~(*src >> 0) & 3) * 0x55; dst[15] = 0xff; /* rgba */
-					}
-					src += ConfigureParams.System.bTurbo ? 0 : (32 / 4);
-				}
-				dst += (screen_w - (xoff + NeXT_SCRN_W)) * 4;
 			}
 		}
 	}
