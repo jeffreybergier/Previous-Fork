@@ -852,6 +852,10 @@ void dsp_core_ssi_Receive_SC0(void)
 
 	LOG_TRACE(TRACE_DSP_HOST_SSI, "Dsp SSI received value from crossbar: 0x%06x\n", value);
 
+	/* FIXME: Two quick hacks added for Previous: */
+	dsp_core.ssi.waitFrameRX = 0; /* So that we receive the frame */
+	dsp_core.periph[DSP_SPACE_X][DSP_SSI_SR] |= (1<<DSP_SSI_SR_TDE); /* required for 24-bit input */
+
 	if (dsp_core.ssi.crb_re && dsp_core.ssi.waitFrameRX == 0) {
 		/* Send value to DSP receive */
 		dsp_core.ssi.RX = value;
