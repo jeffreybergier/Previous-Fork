@@ -540,7 +540,6 @@ void SND_DSP_Handler(void) {
     }
     if (Audio_DSP_Buffer_Get(&sample) == 0) {
         DSP_SsiWriteRxValue(sample);
-        dsp_core.ssi.waitFrameRX = 0; /* FIXME: find a better way */
         DSP_SsiReceive_SC0();
     }
     CycInt_UpdateCycleTimeEvent(5, 0, EVENT_SND_DSP_INPUT);
