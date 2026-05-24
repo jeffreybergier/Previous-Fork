@@ -1020,6 +1020,7 @@ void dsp_core_ssi_configure(uint32_t address, uint32_t value)
 
 			LOG_TRACE(TRACE_DSP_HOST_SSI, "Dsp SSI CRB write: 0x%06x\n", value);
 
+			DSP_InitSSI(value); /* Added for Previous */
 			break;
 	}
 }
