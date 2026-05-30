@@ -21,8 +21,6 @@ const char Snd_fileid[] = "Previous snd.c";
 #define LOG_SND_LEVEL   LOG_DEBUG
 #define LOG_VOL_LEVEL   LOG_DEBUG
 
-#define ENABLE_LOWPASS  1 /* experimental */
-
 
 uint8_t snd_buffer[SND_BUFFER_SIZE];
 int     snd_buffer_len = 0;
@@ -30,7 +28,7 @@ int     snd_buffer_len = 0;
 static struct {
     uint8_t mode;
     uint8_t mute;
-    uint8_t lowpass;
+    uint8_t deemph;
     uint8_t volume[2]; /* 0 = left, 1 = right */
 } sndout_state;
 
@@ -99,27 +97,48 @@ static void snd_make_double_samples(uint8_t *buffer, int len, bool repeat) {
     }
 }
 
-#if ENABLE_LOWPASS
-/* This is a third-order Butterworth low-pass filter (alpha value 0.1) */
-static int16_t snd_lowpass_filter(int16_t sample, int channel) {
-    static double v[2][4] = { {0.0,0.0,0.0,0.0}, {0.0,0.0,0.0,0.0} };
-    double result;
+/* This is a de-emphasis filter for 44.1 kHz pre-emphasised CD audio input */
+static struct deemph_t {
+    double a1, b0, b1;
+    double li[2];
+    double lo[2];
+} deemph;
+
+static void snd_deemphasis_init(void) {
+    /* Pre-calculated coefficients are derived from:
+     *   T = 1./44100
+     *   V0 = 0.3365
+     *   OmegaU = 1./19E-6
+     *   B = V0*tan(OmegaU*T/2.)
+     *   a1 = (B-1.)/(B+1.)
+     *   b0 = (1.+(1.-a1)*(V0-1.)/2.)
+     *   b1 = (a1+(a1-1.)*(V0-1.)/2.)
+     */
+    deemph.a1 = -0.62786881719628784282;
+    deemph.b0 =  0.45995451989513153057;
+    deemph.b1 = -0.08782333709141937339;
+}
+
+static void snd_deemphasis_start(void) {
+    deemph.li[0] = deemph.li[1] = 0.0;
+    deemph.lo[0] = deemph.lo[1] = 0.0;
+}
+
+static int16_t snd_deemphasis_filter(int16_t sample, int c) {
+    long result;
+    double i = (double)sample;
+    double o = i * deemph.b0 + deemph.li[c] * deemph.b1 - deemph.lo[c] * deemph.a1;
     
-    v[channel][0] = v[channel][1];
-    v[channel][1] = v[channel][2];
-    v[channel][2] = v[channel][3];
-    v[channel][3] = ( 0.01809893300751444500 * sample)
-                  + ( 0.27805991763454640520 * v[channel][0])
-                  + (-1.18289326203783096148 * v[channel][1])
-                  + ( 1.76004188034316899625 * v[channel][2]);
-    result = (v[channel][0] + v[channel][3]) + 3 * (v[channel][1] + v[channel][2]);
+    deemph.li[c] = i;
+    deemph.lo[c] = o;
     
-    if (result > (double)INT16_MAX) return INT16_MAX;
-    if (result < (double)INT16_MIN) return INT16_MIN;
+    result = (o < 0.0) ? (long)(o - 0.5) : (long)(o + 0.5);
+    
+    if (result > INT16_MAX) return INT16_MAX;
+    if (result < INT16_MIN) return INT16_MIN;
     
     return (int16_t)result;
 }
-#endif
 
 /* This function returns a factor for adding volume adjustment to samples */
 static double snd_get_volume_factor(int channel) {
@@ -141,19 +160,17 @@ static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
         for (i=0; i<len; i++) {
             buf[i] = 0;
         }
-    } else if (sndout_state.volume[0] || sndout_state.volume[1] || sndout_state.lowpass) {
+    } else if (sndout_state.volume[0] || sndout_state.volume[1] || sndout_state.deemph) {
         ladjust = snd_get_volume_factor(0);
         radjust = snd_get_volume_factor(1);
         
         for (i=0; i<len; i+=4) {
             ldata = ((int16_t)buf[i+0]<<8)|buf[i+1];
             rdata = ((int16_t)buf[i+2]<<8)|buf[i+3];
-#if ENABLE_LOWPASS
-            if (sndout_state.lowpass) {
-                ldata = snd_lowpass_filter(ldata, 0);
-                rdata = snd_lowpass_filter(rdata, 1);
+            if (sndout_state.deemph) {
+                ldata = snd_deemphasis_filter(ldata, 0);
+                rdata = snd_deemphasis_filter(rdata, 1);
             }
-#endif
             ldata *= ladjust;
             rdata *= radjust;
             buf[i+0] = ldata>>8;
@@ -172,27 +189,25 @@ static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
 #define SND_MODE_DBL_ZF 0x30
 
 static int snd_send_samples(uint8_t* buffer, int len) {
-    int size = 0;
     switch (sndout_state.mode) {
         case SND_MODE_NORMAL:
-            size = len;
             break;
         case SND_MODE_DBL_RP:
             snd_make_double_samples(buffer, len, true);
-            size = 2 * len;
+            len *= 2;
             break;
         case SND_MODE_DBL_ZF:
             snd_make_double_samples(buffer, len, false);
-            size = 2 * len;
+            len *= 2;
             break;
         default:
             Log_Printf(LOG_WARN, "[Sound] Error: Unknown sound output mode!");
             return 0;
     }
-    snd_adjust_volume_and_lowpass(buffer, size);
-    Grab_Sound(buffer, size);
-    Audio_Output_Queue_Put(buffer, size);
-    return size;
+    snd_adjust_volume_and_lowpass(buffer, len);
+    Grab_Sound(buffer, len);
+    Audio_Output_Queue_Put(buffer, len);
+    return len;
 }
 
 /* This function processes and sends one single sample */
@@ -283,7 +298,7 @@ void snd_gpo_access(uint8_t data) {
     Log_Printf(LOG_VOL_LEVEL, "[Sound] Control logic access: %02X",data);
     
     sndout_state.mute = data&SND_SPEAKER_ENABLE;
-    sndout_state.lowpass = data&SND_LOWPASS_ENABLE;
+    sndout_state.deemph = data&SND_LOWPASS_ENABLE;
     
     if (data&SND_INTFC_STROBE) {
         snd_save_volume_reg();
@@ -365,13 +380,13 @@ void snd_start_output(uint8_t mode) {
     /* Starting sound output loop */
     if (!sound_output_active) {
         Log_Printf(LOG_SND_LEVEL, "[Sound] Starting output loop.");
+        snd_deemphasis_start();
         sound_output_active = true;
         Audio_Output_Queue_Clear();
-        CycInt_AddTimeEvent(1, 0, EVENT_SND_OUTPUT);
     } else { /* Even re-enable loop if we are already active. This lowers the delay. */
         Log_Printf(LOG_DEBUG, "[Sound] Restarting output loop.");
-        CycInt_AddTimeEvent(1, 0, EVENT_SND_OUTPUT);
     }
+    CycInt_AddTimeEvent(1, 0, EVENT_SND_OUTPUT);
 }
 
 void snd_stop_output(void) {
@@ -435,6 +450,7 @@ bool snd_input_active(void) {
 
 /* Reset and pause sound */
 void Sound_Reset(void) {
+    snd_deemphasis_init();
     snd_buffer_len = 0;
 }
 

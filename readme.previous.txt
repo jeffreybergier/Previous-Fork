@@ -480,6 +480,7 @@ Previous v4.3:
 Previous v4.4 (unreleased):
   > Adds support for saving prints and screen contents to TIFF files.
   > Adds support for recording sound through DSP serial port.
+  > Replaces low-pass filter with de-emphasis filter matching real hardware.
   > Improves generated PNG files to have smaller file sizes.
 
 
