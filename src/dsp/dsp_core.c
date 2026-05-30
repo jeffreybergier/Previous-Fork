@@ -601,7 +601,7 @@ static uint32_t const p_rom[0x20] = {
 	/* P_1C */ 0x0502ba, /* MOVEC #2,OMR          */
 	/* P_1D */ 0x0000b9, /* ANDI  #0,CCR          */
 	/* P_1E */ 0x0c0000, /* JMP   $0              */
-	/* P_1F */ 0x000000, /*                       */
+	/* P_1F */ 0x000000  /*                       */
 };
 
 
