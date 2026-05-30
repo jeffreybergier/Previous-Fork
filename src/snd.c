@@ -26,10 +26,12 @@ uint8_t snd_buffer[SND_BUFFER_SIZE];
 int     snd_buffer_len = 0;
 
 static struct {
+    double volume[2]; /* 0 = left, 1 = right */
+    
     uint8_t mode;
     uint8_t mute;
     uint8_t deemph;
-    uint8_t volume[2]; /* 0 = left, 1 = right */
+    uint8_t attenuation[2];
 } sndout_state;
 
 /* Maximum volume (really is attenuation) */
@@ -82,31 +84,41 @@ static uint8_t snd_make_ulaw(int16_t sample) {
     return ulawbyte;
 }
 
-/* These functions apply repeat, zero-fill or nothing on samples */
+/* This function performs two times upsampling using repeat or zero-fill */
 static void snd_make_double_samples(uint8_t *buffer, int len, bool repeat) {
-    int i;
-    for (i = len - 4; i >= 0; i -= 4) {
-        buffer[i*2+7] = repeat ? buffer[i+3] : 0; /* repeat or zero-fill */
-        buffer[i*2+6] = repeat ? buffer[i+2] : 0; /* repeat or zero-fill */
-        buffer[i*2+5] = repeat ? buffer[i+1] : 0; /* repeat or zero-fill */
-        buffer[i*2+4] = repeat ? buffer[i+0] : 0; /* repeat or zero-fill */
-        buffer[i*2+3] =          buffer[i+3];
-        buffer[i*2+2] =          buffer[i+2];
-        buffer[i*2+1] =          buffer[i+1];
-        buffer[i*2+0] =          buffer[i+0];
+    uint8_t* src = buffer + len;
+    uint8_t* dst = buffer + len * 2;
+    assert((len & 3) == 0);
+    for (;;) {
+        src -= 4;
+        dst -= 4;
+        if (repeat) { /* repeat */
+            memcpy(dst, src, 4);
+        } else {   /* zero-fill */
+            memset(dst, 0, 4);
+        }
+        dst -= 4;
+        if (src >= dst) {
+            break;
+        }
+        memcpy(dst, src, 4);
     }
 }
 
 /* This is a de-emphasis filter for 44.1 kHz pre-emphasised CD audio input */
 static struct deemph_t {
-    double a1, b0, b1;
     double li[2];
     double lo[2];
 } deemph;
 
-static void snd_deemphasis_init(void) {
-    /* Pre-calculated coefficients are derived from:
-     *   T = 1./44100
+static void snd_deemphasis_start(void) {
+    deemph.li[0] = deemph.li[1] = 0.0;
+    deemph.lo[0] = deemph.lo[1] = 0.0;
+}
+
+static double snd_deemphasis_filter(double i, int c) {
+    /* Coefficients have been calculated as follows:
+     *   T = 1./44100.
      *   V0 = 0.3365
      *   OmegaU = 1./19E-6
      *   B = V0*tan(OmegaU*T/2.)
@@ -114,37 +126,23 @@ static void snd_deemphasis_init(void) {
      *   b0 = (1.+(1.-a1)*(V0-1.)/2.)
      *   b1 = (a1+(a1-1.)*(V0-1.)/2.)
      */
-    deemph.a1 = -0.62786881719628784282;
-    deemph.b0 =  0.45995451989513153057;
-    deemph.b1 = -0.08782333709141937339;
-}
-
-static void snd_deemphasis_start(void) {
-    deemph.li[0] = deemph.li[1] = 0.0;
-    deemph.lo[0] = deemph.lo[1] = 0.0;
-}
-
-static int16_t snd_deemphasis_filter(int16_t sample, int c) {
-    long result;
-    double i = (double)sample;
-    double o = i * deemph.b0 + deemph.li[c] * deemph.b1 - deemph.lo[c] * deemph.a1;
+    static const double a1 = -0.62786881719628784282;
+    static const double b0 =  0.45995451989513153057;
+    static const double b1 = -0.08782333709141937339;
+    
+    double o = i * b0 + deemph.li[c] * b1 - deemph.lo[c] * a1;
     
     deemph.li[c] = i;
     deemph.lo[c] = o;
     
-    result = (o < 0.0) ? (long)(o - 0.5) : (long)(o + 0.5);
-    
-    if (result > INT16_MAX) return INT16_MAX;
-    if (result < INT16_MIN) return INT16_MIN;
-    
-    return (int16_t)result;
+    return o;
 }
 
 /* This function returns a factor for adding volume adjustment to samples */
-static double snd_get_volume_factor(int channel) {
-    double gain = sndout_state.volume[channel] * -2.0;
+static double snd_get_volume_factor(uint8_t vol_data) {
+    double gain = (double)vol_data * -2.0;
     
-    switch (sndout_state.volume[channel]) {
+    switch (vol_data) {
         case 0:           return 1.0;
         case SND_MAX_VOL: return 0.0;
         default:          return pow(10.0, gain*0.05);
@@ -153,30 +151,35 @@ static double snd_get_volume_factor(int channel) {
 
 /* This function adjusts sound output volume */
 static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
-    int i;
-    int16_t ldata, rdata;
-    double ladjust, radjust;
     if (sndout_state.mute) {
-        for (i=0; i<len; i++) {
-            buf[i] = 0;
-        }
-    } else if (sndout_state.volume[0] || sndout_state.volume[1] || sndout_state.deemph) {
-        ladjust = snd_get_volume_factor(0);
-        radjust = snd_get_volume_factor(1);
+        memset(buf, 0, len);
+    } else if (sndout_state.attenuation[0] || sndout_state.attenuation[1] || sndout_state.deemph) {
+        int i;
+        long lsample, rsample;
+        double ldata, rdata;
         
-        for (i=0; i<len; i+=4) {
-            ldata = ((int16_t)buf[i+0]<<8)|buf[i+1];
-            rdata = ((int16_t)buf[i+2]<<8)|buf[i+3];
+        for (i = 0; i < len; i += 4) {
+            ldata = (double)(int16_t)((buf[i + 0] << 8) | buf[i + 1]);
+            rdata = (double)(int16_t)((buf[i + 2] << 8) | buf[i + 3]);
             if (sndout_state.deemph) {
                 ldata = snd_deemphasis_filter(ldata, 0);
                 rdata = snd_deemphasis_filter(rdata, 1);
             }
-            ldata *= ladjust;
-            rdata *= radjust;
-            buf[i+0] = ldata>>8;
-            buf[i+1] = ldata;
-            buf[i+2] = rdata>>8;
-            buf[i+3] = rdata;
+            ldata *= sndout_state.volume[0];
+            rdata *= sndout_state.volume[1];
+            
+            lsample = (ldata < 0.0) ? (long)(ldata - 0.5) : (long)(ldata + 0.5);
+            rsample = (rdata < 0.0) ? (long)(rdata - 0.5) : (long)(rdata + 0.5);
+
+            if      (lsample > INT16_MAX) lsample = INT16_MAX;
+            else if (lsample < INT16_MIN) lsample = INT16_MIN;
+            if      (rsample > INT16_MAX) rsample = INT16_MAX;
+            else if (rsample < INT16_MIN) rsample = INT16_MIN;
+
+            buf[i + 0] = lsample >> 8;
+            buf[i + 1] = lsample;
+            buf[i + 2] = rsample >> 8;
+            buf[i + 3] = rsample;
         }
     }
 }
@@ -217,9 +220,9 @@ void snd_send_sample(uint32_t data) {
     if (!snd_output_active())
         return;
     
-    buf[0] = data<<24;
-    buf[1] = data<<16;
-    buf[2] = data<<8;
+    buf[0] = data << 24;
+    buf[1] = data << 16;
+    buf[2] = data << 8;
     buf[3] = data;
     
     snd_send_samples(buf, 4);
@@ -261,17 +264,19 @@ static void snd_save_volume_reg(void) {
     chan_lr = (tmp_vol&0xC0)>>6;
     vol_data = tmp_vol&0x3F;
     
-    if (vol_data>SND_MAX_VOL) {
-        Log_Printf(LOG_WARN, "[Sound] Gain limit exceeded (-%d dB).",vol_data*2);
-        vol_data=SND_MAX_VOL;
+    if (vol_data > SND_MAX_VOL) {
+        Log_Printf(LOG_WARN, "[Sound] Volume data limit exceeded (%d).", vol_data);
+        vol_data = SND_MAX_VOL;
     }
-    if (chan_lr&1) {
-        Log_Printf(LOG_WARN, "[Sound] Setting gain of left channel to -%d dB",vol_data*2);
-        sndout_state.volume[0] = vol_data;
+    if (chan_lr & 1) {
+        Log_Printf(LOG_WARN, "[Sound] Setting gain of left channel to %d dB", vol_data * -2);
+        sndout_state.attenuation[0] = vol_data;
+        sndout_state.volume[0] = snd_get_volume_factor(vol_data);
     }
-    if (chan_lr&2) {
-        Log_Printf(LOG_WARN, "[Sound] Setting gain of right channel to -%d dB",vol_data*2);
-        sndout_state.volume[1] = vol_data;
+    if (chan_lr & 2) {
+        Log_Printf(LOG_WARN, "[Sound] Setting gain of right channel to %d dB", vol_data * -2);
+        sndout_state.attenuation[1] = vol_data;
+        sndout_state.volume[1] = snd_get_volume_factor(vol_data);
     }
 }
 
@@ -450,7 +455,8 @@ bool snd_input_active(void) {
 
 /* Reset and pause sound */
 void Sound_Reset(void) {
-    snd_deemphasis_init();
+    sndout_state.volume[0] = snd_get_volume_factor(sndout_state.attenuation[0]);
+    sndout_state.volume[1] = snd_get_volume_factor(sndout_state.attenuation[1]);
     snd_buffer_len = 0;
 }
 
@@ -487,8 +493,7 @@ void SND_Out_Handler(void) {
     
     if (snd_buffer_len) {
         snd_buffer_len = snd_send_samples(snd_buffer, snd_buffer_len);
-        snd_buffer_len = (snd_buffer_len / 4) + 1;
-        CycInt_UpdateTimeEvent(SND_CHECK_DELAY * snd_buffer_len, 0, EVENT_SND_OUTPUT);
+        CycInt_UpdateTimeEvent(SND_CHECK_DELAY * (snd_buffer_len >> 2), 0, EVENT_SND_OUTPUT);
     } else {
         kms_send_sndout_underrun();
         /* Call do_dma_sndout_intr() a little bit later */
