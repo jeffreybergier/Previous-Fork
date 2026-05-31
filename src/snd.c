@@ -85,23 +85,15 @@ static uint8_t snd_make_ulaw(int16_t sample) {
 }
 
 /* This function performs two times upsampling using repeat or zero-fill */
-static void snd_make_double_samples(uint8_t *buffer, int len, bool repeat) {
-    uint8_t* src = buffer + len;
-    uint8_t* dst = buffer + len * 2;
-    assert((len & 3) == 0);
-    for (;;) {
-        src -= 4;
-        dst -= 4;
-        if (repeat) { /* repeat */
-            memcpy(dst, src, 4);
-        } else {   /* zero-fill */
-            memset(dst, 0, 4);
-        }
-        dst -= 4;
-        if (src >= dst) {
-            break;
-        }
-        memcpy(dst, src, 4);
+static void snd_make_double_samples(uint8_t* buf, int len, int repeat) {
+    uint32_t orig, copy;
+    uint32_t* src = (uint32_t*)(buf + len);
+    uint32_t* dst = (uint32_t*)(buf + len * 2);
+    while (src < dst) {
+        memcpy(&orig, --src, 4); /* read sample from top of source */
+        copy = orig * repeat;    /* repeat or zero-fill the sample */
+        memcpy(--dst, &copy, 4); /* write modified sample to top of destination */
+        memcpy(--dst, &orig, 4); /* write original sample to top of destination */
     }
 }
 
@@ -150,13 +142,13 @@ static double snd_get_volume_factor(uint8_t vol_data) {
 }
 
 /* This function adjusts sound output volume */
-static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
+static void snd_adjust_volume_and_deemphasis(uint8_t* buf, int len) {
     if (sndout_state.mute) {
         memset(buf, 0, len);
     } else if (sndout_state.attenuation[0] || sndout_state.attenuation[1] || sndout_state.deemph) {
-        int i;
-        long lsample, rsample;
+        int16_t lsample, rsample;
         double ldata, rdata;
+        int i;
         
         for (i = 0; i < len; i += 4) {
             ldata = (double)(int16_t)((buf[i + 0] << 8) | buf[i + 1]);
@@ -168,14 +160,12 @@ static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
             ldata *= sndout_state.volume[0];
             rdata *= sndout_state.volume[1];
             
-            lsample = (ldata < 0.0) ? (long)(ldata - 0.5) : (long)(ldata + 0.5);
-            rsample = (rdata < 0.0) ? (long)(rdata - 0.5) : (long)(rdata + 0.5);
-
-            if      (lsample > INT16_MAX) lsample = INT16_MAX;
-            else if (lsample < INT16_MIN) lsample = INT16_MIN;
-            if      (rsample > INT16_MAX) rsample = INT16_MAX;
-            else if (rsample < INT16_MIN) rsample = INT16_MIN;
-
+            ldata += (ldata < 0.0) ? -0.5 : +0.5;
+            rdata += (rdata < 0.0) ? -0.5 : +0.5;
+            
+            lsample = (ldata > INT16_MAX) ? INT16_MAX : ((ldata < INT16_MIN) ? INT16_MIN : (int16_t)ldata);
+            rsample = (rdata > INT16_MAX) ? INT16_MAX : ((rdata < INT16_MIN) ? INT16_MIN : (int16_t)rdata);
+            
             buf[i + 0] = lsample >> 8;
             buf[i + 1] = lsample;
             buf[i + 2] = rsample >> 8;
@@ -191,25 +181,25 @@ static void snd_adjust_volume_and_lowpass(uint8_t *buf, int len) {
 #define SND_MODE_DBL_RP 0x10
 #define SND_MODE_DBL_ZF 0x30
 
-static int snd_send_samples(uint8_t* buffer, int len) {
+static int snd_send_samples(uint8_t* buf, int len) {
     switch (sndout_state.mode) {
         case SND_MODE_NORMAL:
             break;
         case SND_MODE_DBL_RP:
-            snd_make_double_samples(buffer, len, true);
+            snd_make_double_samples(buf, len, 1);
             len *= 2;
             break;
         case SND_MODE_DBL_ZF:
-            snd_make_double_samples(buffer, len, false);
+            snd_make_double_samples(buf, len, 0);
             len *= 2;
             break;
         default:
             Log_Printf(LOG_WARN, "[Sound] Error: Unknown sound output mode!");
             return 0;
     }
-    snd_adjust_volume_and_lowpass(buffer, len);
-    Grab_Sound(buffer, len);
-    Audio_Output_Queue_Put(buffer, len);
+    snd_adjust_volume_and_deemphasis(buf, len);
+    Grab_Sound(buf, len);
+    Audio_Output_Queue_Put(buf, len);
     return len;
 }
 
