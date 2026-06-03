@@ -42,7 +42,7 @@ static struct {
 #define BIAS 0x84       /* define the add-in bias for 16 bit samples */
 #define CLIP 32635
 
-static const int16_t exp_lut[256] = {
+static const uint8_t exp_lut[256] = {
     0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
@@ -62,7 +62,7 @@ static const int16_t exp_lut[256] = {
 };
 
 static uint8_t snd_make_ulaw(int16_t sample) {
-    int16_t sign, exponent, mantissa;
+    uint8_t sign, exponent, mantissa;
     uint8_t ulawbyte;
     
     /** get the sample into sign-magnitude **/
@@ -84,16 +84,20 @@ static uint8_t snd_make_ulaw(int16_t sample) {
     return ulawbyte;
 }
 
+/* This variable stores four ulaw samples */
+static uint32_t foursamples;
+static int ulawsamplecount;
+
 /* This function performs two times upsampling using repeat or zero-fill */
 static void snd_make_double_samples(uint8_t* buf, int len, int repeat) {
-    uint32_t orig, copy;
+    uint32_t copy, fill;
     uint32_t* src = (uint32_t*)(buf + len);
     uint32_t* dst = (uint32_t*)(buf + len * 2);
     while (src < dst) {
-        memcpy(&orig, --src, 4); /* read sample from top of source */
-        copy = orig * repeat;    /* repeat or zero-fill the sample */
-        memcpy(--dst, &copy, 4); /* write modified sample to top of destination */
-        memcpy(--dst, &orig, 4); /* write original sample to top of destination */
+        memcpy(&copy, --src, 4); /* read sample from top of source */
+        fill = copy * repeat;    /* repeat or zero-fill the sample */
+        memcpy(--dst, &fill, 4); /* write filling sample to top of destination */
+        memcpy(--dst, &copy, 4); /* copy original sample to top of destination */
     }
 }
 
@@ -346,17 +350,17 @@ static void sound_unpause(void) {
 
 static void sound_pause(void) {
     if (sndout_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitializing output device.");
+        Log_Printf(LOG_WARN, "[Sound] Uninitialising output device.");
         sndout_inited = false;
         Audio_Output_UnInit();
     }
     if (sndin_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitializing input device.");
+        Log_Printf(LOG_WARN, "[Sound] Uninitialising input device.");
         sndin_inited = false;
         Audio_Input_UnInit();
     }
     if (snddsp_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitializing DSP input device.");
+        Log_Printf(LOG_WARN, "[Sound] Uninitialising DSP input device.");
         snddsp_inited = false;
         Audio_DSP_UnInit();
     }
@@ -401,6 +405,7 @@ void snd_start_input(void) {
     /* Starting sound input loop */
     if (!sound_input_active) {
         Log_Printf(LOG_SND_LEVEL, "[Sound] Starting input loop.");
+        ulawsamplecount = 0;
         sound_input_active = true;
     } else { /* Even re-enable loop if we are already active. This lowers the delay. */
         Log_Printf(LOG_DEBUG, "[Sound] Restarting input loop.");
@@ -498,7 +503,6 @@ void SND_Out_Handler(void) {
 
 void SND_In_Handler(void) {
     int16_t sample;
-    uint32_t foursamples = 0;
     int size = 0;
     
     if (!sound_input_active) {
@@ -509,20 +513,21 @@ void SND_In_Handler(void) {
     }
     
     /* Process 256 samples at a time and then sync */
-    while (size<256) {
+    while (size < 256) {
         if (Audio_Input_Buffer_Get(&sample) < 0) {
             Log_Printf(LOG_WARN, "[Sound] Waiting for sound input data");
-            size = 256;
+            size = 256; /* Long delay */
             break;
         }
-        
-        /* Shift in sample (oldest first) */
-        foursamples = (foursamples<<8) | snd_make_ulaw(sample);
-        
         size++;
+
+        /* Shift in sample (oldest first) */
+        foursamples = (foursamples << 8) | snd_make_ulaw(sample);
+        ulawsamplecount++;
         
         /* After accumulating 4 samples, send them to KMS */
-        if ((size&3)==0) {
+        if (ulawsamplecount >= 4) {
+            ulawsamplecount = 0;
             if (kms_send_codec_receive(foursamples)) {
                 break;
             }
@@ -536,12 +541,12 @@ void SND_In_Handler(void) {
     }
     
     if (kms_can_receive_codec()) {
-        CycInt_UpdateTimeEvent(size*SNDIN_SAMPLE_TIME, 0, EVENT_SND_INPUT);
+        CycInt_UpdateTimeEvent(size * SNDIN_SAMPLE_TIME, 0, EVENT_SND_INPUT);
     }
 }
 
 /*
- Sound can also be recorded at 44,1 kHz through the SSI port of the DSP.
+  Sound can also be recorded at 44,1 kHz through the SSI port of the DSP.
  */
 void SND_DSP_Handler(void) {
     int16_t sample;
