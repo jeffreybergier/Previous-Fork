@@ -27,13 +27,7 @@ static SDL_AudioDeviceID Audio_DSP_Stream    = 0;
  */
 void Audio_Output_Queue_Put(uint8_t* data, int len) {
 	if (Audio_Output_Stream && len > 0) {
-		int chunkSize = 512;
-		do {
-			if (len < chunkSize) chunkSize = len;
-			SDL_QueueAudio(Audio_Output_Stream, data, chunkSize);
-			data += chunkSize;
-			len  -= chunkSize;
-		} while (len > 0);
+		SDL_QueueAudio(Audio_Output_Stream, data, len);
 	}
 }
 
@@ -58,13 +52,10 @@ void Audio_Output_Queue_Clear(void) {
 /**
  * Sound recording functions.
  */
-#define RECDATA_SIZE 4096
-#define RECDATA_MASK (RECDATA_SIZE - 1)
 struct rec_data {
-	uint8_t data[RECDATA_SIZE];
-	SDL_SpinLock lock;
-	int write;
+	uint8_t data[4096];
 	int read;
+	int size;
 };
 
 static struct rec_data codec_data;
@@ -75,41 +66,38 @@ static void Audio_Init_Data(struct rec_data* buf, int init) {
 	buf->read = 0;
 	/* Initialise buffer with silence to compensate for time gap between
 	 * Audio_Input_Enable() and first availability of recorded data. */
-	for (buf->write = 0; buf->write < init; buf->write++) {
-		buf->data[buf->write] = 0;
+	for (buf->size = 0; buf->size < init; buf->size++) {
+		buf->data[buf->size] = 0;
 	}
 }
 
 static int Audio_Data_Get(SDL_AudioDeviceID device, struct rec_data* buf, int16_t* sample) {
-	int result = 0;
 	if (device) {
-		SDL_AtomicLock(&buf->lock);
-		if ((buf->read & RECDATA_MASK) != (buf->write & RECDATA_MASK)) {
-			*sample = (((uint16_t)buf->data[buf->read & RECDATA_MASK] << 8) | buf->data[(buf->read & RECDATA_MASK) + 1]);
-			buf->read += 2;
-			buf->read &= RECDATA_MASK;
-		} else {
-			result = -1;
+		if (buf->read >= buf->size) { /* Try to re-fill buffer in case it is empty. */
+			buf->read = 0;
+			buf->size = SDL_DequeueAudio(device, buf->data, sizeof(buf->data));
+			if (buf->size & 1) {
+				Log_Printf(LOG_WARN, "[Audio] Recording buffer has invalid size (%d).", buf->size);
+				buf->size--;
+			}
 		}
-		SDL_AtomicUnlock(&buf->lock);
+		if (buf->read < buf->size) {
+			*sample = (((uint16_t)buf->data[buf->read] << 8) | buf->data[buf->read + 1]);
+			buf->read += 2;
+		} else {
+			return -1;
+		}
 	} else {
 		*sample = 0; /* silence */
 	}
-	return result;
+	return 0;
 }
 
 int Audio_Input_Buffer_Size(void) {
-	int result = 0;
 	if (Audio_Input_Stream) {
-		SDL_AtomicLock(&codec_data.lock);
-		if (codec_data.read <= codec_data.write) {
-			result = codec_data.write - codec_data.read;
-		} else {
-			result = RECDATA_SIZE - (codec_data.read - codec_data.write);
-		}
-		SDL_AtomicUnlock(&codec_data.lock);
+		return SDL_GetQueuedAudioSize(Audio_Input_Stream);
 	}
-	return result;
+	return 0;
 }
 
 int Audio_Input_Buffer_Get(int16_t* sample) {
@@ -120,35 +108,13 @@ int Audio_DSP_Buffer_Get(int16_t* sample) {
 	return Audio_Data_Get(Audio_DSP_Stream, &dsp_data, sample);
 }
 
-static void Audio_Data_Put(struct rec_data* buf, uint8_t* data, int len) {
-	if (len > 0) {
-		SDL_AtomicLock(&buf->lock);
-		while (len--) {
-			buf->data[buf->write++ & RECDATA_MASK] = *data++;
-		}
-		buf->write &= RECDATA_MASK;
-		buf->write &= ~1; /* Just to be sure */
-		SDL_AtomicUnlock(&buf->lock);
-	}
-}
-
-static void Audio_Input_CallBack(void *userdata, uint8_t *stream, int len) {
-	Log_Printf(LOG_WARN, "Audio_Input_CallBack %d", len);
-	Audio_Data_Put(&codec_data, stream, len);
-}
-
-static void Audio_DSP_CallBack(void *userdata, uint8_t *stream, int len) {
-	Log_Printf(LOG_WARN, "Audio_DSP_CallBack %d", len);
-	Audio_Data_Put(&dsp_data, stream, len);
-}
-
 /*-----------------------------------------------------------------------*/
 /**
  * Initialise the audio subsystem.
  */
-static void Audio_Open(SDL_AudioDeviceID *device, SDL_AudioCallback func, int rec, int channels, int freq) {
+static void Audio_Open(SDL_AudioDeviceID *device, int iscapture, int channels, int freq) {
 	if (*device == 0) {
-		SDL_AudioSpec request = {freq, AUDIO_S16MSB, channels, 0, 512, 0, 0, func, NULL};
+		SDL_AudioSpec request = {freq, AUDIO_S16MSB, channels, 0, 512, 0, 0, NULL, NULL};
 		
 		/* Init the SDL's audio subsystem: */
 		if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
@@ -159,7 +125,7 @@ static void Audio_Open(SDL_AudioDeviceID *device, SDL_AudioCallback func, int re
 			}
 		}
 		/* Open streaming device */
-		*device = SDL_OpenAudioDevice(NULL, rec, &request, NULL, 0);
+		*device = SDL_OpenAudioDevice(NULL, iscapture, &request, NULL, 0);
 		if (*device == 0) {
 			Log_Printf(LOG_WARN, "[Audio] Could not open audio device: %s\n", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open audio output device. No sound.", 5000);
@@ -168,15 +134,15 @@ static void Audio_Open(SDL_AudioDeviceID *device, SDL_AudioCallback func, int re
 }
 
 void Audio_Output_Init(int channels, int freq) {
-	Audio_Open(&Audio_Output_Stream, NULL, 0, channels, freq);
+	Audio_Open(&Audio_Output_Stream, 0, channels, freq);
 }
 
 void Audio_Input_Init(int channels, int freq) {
-	Audio_Open(&Audio_Input_Stream, Audio_Input_CallBack, 1, channels, freq);
+	Audio_Open(&Audio_Input_Stream, 1, channels, freq);
 }
 
 void Audio_DSP_Init(int channels, int freq) {
-	Audio_Open(&Audio_DSP_Stream, Audio_DSP_CallBack, 1, channels, freq);
+	Audio_Open(&Audio_DSP_Stream, 1, channels, freq);
 }
 
 /*-----------------------------------------------------------------------*/
