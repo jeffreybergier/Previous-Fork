@@ -20,10 +20,6 @@ static SDL_AudioStream* Audio_Output_Stream = NULL;
 static SDL_AudioStream* Audio_Input_Stream  = NULL;
 static SDL_AudioStream* Audio_DSP_Stream    = NULL;
 
-static bool bPlayingBuffer   = false; /* Is playback active? */
-static bool bRecordingBuffer = false; /* Is recording active? */
-static bool bDspRecording    = false; /* Is DSP recording active? */
-
 
 /*-----------------------------------------------------------------------*/
 /**
@@ -119,7 +115,7 @@ int Audio_DSP_Buffer_Get(int16_t* sample) {
 /**
  * Initialise the audio subsystem.
  */
-static void Audio_Open(SDL_AudioDeviceID dev, SDL_AudioStream** stream, int channels, int freq) {
+static void Audio_Open(SDL_AudioStream** stream, SDL_AudioDeviceID dev, int channels, int freq) {
 	if (*stream == NULL) {
 		SDL_AudioSpec request = {SDL_AUDIO_S16BE, channels, freq};
 		
@@ -141,86 +137,65 @@ static void Audio_Open(SDL_AudioDeviceID dev, SDL_AudioStream** stream, int chan
 }
 
 void Audio_Output_Init(int channels, int freq) {
-	Audio_Open(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &Audio_Output_Stream, channels, freq);
+	Audio_Open(&Audio_Output_Stream, SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, channels, freq);
 }
 
 void Audio_Input_Init(int channels, int freq) {
-	Audio_Open(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &Audio_Input_Stream, channels, freq);
+	Audio_Open(&Audio_Input_Stream, SDL_AUDIO_DEVICE_DEFAULT_RECORDING, channels, freq);
 }
 
 void Audio_DSP_Init(int channels, int freq) {
-	Audio_Open(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &Audio_DSP_Stream, channels, freq);
+	Audio_Open(&Audio_DSP_Stream, SDL_AUDIO_DEVICE_DEFAULT_RECORDING, channels, freq);
 }
 
 /*-----------------------------------------------------------------------*/
 /**
  * Free the audio subsystem.
  */
-void Audio_Output_UnInit(void) {
-	if (Audio_Output_Stream) {
-		/* Stop */
-		Audio_Output_Enable(false);
-		SDL_DestroyAudioStream(Audio_Output_Stream);
-		Audio_Output_Stream = NULL;
+static void Audio_Close(SDL_AudioStream** stream) {
+	if (*stream) {
+		/* Stop and close audio stream */
+		SDL_PauseAudioStreamDevice(*stream);
+		SDL_DestroyAudioStream(*stream);
+		*stream = NULL;
 	}
+}
+
+void Audio_Output_UnInit(void) {
+	Audio_Close(&Audio_Output_Stream);
 }
 
 void Audio_Input_UnInit(void) {
-	if (Audio_Input_Stream) {
-		/* Stop */
-		Audio_Input_Enable(false);
-		SDL_DestroyAudioStream(Audio_Input_Stream);
-		Audio_Input_Stream = NULL;
-	}
+	Audio_Close(&Audio_Input_Stream);
 }
 
 void Audio_DSP_UnInit(void) {
-	if (Audio_DSP_Stream) {
-		/* Stop */
-		Audio_DSP_Enable(false);
-		SDL_DestroyAudioStream(Audio_DSP_Stream);
-		Audio_DSP_Stream = NULL;
-	}
+	Audio_Close(&Audio_DSP_Stream);
 }
 
 /*-----------------------------------------------------------------------*/
 /**
  * Start/Stop playback and recording.
  */
-void Audio_Output_Enable(bool bEnable) {
-	if (bEnable && !bPlayingBuffer) {
-		/* Start playing */
-		SDL_ResumeAudioStreamDevice(Audio_Output_Stream);
-		bPlayingBuffer = true;
-	} else if (!bEnable && bPlayingBuffer) {
-		/* Stop from playing */
-		SDL_PauseAudioStreamDevice(Audio_Output_Stream);
-		bPlayingBuffer = false;
+static void Audio_Enable(SDL_AudioStream* stream, struct rec_data* data, bool bEnable) {
+	if (bEnable && SDL_AudioStreamDevicePaused(stream)) {
+		/* Start */
+		if (data) Audio_Init_Data(data, 32);
+		SDL_ResumeAudioStreamDevice(stream);
+	} else if (!bEnable && !SDL_AudioStreamDevicePaused(stream)) {
+		/* Stop */
+		SDL_PauseAudioStreamDevice(stream);
 	}
+}
+
+void Audio_Output_Enable(bool bEnable) {
+	Audio_Enable(Audio_Output_Stream, NULL, bEnable);
 }
 
 void Audio_Input_Enable(bool bEnable) {
-	if (bEnable && !bRecordingBuffer) {
-		/* Start recording */
-		Audio_Init_Data(&codec_data, 32);
-		SDL_ResumeAudioStreamDevice(Audio_Input_Stream);
-		bRecordingBuffer = true;
-	} else if (!bEnable && bRecordingBuffer) {
-		/* Stop recording */
-		SDL_PauseAudioStreamDevice(Audio_Input_Stream);
-		bRecordingBuffer = false;
-	}
+	Audio_Enable(Audio_Input_Stream, &codec_data, bEnable);
 }
 
 void Audio_DSP_Enable(bool bEnable) {
-	if (bEnable && !bDspRecording) {
-		/* Start recording */
-		Audio_Init_Data(&dsp_data, 32);
-		SDL_ResumeAudioStreamDevice(Audio_DSP_Stream);
-		bDspRecording = true;
-	} else if (!bEnable && bDspRecording) {
-		/* Stop recording */
-		SDL_PauseAudioStreamDevice(Audio_DSP_Stream);
-		bDspRecording = false;
-	}
+	Audio_Enable(Audio_DSP_Stream, &dsp_data, bEnable);
 }
