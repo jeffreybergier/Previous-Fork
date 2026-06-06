@@ -17,14 +17,12 @@ extern void Audio_Output_Queue_Flush(void);
 extern void Audio_Output_Queue_Clear(void);
 extern int  Audio_Output_Queue_Size(void);
 
-extern void Audio_Input_Enable(bool bEnable);
-extern void Audio_Input_Init(int channels, int freq);
+extern void Audio_Input_InitAndEnable(int channels, int freq);
 extern void Audio_Input_UnInit(void);
 extern int  Audio_Input_Buffer_Get(int16_t* sample);
 extern int  Audio_Input_Buffer_Size(void);
 
-extern void Audio_DSP_Enable(bool bEnable);
-extern void Audio_DSP_Init(int channels, int freq);
+extern void Audio_DSP_InitAndEnable(int channels, int freq);
 extern void Audio_DSP_UnInit(void);
 extern int  Audio_DSP_Buffer_Get(int16_t* sample);
 

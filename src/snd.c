@@ -22,6 +22,9 @@ const char Snd_fileid[] = "Previous snd.c";
 #define LOG_VOL_LEVEL   LOG_DEBUG
 
 
+#define SND_CDDA_FREQUENCY   44100   /* Sound playback frequency */
+#define SND_CODEC_FREQUENCY   8012   /* Sound recording frequency */
+
 uint8_t snd_buffer[SND_BUFFER_SIZE];
 int     snd_buffer_len = 0;
 
@@ -311,57 +314,43 @@ void snd_gpo_access(uint8_t data) {
 
 
 /* Initialise and uninitialise the audio system */
-static bool sndout_inited       = false;
-static bool sndin_inited        = false;
-static bool snddsp_inited       = false;
+static bool sound_output_inited = false;
 static bool sound_output_active = false;
 static bool sound_input_active  = false;
 static bool sound_dsp_active    = false;
 
 static void sound_unpause(void) {
-    if (!sndout_inited && ConfigureParams.Sound.bEnableSound) {
-        Log_Printf(LOG_WARN, "[Sound] Initialising output device.");
-        Audio_Output_Init(2, SOUND_OUT_FREQUENCY);
-        sndout_inited = true;
+    if (!sound_output_inited && ConfigureParams.Sound.bEnableSound) {
+        Log_Printf(LOG_WARN, "[Sound] Initialising output.");
+        Audio_Output_Init(2, SND_CDDA_FREQUENCY);
+        sound_output_inited = true;
     }
-    if (sound_input_active && !sndin_inited && ConfigureParams.Sound.bEnableSound) {
-        Log_Printf(LOG_WARN, "[Sound] Initialising input device.");
-        Audio_Input_Init(1, SOUND_IN_FREQUENCY);
-        sndin_inited = true;
-    }
-    if (sound_dsp_active && !snddsp_inited && ConfigureParams.Sound.bEnableSound) {
-        Log_Printf(LOG_WARN, "[Sound] Initialising DSP input device.");
-        Audio_DSP_Init(2, SOUND_OUT_FREQUENCY);
-        snddsp_inited = true;
-    }
-    if (sound_output_active && sndout_inited) {
+    if (sound_output_active && sound_output_inited) {
         Log_Printf(LOG_WARN, "[Sound] Starting output.");
         Audio_Output_Enable(true);
     }
-    if (sound_input_active && sndin_inited) {
+    if (sound_input_active && ConfigureParams.Sound.bEnableSound) {
         Log_Printf(LOG_WARN, "[Sound] Starting input.");
-        Audio_Input_Enable(true);
+        Audio_Input_InitAndEnable(1, SND_CODEC_FREQUENCY);
     }
-    if (sound_dsp_active && snddsp_inited) {
+    if (sound_dsp_active && ConfigureParams.Sound.bEnableSound) {
         Log_Printf(LOG_WARN, "[Sound] Starting DSP input.");
-        Audio_DSP_Enable(true);
+        Audio_DSP_InitAndEnable(2, SND_CDDA_FREQUENCY);
     }
 }
 
 static void sound_pause(void) {
-    if (sndout_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitialising output device.");
-        sndout_inited = false;
+    if (sound_output_inited) {
+        Log_Printf(LOG_WARN, "[Sound] Uninitialising output.");
+        sound_output_inited = false;
         Audio_Output_UnInit();
     }
-    if (sndin_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitialising input device.");
-        sndin_inited = false;
+    if (sound_input_active) {
+        Log_Printf(LOG_WARN, "[Sound] Stopping input.");
         Audio_Input_UnInit();
     }
-    if (snddsp_inited) {
-        Log_Printf(LOG_WARN, "[Sound] Uninitialising DSP input device.");
-        snddsp_inited = false;
+    if (sound_dsp_active) {
+        Log_Printf(LOG_WARN, "[Sound] Stopping DSP input.");
         Audio_DSP_UnInit();
     }
 }
@@ -371,7 +360,7 @@ static void sound_pause(void) {
 void snd_start_output(uint8_t mode) {
     sndout_state.mode = mode;
     /* Starting host audio playback */
-    if (sndout_inited) {
+    if (sound_output_inited) {
         Audio_Output_Enable(true);
     } else {
         Log_Printf(LOG_SND_LEVEL, "[Sound] Not starting. Sound output device not initialised.");
@@ -389,51 +378,45 @@ void snd_start_output(uint8_t mode) {
 }
 
 void snd_stop_output(void) {
-    sound_output_active=false;
+    sound_output_active = false;
 }
 
 /* Start and stop sound input */
 void snd_start_input(void) {
-    /* Starting host audio recording */
-    if (sndin_inited) {
-        Audio_Input_Enable(true);
-    } else if (ConfigureParams.Sound.bEnableSound) {
-        sndin_inited = true;
-        Audio_Input_Init(1, SOUND_IN_FREQUENCY);
-        Audio_Input_Enable(true);
-    }
-    /* Starting sound input loop */
     if (!sound_input_active) {
+        /* Start recording from host input if enabled */
+        if (ConfigureParams.Sound.bEnableSound) {
+            Audio_Input_InitAndEnable(1, SND_CODEC_FREQUENCY);
+        }
         Log_Printf(LOG_SND_LEVEL, "[Sound] Starting input loop.");
         ulawsamplecount = 0;
         sound_input_active = true;
     } else { /* Even re-enable loop if we are already active. This lowers the delay. */
         Log_Printf(LOG_DEBUG, "[Sound] Restarting input loop.");
     }
+    /* Starting sound input loop */
     CycInt_AddTimeEvent(1, 0, EVENT_SND_INPUT);
 }
 
 void snd_stop_input(void) {
     sound_input_active = false;
-    sndin_inited = false;
     Audio_Input_UnInit();
 }
 
 /* Start and stop sound input throgh DSP */
 void snd_dsp_start(void) {
-    if (!snddsp_inited) {
-        snddsp_inited = true;
+    if (!sound_dsp_active) {
+        if (ConfigureParams.Sound.bEnableSound) {
+            Audio_DSP_InitAndEnable(2, SND_CDDA_FREQUENCY);
+        }
+        Log_Printf(LOG_SND_LEVEL, "[Sound] Starting DSP input loop.");
         sound_dsp_active = true;
-        Audio_DSP_Init(2, SOUND_OUT_FREQUENCY);
-        Audio_DSP_Enable(true);
         CycInt_AddCycleTimeEvent(5, 0, EVENT_SND_DSP_INPUT);
     }
 }
 
 void snd_dsp_stop(void) {
-    snddsp_inited = false;
     sound_dsp_active = false;
-    Audio_DSP_Enable(false);
     Audio_DSP_UnInit();
 }
 
@@ -469,7 +452,7 @@ void Sound_Pause(bool pause) {
 /*
   At a playback rate of 44.1kHz a sample takes about 23 microseconds.
   Assuming that the emulation runs at least 1/3 as fast as a real m68k
-  checking the sound queue every 8 microseconds should be ok.
+  calculating with 8 microseconds per sample should be ok.
  */
 #define SND_CHECK_DELAY 8
 
@@ -479,9 +462,12 @@ void SND_Out_Handler(void) {
         return;
     }
     
-    if (sndout_inited && Audio_Output_Queue_Size() > SOUND_BUFFER_SAMPLES * 2) {
-        CycInt_UpdateTimeEvent(SND_CHECK_DELAY * SOUND_BUFFER_SAMPLES, 0, EVENT_SND_OUTPUT);
-        return;
+    if (sound_output_inited) {
+        int size = Audio_Output_Queue_Size();
+        if (size > 0) { /* Enough sample frames queued. Waiting syncs with playback. */
+            CycInt_UpdateTimeEvent(SND_CHECK_DELAY * (size >> 2), 0, EVENT_SND_OUTPUT);
+            return;
+        }
     }
     
     kms_send_sndout_request();
