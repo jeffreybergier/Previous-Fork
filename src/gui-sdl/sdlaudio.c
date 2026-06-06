@@ -20,11 +20,12 @@ static SDL_AudioStream* Audio_Output_Stream = NULL;
 static SDL_AudioStream* Audio_Input_Stream  = NULL;
 static SDL_AudioStream* Audio_DSP_Stream    = NULL;
 
-
 /*-----------------------------------------------------------------------*/
 /**
  * Sound playback functions.
  */
+static int Audio_Buffer_Size;
+
 void Audio_Output_Queue_Put(uint8_t* data, int len) {
 	if (Audio_Output_Stream && len > 0) {
 		SDL_PutAudioStreamData(Audio_Output_Stream, data, len);
@@ -33,10 +34,11 @@ void Audio_Output_Queue_Put(uint8_t* data, int len) {
 
 int Audio_Output_Queue_Size(void) {
 	if (Audio_Output_Stream) {
-		return SDL_GetAudioStreamQueued(Audio_Output_Stream) / 4;
-	} else {
-		return 0;
+		if (SDL_GetAudioStreamAvailable(Audio_Output_Stream) > Audio_Buffer_Size) {
+			return SDL_GetAudioStreamQueued(Audio_Output_Stream);
+		}
 	}
+	return 0;
 }
 
 void Audio_Output_Queue_Flush(void) {
@@ -80,7 +82,7 @@ static int Audio_Data_Get(SDL_AudioStream* stream, struct rec_data* buf, int16_t
 			buf->read = 0;
 			buf->size = SDL_GetAudioStreamData(stream, buf->data, sizeof(buf->data));
 			if (buf->size & 1) {
-				Log_Printf(LOG_WARN, "[Audio] Recording buffer has invalid size (%d).", buf->size);
+				Log_Printf(LOG_WARN, "[Audio] Recorded data has invalid size (%d).", buf->size);
 				buf->size--;
 			}
 		}
@@ -113,6 +115,26 @@ int Audio_DSP_Buffer_Get(int16_t* sample) {
 
 /*-----------------------------------------------------------------------*/
 /**
+ * Start/Stop playback and recording.
+ */
+static void Audio_Enable(SDL_AudioStream* stream, bool bEnable) {
+	if (stream) {
+		if (bEnable && SDL_AudioStreamDevicePaused(stream)) {
+			/* Start */
+			SDL_ResumeAudioStreamDevice(stream);
+		} else if (!bEnable && !SDL_AudioStreamDevicePaused(stream)) {
+			/* Stop */
+			SDL_PauseAudioStreamDevice(stream);
+		}
+	}
+}
+
+void Audio_Output_Enable(bool bEnable) {
+	Audio_Enable(Audio_Output_Stream, bEnable);
+}
+
+/*-----------------------------------------------------------------------*/
+/**
  * Initialise the audio subsystem.
  */
 static void Audio_Open(SDL_AudioStream** stream, SDL_AudioDeviceID dev, int channels, int freq) {
@@ -122,7 +144,7 @@ static void Audio_Open(SDL_AudioStream** stream, SDL_AudioDeviceID dev, int chan
 		/* Init the SDL's audio subsystem: */
 		if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
 			if (SDL_InitSubSystem(SDL_INIT_AUDIO) == false) {
-				Log_Printf(LOG_WARN, "[Audio] Could not init audio subsystem: %s\n", SDL_GetError());
+				Log_Printf(LOG_WARN, "[Audio] Could not init audio subsystem: %s", SDL_GetError());
 				Statusbar_AddMessage("Error: Can't open SDL audio subsystem.", 5000);
 				return;
 			}
@@ -130,22 +152,31 @@ static void Audio_Open(SDL_AudioStream** stream, SDL_AudioDeviceID dev, int chan
 		/* Open streaming device */
 		*stream = SDL_OpenAudioDeviceStream(dev, &request, NULL, NULL);
 		if (*stream == NULL) {
-			Log_Printf(LOG_WARN, "[Audio] Could not open audio device: %s\n", SDL_GetError());
+			Log_Printf(LOG_WARN, "[Audio] Could not open audio device: %s", SDL_GetError());
 			Statusbar_AddMessage("Error: Can't open audio output device. No sound.", 5000);
 		}
 	}
 }
 
 void Audio_Output_Init(int channels, int freq) {
+	SDL_AudioSpec spec = { 0 };
+	int frames = 0;
 	Audio_Open(&Audio_Output_Stream, SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, channels, freq);
+	SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(Audio_Output_Stream), &spec, &frames);
+	Audio_Buffer_Size = frames * SDL_AUDIO_FRAMESIZE(spec);
+	Log_Printf(LOG_WARN, "[Audio] Output buffer size: %d byte", Audio_Buffer_Size);
 }
 
-void Audio_Input_Init(int channels, int freq) {
+void Audio_Input_InitAndEnable(int channels, int freq) {
 	Audio_Open(&Audio_Input_Stream, SDL_AUDIO_DEVICE_DEFAULT_RECORDING, channels, freq);
+	Audio_Init_Data(&codec_data, 32);
+	Audio_Enable(Audio_Input_Stream, true);
 }
 
-void Audio_DSP_Init(int channels, int freq) {
+void Audio_DSP_InitAndEnable(int channels, int freq) {
 	Audio_Open(&Audio_DSP_Stream, SDL_AUDIO_DEVICE_DEFAULT_RECORDING, channels, freq);
+	Audio_Init_Data(&dsp_data, 32);
+	Audio_Enable(Audio_Input_Stream, true);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -155,7 +186,6 @@ void Audio_DSP_Init(int channels, int freq) {
 static void Audio_Close(SDL_AudioStream** stream) {
 	if (*stream) {
 		/* Stop and close audio stream */
-		SDL_PauseAudioStreamDevice(*stream);
 		SDL_DestroyAudioStream(*stream);
 		*stream = NULL;
 	}
@@ -171,31 +201,4 @@ void Audio_Input_UnInit(void) {
 
 void Audio_DSP_UnInit(void) {
 	Audio_Close(&Audio_DSP_Stream);
-}
-
-/*-----------------------------------------------------------------------*/
-/**
- * Start/Stop playback and recording.
- */
-static void Audio_Enable(SDL_AudioStream* stream, struct rec_data* data, bool bEnable) {
-	if (bEnable && SDL_AudioStreamDevicePaused(stream)) {
-		/* Start */
-		if (data) Audio_Init_Data(data, 32);
-		SDL_ResumeAudioStreamDevice(stream);
-	} else if (!bEnable && !SDL_AudioStreamDevicePaused(stream)) {
-		/* Stop */
-		SDL_PauseAudioStreamDevice(stream);
-	}
-}
-
-void Audio_Output_Enable(bool bEnable) {
-	Audio_Enable(Audio_Output_Stream, NULL, bEnable);
-}
-
-void Audio_Input_Enable(bool bEnable) {
-	Audio_Enable(Audio_Input_Stream, &codec_data, bEnable);
-}
-
-void Audio_DSP_Enable(bool bEnable) {
-	Audio_Enable(Audio_DSP_Stream, &dsp_data, bEnable);
 }

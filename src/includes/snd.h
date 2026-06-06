@@ -8,10 +8,6 @@
 #ifndef PREV_SND_H
 #define PREV_SND_H
 
-#define SOUND_OUT_FREQUENCY  44100            /* Sound playback frequency */
-#define SOUND_IN_FREQUENCY   8012             /* Sound recording frequency */
-#define SOUND_BUFFER_SAMPLES 512
-
 #define SND_BUFFER_SIZE  (4*1024)
 #define SND_BUFFER_LIMIT (SND_BUFFER_SIZE>>1)
 
