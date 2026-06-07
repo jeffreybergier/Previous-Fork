@@ -67,7 +67,7 @@ static struct rec_data codec_data;
 static struct rec_data dsp_data;
 
 static void Audio_Init_Data(struct rec_data* buf, int init) {
-	Log_Printf(LOG_WARN, "[Audio] Initializing input buffer with %d samples of silence.", init);
+	Log_Printf(LOG_WARN, "[Audio] Initialising input buffer with %d samples of silence.", init);
 	buf->read = 0;
 	/* Initialise buffer with silence to compensate for time gap between
 	 * Audio_Input_Enable() and first availability of recorded data. */
@@ -176,7 +176,7 @@ void Audio_Input_InitAndEnable(int channels, int freq) {
 void Audio_DSP_InitAndEnable(int channels, int freq) {
 	Audio_Open(&Audio_DSP_Stream, SDL_AUDIO_DEVICE_DEFAULT_RECORDING, channels, freq);
 	Audio_Init_Data(&dsp_data, 32);
-	Audio_Enable(Audio_Input_Stream, true);
+	Audio_Enable(Audio_DSP_Stream, true);
 }
 
 /*-----------------------------------------------------------------------*/
