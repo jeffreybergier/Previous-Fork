@@ -480,8 +480,10 @@ Previous v4.3:
 Previous v4.4 (unreleased):
   > Adds support for saving prints and screen contents to TIFF files.
   > Adds support for recording sound through DSP serial port.
-  > Replaces low-pass filter with de-emphasis filter matching real hardware.
+  > Replaces unsuitable low-pass filter with more accurate de-emphasis filter.
+  > Improves efficiency of monochrome screen drawing routine.
   > Improves generated PNG files to have smaller file sizes.
+  > Improves efficiency and reliability of sound output.
 
 
  7) Running Previous
