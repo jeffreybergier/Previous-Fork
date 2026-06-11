@@ -16,6 +16,7 @@ const char SDLevent_fileid[] = "Previous sdlevent.c";
 #include "screen.h"
 #include "shortcut.h"
 #include "sdlgui.h"
+#include "sdlaudio.h"
 #include "sdlkeymap.h"
 #include "sdlscreen.h"
 #include "sdlstatusbar.h"
@@ -299,6 +300,10 @@ void GuiEvent_EventHandler(void) {
 
 			case SDL_EVENT_WINDOW_RESIZED:
 				Screen_SizeChanged();
+				continue;
+
+			case SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED:
+				Audio_FormatChanged();
 				continue;
 
 			case SDL_EVENT_QUIT:

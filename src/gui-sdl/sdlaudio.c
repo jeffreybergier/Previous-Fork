@@ -8,10 +8,9 @@
 */
 const char SDLaudio_fileid[] = "Previous sdlaudio.c";
 
-#include <SDL3/SDL.h>
-
 #include "main.h"
 #include "audio.h"
+#include "sdlaudio.h"
 #include "log.h"
 #include "statusbar.h"
 
@@ -25,6 +24,17 @@ static SDL_AudioStream* Audio_DSP_Stream    = NULL;
  * Sound playback functions.
  */
 static int Audio_Buffer_Size;
+
+void Audio_FormatChanged(void) {
+	SDL_AudioSpec spec = { 0 };
+	int frames = 0;
+	if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(Audio_Output_Stream), &spec, &frames)) {
+		Audio_Buffer_Size = (frames > 0 ? frames : 1024) * SDL_AUDIO_FRAMESIZE(spec);
+	} else {
+		Audio_Buffer_Size = 4096;
+	}
+	Log_Printf(LOG_WARN, "[Audio] Output buffer size: %d byte", Audio_Buffer_Size);
+}
 
 void Audio_Output_Queue_Put(uint8_t* data, int len) {
 	if (Audio_Output_Stream && len > 0) {
@@ -159,12 +169,8 @@ static void Audio_Open(SDL_AudioStream** stream, SDL_AudioDeviceID dev, int chan
 }
 
 void Audio_Output_Init(int channels, int freq) {
-	SDL_AudioSpec spec = { 0 };
-	int frames = 0;
 	Audio_Open(&Audio_Output_Stream, SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, channels, freq);
-	SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(Audio_Output_Stream), &spec, &frames);
-	Audio_Buffer_Size = frames * SDL_AUDIO_FRAMESIZE(spec);
-	Log_Printf(LOG_WARN, "[Audio] Output buffer size: %d byte", Audio_Buffer_Size);
+	Audio_FormatChanged();
 }
 
 void Audio_Input_InitAndEnable(int channels, int freq) {
