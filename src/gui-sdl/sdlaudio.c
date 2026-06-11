@@ -8,10 +8,9 @@
 */
 const char SDLaudio_fileid[] = "Previous sdlaudio.c";
 
-#include <SDL.h>
-
 #include "main.h"
 #include "audio.h"
+#include "sdlaudio.h"
 #include "log.h"
 #include "statusbar.h"
 
@@ -24,8 +23,6 @@ static SDL_AudioDeviceID Audio_DSP_Stream    = 0;
 /**
  * Sound playback functions.
  */
-static int Audio_Buffer_Size;
-
 void Audio_Output_Queue_Put(uint8_t* data, int len) {
 	if (Audio_Output_Stream && len > 0) {
 		SDL_QueueAudio(Audio_Output_Stream, data, len);
@@ -35,7 +32,7 @@ void Audio_Output_Queue_Put(uint8_t* data, int len) {
 int Audio_Output_Queue_Size(void) {
 	if (Audio_Output_Stream) {
 		int size = SDL_GetQueuedAudioSize(Audio_Output_Stream);
-		if (size > Audio_Buffer_Size) {
+		if (size > 512 * 4) { /* Matches requested buffer size (request is in frames) */
 			return size;
 		}
 	}
@@ -158,8 +155,6 @@ static void Audio_Open(SDL_AudioDeviceID* device, int iscapture, int channels, i
 
 void Audio_Output_Init(int channels, int freq) {
 	Audio_Open(&Audio_Output_Stream, 0, channels, freq);
-	Audio_Buffer_Size = 512 * 4; /* Matches requested buffer size (request is in frames) */
-	Log_Printf(LOG_WARN, "[Audio] Output buffer size: %d byte", Audio_Buffer_Size);
 }
 
 void Audio_Input_InitAndEnable(int channels, int freq) {

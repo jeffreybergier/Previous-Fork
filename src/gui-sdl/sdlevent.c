@@ -16,6 +16,7 @@ const char SDLevent_fileid[] = "Previous sdlevent.c";
 #include "screen.h"
 #include "shortcut.h"
 #include "sdlgui.h"
+#include "sdlaudio.h"
 #include "sdlkeymap.h"
 #include "sdlscreen.h"
 #include "sdlstatusbar.h"
