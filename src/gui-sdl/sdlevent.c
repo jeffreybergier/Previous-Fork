@@ -302,8 +302,16 @@ void GuiEvent_EventHandler(void) {
 				Screen_SizeChanged();
 				continue;
 
+			case SDL_EVENT_AUDIO_DEVICE_ADDED:
+				Audio_DeviceConnected(event.adevice.recording);
+				continue;
+
+			case SDL_EVENT_AUDIO_DEVICE_REMOVED:
+				Audio_DeviceDisconnected(event.adevice.recording);
+				continue;
+
 			case SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED:
-				Audio_FormatChanged();
+				Audio_FormatChanged(event.adevice.recording);
 				continue;
 
 			case SDL_EVENT_QUIT:
