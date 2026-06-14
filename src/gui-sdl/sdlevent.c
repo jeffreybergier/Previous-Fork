@@ -317,6 +317,14 @@ void GuiEvent_EventHandler(void) {
 				}
 				continue;
 
+			case SDL_AUDIODEVICEADDED:
+				Audio_DeviceConnected(event.adevice.iscapture);
+				continue;
+
+			case SDL_AUDIODEVICEREMOVED:
+				Audio_DeviceDisconnected(event.adevice.iscapture);
+				continue;
+
 			case SDL_QUIT:
 				Main_RequestQuit(true);
 				break;

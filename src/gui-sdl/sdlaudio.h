@@ -10,4 +10,7 @@
 
 #include <SDL.h>
 
+extern void Audio_DeviceConnected(bool recording);
+extern void Audio_DeviceDisconnected(bool recording);
+
 #endif /* PREV_SDLAUDIO_H */
