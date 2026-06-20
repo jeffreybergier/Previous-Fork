@@ -483,7 +483,7 @@ Previous v4.4 (unreleased):
   > Replaces unsuitable low-pass filter with more accurate de-emphasis filter.
   > Improves efficiency of monochrome screen drawing routine.
   > Improves generated PNG files to have smaller file sizes.
-  > Improves efficiency and reliability of sound output.
+  > Improves efficiency, reliability and timing of sound output.
 
 
  7) Running Previous
@@ -574,6 +574,8 @@ Frank Wegmann, Grzegorz Szwoch, Michael Engel, Izumi Tsutsui, William
 Barnett-Lewis, Samantha Halliday and Jeffrey Bergier!
 
 This emulator would not exist without their help.
+
+Previous was created by humans and does not contain AI-generated code.
 
 
  9) Contact

@@ -24,6 +24,8 @@ const char Snd_fileid[] = "Previous snd.c";
 
 #define SND_CDDA_FREQUENCY   44100   /* Sound playback frequency */
 #define SND_CODEC_FREQUENCY   8012   /* Sound recording frequency */
+#define SND_CDDA_INTERVAL       23   /* Sound playback frame interval */
+#define SND_CODEC_INTERVAL     125   /* Sound recording frame interval */
 
 uint8_t snd_buffer[SND_BUFFER_SIZE];
 int     snd_buffer_len = 0;
@@ -454,9 +456,9 @@ void Sound_Pause(bool pause) {
   Assuming that the emulation runs at least 1/3 as fast as a real m68k
   calculating with 8 microseconds per sample should be ok.
  */
-#define SND_CHECK_DELAY 8
-
 void SND_Out_Handler(void) {
+    uint64_t frametime;
+    
     if (!sound_output_active) {
         Audio_Output_Queue_Flush();
         return;
@@ -464,17 +466,20 @@ void SND_Out_Handler(void) {
     
     if (sound_output_inited) {
         int size = Audio_Output_Queue_Size();
+        frametime = 8;  /* Use short delay for host sound sync. See comment above. */
         if (size > 0) { /* Enough sample frames queued. Waiting syncs with playback. */
-            CycInt_UpdateTimeEvent(SND_CHECK_DELAY * (size >> 2), 0, EVENT_SND_OUTPUT);
+            CycInt_UpdateTimeEvent(frametime * (size >> 2), 0, EVENT_SND_OUTPUT);
             return;
         }
+    } else {
+        frametime = SND_CDDA_INTERVAL;
     }
     
     kms_send_sndout_request();
     
     if (snd_buffer_len) {
         snd_buffer_len = snd_send_samples(snd_buffer, snd_buffer_len);
-        CycInt_UpdateTimeEvent(SND_CHECK_DELAY * (snd_buffer_len >> 2), 0, EVENT_SND_OUTPUT);
+        CycInt_UpdateTimeEvent(frametime * (snd_buffer_len >> 2), 0, EVENT_SND_OUTPUT);
     } else {
         kms_send_sndout_underrun();
         /* Call do_dma_sndout_intr() a little bit later */
@@ -483,13 +488,12 @@ void SND_Out_Handler(void) {
 }
 
 /*
-  Sound is recorded at 8012 Hz. One sample (byte) takes about 124 microseconds.
+  Sound is recorded at 8012 Hz. One sample (byte) takes about 125 microseconds.
  */
-#define SNDIN_SAMPLE_TIME 124
-
 void SND_In_Handler(void) {
+    uint64_t frametime;
     int16_t sample;
-    int size = 0;
+    int count = 0;
     
     if (!sound_input_active) {
         return;
@@ -497,15 +501,20 @@ void SND_In_Handler(void) {
     if (!kms_can_receive_codec()) {
         return;
     }
+    if (ConfigureParams.Sound.bEnableSound) {
+        frametime = SND_CODEC_INTERVAL - 1;
+    } else {
+        frametime = SND_CODEC_INTERVAL;
+    }
     
     /* Process 256 samples at a time and then sync */
-    while (size < 256) {
+    while (count < 256) {
         if (Audio_Input_Buffer_Get(&sample) < 0) {
             Log_Printf(LOG_WARN, "[Sound] Waiting for sound input data");
-            size = 256; /* Long delay */
+            count = 256; /* Long delay */
             break;
         }
-        size++;
+        count++;
 
         /* Shift in sample (oldest first) */
         foursamples = (foursamples << 8) | snd_make_ulaw(sample);
@@ -523,11 +532,11 @@ void SND_In_Handler(void) {
     /* If we accumulated too much data write it fast */
     if (Audio_Input_Buffer_Size() > 8192) { /* this is 4096 ulaw samples equaling about 0.5 seconds */
         Log_Printf(LOG_WARN, "[Sound] Writing input data fast");
-        size = 16; /* Short delay */
+        count = 16; /* Short delay */
     }
     
     if (kms_can_receive_codec()) {
-        CycInt_UpdateTimeEvent(size * SNDIN_SAMPLE_TIME, 0, EVENT_SND_INPUT);
+        CycInt_UpdateTimeEvent(frametime * count, 0, EVENT_SND_INPUT);
     }
 }
 
@@ -535,14 +544,20 @@ void SND_In_Handler(void) {
   Sound can also be recorded at 44,1 kHz through the SSI port of the DSP.
  */
 void SND_DSP_Handler(void) {
+    uint64_t sampletime;
     int16_t sample;
     
     if (!sound_dsp_active) {
         return;
     }
+    if (ConfigureParams.Sound.bEnableSound) {
+        sampletime = SND_CDDA_INTERVAL >> 2;
+    } else {
+        sampletime = SND_CDDA_INTERVAL >> 1;
+    }
     if (Audio_DSP_Buffer_Get(&sample) == 0) {
         DSP_SsiWriteRxValue(sample);
         DSP_SsiReceive_SC0();
     }
-    CycInt_UpdateCycleTimeEvent(5, 0, EVENT_SND_DSP_INPUT);
+    CycInt_UpdateCycleTimeEvent(sampletime, 0, EVENT_SND_DSP_INPUT);
 }
