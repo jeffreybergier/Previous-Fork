@@ -71,7 +71,7 @@ static uint8_t snd_make_ulaw(int16_t sample) {
     uint8_t ulawbyte;
     
     /** get the sample into sign-magnitude **/
-    sign = (sample >> 8) & 0x80;        /* set aside the sign */
+    sign = (sample >> 8) & 0x80;  /* set aside the sign */
     if (sign != 0) {
         sample = -sample;         /* get magnitude */
     }
@@ -458,6 +458,7 @@ void Sound_Pause(bool pause) {
  */
 void SND_Out_Handler(void) {
     uint64_t frametime;
+    int count;
     
     if (!sound_output_active) {
         Audio_Output_Queue_Flush();
@@ -465,10 +466,11 @@ void SND_Out_Handler(void) {
     }
     
     if (sound_output_inited) {
-        int size = Audio_Output_Queue_Size();
-        frametime = 8;  /* Use short delay for host sound sync. See comment above. */
-        if (size > 0) { /* Enough sample frames queued. Waiting syncs with playback. */
-            CycInt_UpdateTimeEvent(frametime * (size >> 2), 0, EVENT_SND_OUTPUT);
+        frametime = 8;   /* Use short delay for host sound sync. See comment above. */
+        count = Audio_Output_Queue_Size();
+        if (count > 0) { /* Enough sample frames queued. Waiting syncs with playback. */
+            count >>= 2;
+            CycInt_UpdateTimeEvent(frametime * count, 0, EVENT_SND_OUTPUT);
             return;
         }
     } else {
@@ -478,8 +480,8 @@ void SND_Out_Handler(void) {
     kms_send_sndout_request();
     
     if (snd_buffer_len) {
-        snd_buffer_len = snd_send_samples(snd_buffer, snd_buffer_len);
-        CycInt_UpdateTimeEvent(frametime * (snd_buffer_len >> 2), 0, EVENT_SND_OUTPUT);
+        count = snd_send_samples(snd_buffer, snd_buffer_len) >> 2;
+        CycInt_UpdateTimeEvent(frametime * count, 0, EVENT_SND_OUTPUT);
     } else {
         kms_send_sndout_underrun();
         /* Call do_dma_sndout_intr() a little bit later */
