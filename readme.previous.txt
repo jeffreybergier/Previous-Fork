@@ -1,6 +1,6 @@
 
 
-                                  Previous 4.3
+                                  Previous 4.4
 
 
 
@@ -477,7 +477,7 @@ Previous v4.3:
   > Fixes bug that could cause artefacts on the screen until a dialog is shown.
   > Fixes bug that could cause a late crash while quitting.
 
-Previous v4.4 (unreleased):
+Previous v4.4:
   > Adds support for saving prints and screen contents to TIFF files.
   > Adds support for recording sound through DSP serial port.
   > Replaces unsuitable low-pass filter with more accurate de-emphasis filter.
