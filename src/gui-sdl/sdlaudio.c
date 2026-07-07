@@ -21,7 +21,7 @@ struct audio_t {
 	int size;
 	int freq;
 	int chan;
-	SDL_AudioDeviceID* device;
+	SDL_AudioDeviceID device;
 	bool enabled;
 };
 
