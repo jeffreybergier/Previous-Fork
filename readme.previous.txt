@@ -485,6 +485,9 @@ Previous v4.4:
   > Improves generated PNG files to have smaller file sizes.
   > Improves efficiency, reliability and timing of sound output.
 
+Previous v4.5 (unreleased):
+  > Fixes bug in 68030 MMU that could cause rare guest system crashes.
+
 
  7) Running Previous
  -------------------
