@@ -486,6 +486,7 @@ Previous v4.4:
   > Improves efficiency, reliability and timing of sound output.
 
 Previous v4.5 (unreleased):
+  > Fixes bug that could cause permanent Ethernet DMA failures.
   > Fixes bug in 68030 MMU that could cause rare guest system crashes.
 
 

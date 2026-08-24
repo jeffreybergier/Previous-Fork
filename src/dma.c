@@ -817,18 +817,22 @@ static void dma_enet_interrupt(int channel) {
     set_interrupt(interrupt, SET_INT);
 }
 
-void dma_enet_write_memory(bool eop) {
+bool dma_enet_write_memory(bool eop) {
     Log_Printf(LOG_DMA_LEVEL, "[DMA] Channel Ethernet Receive: Write to memory at $%08x, %i bytes",
                dma[CHANNEL_EN_RX].next,dma[CHANNEL_EN_RX].limit-dma[CHANNEL_EN_RX].next);
     
     if (!(dma[CHANNEL_EN_RX].csr&DMA_ENABLE)) {
         Log_Printf(LOG_WARN, "[DMA] Channel Ethernet Receive: Error! DMA not enabled!");
-        return;
+        return true;
     }
     if ((dma[CHANNEL_EN_RX].limit%DMA_BURST_SIZE) || (dma[CHANNEL_EN_RX].next%DMA_BURST_SIZE)) {
         Log_Printf(LOG_WARN, "[DMA] Channel Ethernet Receive: Error! Bad alignment! (Next: $%08X, Limit: $%08X)",
                    dma[CHANNEL_EN_RX].next, dma[CHANNEL_EN_RX].limit);
         abort();
+    }
+    /* Required to avoid premature end of chaining */
+    if (dma[CHANNEL_EN_RX].csr&DMA_COMPLETE) {
+        return false;
     }
     
     if (enet_rx_buffer.size == enet_rx_buffer.limit) {
@@ -866,6 +870,8 @@ void dma_enet_write_memory(bool eop) {
     }
 
     dma_enet_interrupt(CHANNEL_EN_RX);
+    
+    return true;
 }
 
 bool dma_enet_read_memory(void) {
