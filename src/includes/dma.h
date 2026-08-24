@@ -50,7 +50,7 @@ extern void dma_esp_flush_buffer(void);
 extern void dma_mo_write_memory(void);
 extern void dma_mo_read_memory(void);
 
-extern void dma_enet_write_memory(bool eop);
+extern bool dma_enet_write_memory(bool eop);
 extern bool dma_enet_read_memory(void);
 
 extern void dma_dsp_write_memory(uint8_t val);

@@ -507,7 +507,10 @@ static void enet_io(void) {
         case RECV_STATE_RECEIVING:
             if (enet_rx_buffer.size>0) {
                 old_size = enet_rx_buffer.size;
-                dma_enet_write_memory(rx_chain);
+                if (!dma_enet_write_memory(rx_chain)) {
+                    Log_Printf(LOG_WARN, "[EN] Receiving packet: DMA not ready. Waiting.");
+                    break; /* Loop in receiving state */
+                }
                 if (enet_rx_buffer.size==old_size) {
                     Log_Printf(LOG_WARN, "[EN] Receiving packet: Error! Receiver overflow (DMA disabled)!");
                     enet_rx_interrupt(RXSTAT_OVERFLOW);
@@ -671,7 +674,10 @@ static void new_enet_io(void) {
         case RECV_STATE_RECEIVING:
             if (enet_rx_buffer.size>0) {
                 old_size = enet_rx_buffer.size;
-                dma_enet_write_memory(false);
+                if (!dma_enet_write_memory(false)) {
+                    Log_Printf(LOG_WARN, "[EN] Receiving packet: DMA not ready. Waiting.");
+                    break; /* Loop in receiving state */
+                }
                 if (enet_rx_buffer.size==old_size) {
                     Log_Printf(LOG_WARN, "[EN] Receiving packet: Error! Receiver overflow (DMA disabled)!");
                     enet_rx_interrupt(RXSTAT_OVERFLOW);
