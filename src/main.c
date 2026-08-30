@@ -63,6 +63,115 @@ static uint64_t lastCycles;
 static double   speedFactor = 1.0;
 static char     speedMsg[32];
 
+static const char* benchmarkConfigPath;
+static double      benchmarkWarmupSeconds;
+static double      benchmarkDurationSeconds;
+static uint64_t    benchmarkEpochReal;
+static uint64_t    benchmarkStartReal;
+static uint64_t    benchmarkStartCycles;
+static bool        benchmarkMeasuring;
+
+static void Main_BenchmarkUsage(const char* program) {
+	fprintf(stderr,
+	        "Usage: %s [--config FILE] [--benchmark-warmup SECONDS] "
+	        "[--benchmark-seconds SECONDS]\n",
+	        program);
+}
+
+static bool Main_ParsePositiveDouble(const char* text, bool allowZero, double* value) {
+	char* end;
+	double result;
+
+	errno = 0;
+	result = strtod(text, &end);
+	if (errno || end == text || *end || result < 0.0 || (!allowZero && result == 0.0)) {
+		return false;
+	}
+	*value = result;
+	return true;
+}
+
+static bool Main_ParseArguments(int argc, char* argv[]) {
+	int i;
+
+	benchmarkWarmupSeconds = 30.0;
+	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "--config") && i + 1 < argc) {
+			benchmarkConfigPath = argv[++i];
+		} else if (!strcmp(argv[i], "--benchmark-warmup") && i + 1 < argc) {
+			if (!Main_ParsePositiveDouble(argv[++i], true, &benchmarkWarmupSeconds)) {
+				fprintf(stderr, "Invalid benchmark warm-up duration: %s\n", argv[i]);
+				return false;
+			}
+		} else if (!strcmp(argv[i], "--benchmark-seconds") && i + 1 < argc) {
+			if (!Main_ParsePositiveDouble(argv[++i], false, &benchmarkDurationSeconds)) {
+				fprintf(stderr, "Invalid benchmark duration: %s\n", argv[i]);
+				return false;
+			}
+		} else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
+			Main_BenchmarkUsage(argv[0]);
+			exit(0);
+		} else {
+			fprintf(stderr, "Unknown or incomplete option: %s\n", argv[i]);
+			return false;
+		}
+	}
+	return true;
+}
+
+static void Main_BenchmarkReset(void) {
+	uint64_t hostTime;
+
+	if (benchmarkDurationSeconds <= 0.0) {
+		return;
+	}
+	Timing_GetTimes(&benchmarkEpochReal, &hostTime);
+	benchmarkStartReal = 0;
+	benchmarkStartCycles = 0;
+	benchmarkMeasuring = false;
+	fprintf(stderr,
+	        "BENCHMARK_READY warmup_seconds=%.3f duration_seconds=%.3f configured_mhz=%d\n",
+	        benchmarkWarmupSeconds, benchmarkDurationSeconds,
+	        ConfigureParams.System.nCpuFreq);
+	fflush(stderr);
+}
+
+static void Main_BenchmarkUpdate(void) {
+	uint64_t realTime, hostTime, elapsed;
+	double guestMHz, speed;
+
+	if (benchmarkDurationSeconds <= 0.0) {
+		return;
+	}
+	Timing_GetTimes(&realTime, &hostTime);
+	if (!benchmarkMeasuring) {
+		if ((double)(realTime - benchmarkEpochReal) < benchmarkWarmupSeconds * 1000000.0) {
+			return;
+		}
+		benchmarkStartReal = realTime;
+		benchmarkStartCycles = nCyclesMainCounter;
+		benchmarkMeasuring = true;
+		fprintf(stderr, "BENCHMARK_BEGIN cycles=%" PRIu64 "\n", benchmarkStartCycles);
+		fflush(stderr);
+		return;
+	}
+
+	elapsed = realTime - benchmarkStartReal;
+	if ((double)elapsed < benchmarkDurationSeconds * 1000000.0) {
+		return;
+	}
+	guestMHz = (double)(nCyclesMainCounter - benchmarkStartCycles) / (double)elapsed;
+	speed = guestMHz / ConfigureParams.System.nCpuFreq;
+	fprintf(stderr,
+	        "BENCHMARK_RESULT elapsed_us=%" PRIu64 " cycles=%" PRIu64
+	        " guest_mhz=%.3f configured_mhz=%d speed=%.6f\n",
+	        elapsed, nCyclesMainCounter - benchmarkStartCycles, guestMHz,
+	        ConfigureParams.System.nCpuFreq, speed);
+	fflush(stderr);
+	benchmarkDurationSeconds = 0.0;
+	Main_RequestQuit(false);
+}
+
 static void Main_Speed(uint64_t realTime, uint64_t hostTime) {
 	uint64_t dRT  = realTime - lastRT;
 	speedFactor   = nCyclesMainCounter - lastCycles;
@@ -245,6 +354,7 @@ void Main_EventHandler(void) {
 #endif
 
 	Timing_Sync();
+	Main_BenchmarkUpdate();
 
 	CycInt_AddTimeEvent((1000*1000)/200, 0, EVENT_MAIN_EVENT); /* Poll events at 200 Hz */
 }
@@ -279,6 +389,7 @@ static int Main_Thread(void* unused) {
 static void Main_Loop(void) {
 	/* Get an event ID for our special event */
 	GuiEvent_InitSpecialEvent();
+	Main_BenchmarkReset();
 
 	/* Enable emulation */
 	Main_UnPauseEmulation();
@@ -484,6 +595,11 @@ void Main_ErrorExit(const char *msg1, const char *msg2, int errval)
  */
 int main(int argc, char *argv[])
 {
+	if (!Main_ParseArguments(argc, argv)) {
+		Main_BenchmarkUsage(argv[0]);
+		return 1;
+	}
+
 	/* Generate random seed */
 	srand((unsigned)time(NULL));
 
@@ -495,6 +611,13 @@ int main(int argc, char *argv[])
 
 	/* Set default configuration values */
 	Configuration_SetDefault();
+	if (benchmarkConfigPath) {
+		if (snprintf(sConfigFileName, sizeof(sConfigFileName), "%s", benchmarkConfigPath)
+		    >= (int)sizeof(sConfigFileName)) {
+			fprintf(stderr, "Configuration path is too long: %s\n", benchmarkConfigPath);
+			return 1;
+		}
+	}
 
 	/* Now load the values from the configuration file */
 	Main_LoadInitialConfig();
