@@ -10457,7 +10457,7 @@ int main(int argc, char *argv[])
 	generate_includes(stblfile, 0);
 
 	for (int i = 0; i <= 55; i++) {
-		if (i!=31 && i!=32) // Previous
+		if (i!=31 && i!=32 && i!=40 && i!=41) // Previous + ARM64 68040 JIT
 			continue;
 		using_nocycles = 1; // Previous
 		generate_stbl = 1;

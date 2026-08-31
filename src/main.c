@@ -151,8 +151,12 @@ static void Main_BenchmarkUpdate(void) {
 		benchmarkStartReal = realTime;
 		benchmarkStartCycles = nCyclesMainCounter;
 		benchmarkMeasuring = true;
-		fprintf(stderr, "BENCHMARK_BEGIN cycles=%" PRIu64 "\n", benchmarkStartCycles);
+		fprintf(stderr, "BENCHMARK_BEGIN cycles=%" PRIu64 " pc=%08x sr=%04x\n",
+		        benchmarkStartCycles, m68k_getpc(), regs.sr);
 		fflush(stderr);
+		/* Preserve the emulated framebuffer so automated runs can validate
+		 * boot progress as well as raw cycle throughput. */
+		Grab_Screen();
 		return;
 	}
 
@@ -278,6 +282,10 @@ bool Main_UnPauseEmulation(void) {
 void Main_HaltDialog(void) {
 	Main_PauseEmulation(true);
 	Log_Printf(LOG_WARN, "Fatal error: CPU halted!");
+	if (benchmarkDurationSeconds > 0.0) {
+		Main_RequestQuit(false);
+		return;
+	}
 	if (!DlgAlert_Query("Fatal error: CPU halted!\n\nPress OK to restart CPU or cancel to quit.")) {
 		Main_RequestQuit(false);
 	}

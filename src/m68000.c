@@ -129,7 +129,25 @@ void M68000_CheckCpuSettings(void)
 	changed_prefs.fpu_no_unimplemented = true;
 	changed_prefs.address_space_24 = false;
 	changed_prefs.cpu_data_cache = false;
+	/* Keep the direct-PC 68040 fallback table.  Previous's JIT backend
+	 * independently forces all data accesses through MMU-aware helpers. */
+	changed_prefs.comptrustbyte = 0;
+	changed_prefs.comptrustword = 0;
+	changed_prefs.comptrustlong = 0;
+	changed_prefs.comptrustnaddr = 0;
+	/* Start with the full flag-producing compiler paths.  The no-flags
+	 * optimizer can be enabled after the MMU/JIT bridge is proven stable. */
+	changed_prefs.compnf = false;
+	changed_prefs.compfpu = false;
+	changed_prefs.comp_hardflush = true;
+	changed_prefs.comp_constjump = false;
+	changed_prefs.comp_catchfault = false;
+	changed_prefs.fpu_strict = true;
+#ifdef JIT
+	changed_prefs.cachesize = ConfigureParams.System.bJIT ? 8192 : 0;
+#else
 	changed_prefs.cachesize = 0;
+#endif
 
 	check_prefs_changed_cpu();
 }

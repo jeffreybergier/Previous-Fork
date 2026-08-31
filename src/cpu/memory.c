@@ -972,6 +972,14 @@ static addrbank NEXTBUS_board_bank =
 	nextbus_board_lput, nextbus_board_wput, nextbus_board_bput
 };
 
+#ifdef JIT
+static uae_u8 *jit_xlate(uaecptr addr);
+static addrbank PreviousJIT_bank = {
+	get_long_jit, get_word_jit, get_byte_jit,
+	put_long_jit, put_word_jit, put_byte_jit,
+	jit_xlate
+};
+#endif
 
 
 static void init_mem_banks (void)
@@ -984,6 +992,10 @@ static void init_mem_banks (void)
 		put_mem_bank (bank_lput, i<<16, BusErrMem_bank.lput);
 		put_mem_bank (bank_wput, i<<16, BusErrMem_bank.wput);
 		put_mem_bank (bank_bput, i<<16, BusErrMem_bank.bput);
+#ifdef JIT
+		mem_banks[i] = &PreviousJIT_bank;
+		baseaddr[i] = NULL;
+#endif
 	}
 }
 
@@ -999,6 +1011,25 @@ mem_put_func bank_lput[65536];
 
 mem_get_func bank_bget[65536];
 mem_put_func bank_bput[65536];
+
+#ifdef JIT
+addrbank *mem_banks[65536];
+uae_u8 *baseaddr[65536];
+uae_u8 *natmem_offset;
+bool canbang = false;
+int special_mem;
+int special_mem_default;
+int jit_n_addr_unsafe = 1;
+int jit_n_addr_bank_unsafe = 1;
+
+uae_u32 get_long_jit(uaecptr addr) { special_mem |= S_READ; return x_get_long(addr); }
+uae_u32 get_word_jit(uaecptr addr) { special_mem |= S_READ; return x_get_word(addr); }
+uae_u32 get_byte_jit(uaecptr addr) { special_mem |= S_READ; return x_get_byte(addr); }
+void put_long_jit(uaecptr addr, uae_u32 value) { special_mem |= S_WRITE; x_put_long(addr, value); }
+void put_word_jit(uaecptr addr, uae_u32 value) { special_mem |= S_WRITE; x_put_word(addr, value); }
+void put_byte_jit(uaecptr addr, uae_u32 value) { special_mem |= S_WRITE; x_put_byte(addr, value); }
+static uae_u8 *jit_xlate(uaecptr addr) { return (uae_u8 *)(size_t)addr; }
+#endif
 
 /*
  * Initialize the memory banks

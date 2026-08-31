@@ -112,8 +112,14 @@ struct comptbl {
 
 extern cpuop_func *loop_mode_table[];
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern uae_u32 REGPARAM3 op_illg(uae_u32) REGPARAM;
 extern void REGPARAM3 op_illg_noret(uae_u32) REGPARAM;
+#ifdef __cplusplus
+}
+#endif
 void REGPARAM3 op_illg_1_noret(uae_u32 opcode) REGPARAM;
 extern void REGPARAM3 op_unimpl(uae_u32) REGPARAM;
 void REGPARAM3 op_unimpl_1_noret(uae_u32 opcode) REGPARAM;
@@ -475,6 +481,12 @@ uae_u32 mem_access_delay_longi_read_c040 (uaecptr addr);
 
 extern uae_u32(REGPARAM3 *x_cp_get_disp_ea_020)(uae_u32 base, int idx) REGPARAM;
 
+#ifdef JIT
+uae_u32 jit_fetch_byte(uaecptr addr);
+uae_u32 jit_fetch_word(uaecptr addr);
+uae_u32 jit_fetch_long(uaecptr addr);
+#endif
+
 #ifndef WINUAE_FOR_HATARI
 extern bool debugmem_trace;
 extern void branch_stack_push(uaecptr, uaecptr);
@@ -486,12 +498,23 @@ extern void branch_stack_pop_rts(uaecptr);
 
 STATIC_INLINE void m68k_setpc(uaecptr newpc)
 {
+	/* Previous's MMU has no stable host mapping for a logical address.  The
+	 * JIT therefore uses the logical PC itself as an opaque pointer-sized
+	 * block key; all actual reads go through jit_fetch_* below. */
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	regs.pc_p = regs.pc_oldp = (uae_u8 *)(size_t)newpc;
+#else
 //	regs.pc_p = regs.pc_oldp = get_real_address(newpc);
+#endif
 	regs.instruction_pc = regs.pc = newpc;
 }
 STATIC_INLINE void m68k_setpc_j(uaecptr newpc)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	regs.pc_p = regs.pc_oldp = (uae_u8 *)(size_t)newpc;
+#else
 //	regs.pc_p = regs.pc_oldp = get_real_address(newpc);
+#endif
 	regs.pc = newpc;
 }
 STATIC_INLINE uaecptr m68k_getpc(void)
@@ -510,25 +533,45 @@ STATIC_INLINE void m68k_incpc(int o)
 
 STATIC_INLINE uae_u32 get_dibyte(int o)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	return jit_fetch_byte(m68k_getpc() + o + 1);
+#else
 	return do_get_mem_byte((uae_u8 *)((regs).pc_p + (o) + 1));
+#endif
 }
 STATIC_INLINE uae_u32 get_diword(int o)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	return jit_fetch_word(m68k_getpc() + o);
+#else
 	return do_get_mem_word((uae_u16 *)((regs).pc_p + (o)));
+#endif
 }
 STATIC_INLINE uae_u32 get_dilong(int o)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	return jit_fetch_long(m68k_getpc() + o);
+#else
 	return do_get_mem_long((uae_u32 *)((regs).pc_p + (o)));
+#endif
 }
 STATIC_INLINE uae_u32 next_diword(void)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	uae_u32 r = jit_fetch_word(m68k_getpc());
+#else
 	uae_u32 r = do_get_mem_word((uae_u16 *)((regs).pc_p));
+#endif
 	m68k_incpc(2);
 	return r;
 }
 STATIC_INLINE uae_u32 next_dilong(void)
 {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	uae_u32 r = jit_fetch_long(m68k_getpc());
+#else
 	uae_u32 r = do_get_mem_long((uae_u32 *)((regs).pc_p));
+#endif
 	m68k_incpc(4);
 	return r;
 }
@@ -944,7 +987,13 @@ extern void compemu_reset(void);
 #define flush_icache(int) do {} while (0)
 #define flush_icache_hard(int) do {} while (0)
 #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 bool check_prefs_changed_comp (bool);
+#ifdef __cplusplus
+}
+#endif
 #ifdef WINUAE_FOR_HATARI
 extern void flush_instr_cache (uaecptr, int);
 #endif
@@ -1011,7 +1060,21 @@ extern FILE *console_out_FILE;
 /*** Hatari ***/
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 const struct cputbl *uaegetjitcputbl(void);
 const struct cputbl *getjitcputbl(int cpulvl, int direct);
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+uae_u32 previous_jit_execute_fallback(uae_u32 opcode);
+void previous_jit_restore_fallback_fetches(void);
+void previous_jit_checkpoint_exception_state(void);
+void previous_jit_run_other_MPUs(int cycles);
+uae_u32 previous_jit_next_iword_mmu040(void);
+uae_u32 previous_jit_next_ilong_mmu040(void);
+#endif
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* UAE_NEWCPU_H */

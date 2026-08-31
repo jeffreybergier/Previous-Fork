@@ -9,13 +9,19 @@
 #ifndef UAE_VM_H
 #define UAE_VM_H
 
+#include <stddef.h>
 #include "uae/types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define UAE_VM_WRITE 2
 #define UAE_VM_EXECUTE 4
 
 #define UAE_VM_32BIT (1 << 8)
 #define UAE_VM_WRITE_WATCH (1 << 9)
+#define UAE_VM_JIT (1 << 10)
 #define UAE_VM_ALLOC_FAILED NULL
 
 /* Even though it looks like you can OR together vm protection values,
@@ -33,9 +39,10 @@
 void *uae_vm_alloc(uae_u32 size);
 void *uae_vm_alloc(uae_u32 size, int flags);
 #endif
-void *uae_vm_alloc(uae_u32 size, int flags, int protect);
-bool uae_vm_protect(void *address, int size, int protect);
-bool uae_vm_free(void *address, int size);
+void *uae_vm_alloc(size_t size, int flags, int protect);
+bool uae_vm_protect(void *address, size_t size, int protect);
+bool uae_vm_free(void *address, size_t size);
+void uae_vm_jit_write_protect(bool enable_execute_mode);
 
 void *uae_vm_reserve(uae_u32 size, int flags);
 void *uae_vm_reserve_fixed(void *address, uae_u32 size, int flags);
@@ -45,5 +52,9 @@ bool uae_vm_decommit(void *address, uae_u32 size);
 int uae_vm_page_size(void);
 
 // void *uae_vm_alloc_with_flags(uae_u32 size, int protect, int flags);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* UAE_VM_H */

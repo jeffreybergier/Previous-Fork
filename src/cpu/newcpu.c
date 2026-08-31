@@ -114,6 +114,13 @@ static int cachedsets04060, cachedsets04060mask, cachedtag04060mask;
 
 static int cpu_prefs_changed_flag;
 
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+/* Bootstrap NeXT ROM device discovery with the restart-safe 68040 MMU
+ * interpreter, then enable the configured JIT cache on entry to main RAM. */
+static int previous_jit_deferred_cachesize;
+static bool previous_jit_bootloader_seen;
+#endif
+
 int cpuipldelay2, cpuipldelay4;
 int cpucycleunit;
 int cpu_tracer;
@@ -1422,6 +1429,13 @@ static void set_x_funcs (void)
 		x_do_cycles_post = do_cycles_ce020_post;
 #endif // WINUAE_FOR_PREVIOUS
 	}
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+	/* The JIT's 68040 fallback table advances the direct PC (pc_p).  Keep
+	 * instruction and extension-word reads on that PC representation while
+	 * leaving data accesses on the 68040 MMU callbacks selected above. */
+	if (currprefs.cachesize)
+		set_x_ifetches();
+#endif
 	x2_prefetch = x_prefetch;
 	x2_get_ilong = x_get_ilong;
 	x2_get_iword = x_get_iword;
@@ -1968,7 +1982,7 @@ static const struct cputbl *cputbls[6][8] =
 	// 68030
 	{ NULL, NULL, NULL, NULL, NULL, op_smalltbl_32, NULL, NULL },
 	// 68040
-	{ NULL, NULL, NULL, NULL, NULL, op_smalltbl_31, op_smalltbl_31, op_smalltbl_31 },
+	{ op_smalltbl_41, op_smalltbl_41, NULL, NULL, NULL, op_smalltbl_31, op_smalltbl_31, op_smalltbl_31 },
 	// 68060
 	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -1977,11 +1991,21 @@ static const struct cputbl *cputbls[6][8] =
 
 const struct cputbl *uaegetjitcputbl(void)
 {
+#ifdef WINUAE_FOR_PREVIOUS
+	/* Unsupported instructions are called directly from generated JIT blocks.
+	 * They must use the same MMU-aware data paths as the interpreter core.
+	 * op_smalltbl_41 is the direct, no-MMU table and made memory bitfield
+	 * fallbacks access guest virtual addresses as physical addresses. */
+	if (currprefs.mmu_model == 68040)
+		return op_smalltbl_31;
+	return op_smalltbl_41;
+#else
 	int lvl = (currprefs.cpu_model - 68000) / 10;
 	if (lvl > 4)
 		lvl--;
 	int index = currprefs.comptrustbyte ? 0 : 1;
 	return cputbls[lvl][index];
+#endif
 }
 
 const struct cputbl *getjitcputbl(int cpulvl, int direct)
@@ -5130,28 +5154,48 @@ static void debug_cpu_stop(void)
 }
 
 // give other MPUs (DSP, i860) some time to run on m68k thread
-static inline void run_other_MPUs(void)
+static inline void run_other_MPUs_cycles(int cycles)
 {
 	static int ndCycles = 0;
 
-	ndCycles += cpu_cycles;
+	ndCycles += cycles;
 	// bundle some 68k cycles for MPUs
 #if ENABLE_DSP_EMU
 	if(dsp_core.running)
-		DSP_Run(cpu_cycles);
+		DSP_Run(cycles);
 #endif
 	if(ndCycles > 100) {
 		i860_Run(ndCycles);
 		ndCycles = 0;
 	}
 
-	M68000_AddCycles(cpu_cycles);
+	M68000_AddCycles(cycles);
+}
+
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+void previous_jit_run_other_MPUs(int cycles)
+{
+	run_other_MPUs_cycles(cycles);
+}
+#endif
+
+static inline void run_other_MPUs(void)
+{
+	run_other_MPUs_cycles(cpu_cycles);
 }
 
 static int do_specialties (int cycles)
 {
 	uaecptr pc = m68k_getpc();
 	uae_atomic spcflags = regs.spcflags;
+
+#ifdef JIT
+	/* END_COMPILE is a one-shot request to leave the current generated block.
+	 * The threaded JIT clears it here; the non-threaded path must do the same
+	 * before processing other specialty flags. */
+	if (currprefs.cachesize)
+		unset_special(SPCFLAG_END_COMPILE);
+#endif
 
 	if (spcflags & SPCFLAG_MODE_CHANGE)
 		return 1;
@@ -5218,7 +5262,7 @@ static int do_specialties (int cycles)
 			debug();
 		}
 #endif
-#ifdef WINUAE_FOR_HATARI
+#if defined(WINUAE_FOR_HATARI) || defined(WINUAE_FOR_PREVIOUS)
 		return 1;			/* Exit the upper run_xxx() function */
 #endif
 	}
@@ -5922,6 +5966,41 @@ static void custom_reset_cpu(bool hardreset, bool keyboardreset)
 
 #ifdef JIT  /* Completely different run_2 replacement */
 
+#ifdef WINUAE_FOR_PREVIOUS
+static struct flag_struct previous_jit_exception_flags;
+
+void previous_jit_checkpoint_exception_state(void)
+{
+	previous_jit_exception_flags.cznv = regflags.cznv;
+	previous_jit_exception_flags.x = regflags.x;
+}
+
+uae_u32 jit_fetch_byte(uaecptr addr)
+{
+	return uae_mmu040_get_iword(addr & ~1) >> ((addr & 1) ? 0 : 8);
+}
+
+uae_u32 previous_jit_next_iword_mmu040(void)
+{
+	return next_iword_mmu040();
+}
+
+uae_u32 previous_jit_next_ilong_mmu040(void)
+{
+	return next_ilong_mmu040();
+}
+
+uae_u32 jit_fetch_word(uaecptr addr)
+{
+	return uae_mmu040_get_iword(addr);
+}
+
+uae_u32 jit_fetch_long(uaecptr addr)
+{
+	return uae_mmu040_get_ilong(addr);
+}
+#endif
+
 #ifdef CPU_AARCH64
 void execute_exception(uae_u32 cycles)
 {
@@ -5944,6 +6023,9 @@ void do_nothing (void)
 
 static uae_u32 get_jit_opcode(void)
 {
+#ifdef WINUAE_FOR_PREVIOUS
+	return jit_fetch_word(m68k_getpc());
+#else
 	uae_u32 opcode;
 	if (currprefs.cpu_compatible) {
 		opcode = get_word_020_prefetchf(m68k_getpc());
@@ -5958,6 +6040,7 @@ static uae_u32 get_jit_opcode(void)
 #endif
 	}
 	return opcode;
+#endif
 }
 
 void exec_nostats (void)
@@ -5966,11 +6049,24 @@ void exec_nostats (void)
 
 	for (;;)
 	{
+	#ifdef WINUAE_FOR_PREVIOUS
+		previous_jit_checkpoint_exception_state();
+		r->instruction_pc = m68k_getpc();
+		mmu_restart = true;
+		mmu_opcode = -1;
+	#endif
 		r->opcode = get_jit_opcode();
+	#ifdef WINUAE_FOR_PREVIOUS
+		mmu_opcode = r->opcode;
+	#endif
 
+	#ifdef WINUAE_FOR_PREVIOUS
+		cpu_cycles = previous_jit_execute_fallback(r->opcode) * CYCLE_UNIT / 2;
+		r->pc_p = r->pc_oldp = (uae_u8 *)(uintptr)r->pc;
+	#else
 		(*cpufunctbl[r->opcode])(r->opcode);
-
 		cpu_cycles = 4 * CYCLE_UNIT; // adjust_cycles(cpu_cycles);
+	#endif
 
 		if (!currprefs.cpu_thread) {
 			do_cycles(cpu_cycles);
@@ -6006,7 +6102,16 @@ void execute_normal(void)
 	start_pc = r->pc;
 	for (;;) {
 		/* Take note: This is the do-it-normal loop */
+	#ifdef WINUAE_FOR_PREVIOUS
+		previous_jit_checkpoint_exception_state();
+		r->instruction_pc = m68k_getpc();
+		mmu_restart = true;
+		mmu_opcode = -1;
+	#endif
 		r->opcode = get_jit_opcode();
+	#ifdef WINUAE_FOR_PREVIOUS
+		mmu_opcode = r->opcode;
+	#endif
 
 #if defined(JIT) && defined(CPU_x86_64)
 		/* High x86-64 natmem uses jit_n_addr_unsafe for pointer-clean
@@ -6019,9 +6124,13 @@ void execute_normal(void)
 		special_mem = special_mem_default;
 		pc_hist[blocklen].location = (uae_u16*)r->pc_p;
 
+	#ifdef WINUAE_FOR_PREVIOUS
+		cpu_cycles = previous_jit_execute_fallback(r->opcode) * CYCLE_UNIT / 2;
+		r->pc_p = r->pc_oldp = (uae_u8 *)(uintptr)r->pc;
+	#else
 		(*cpufunctbl[r->opcode])(r->opcode);
-	
 		cpu_cycles = 4 * CYCLE_UNIT;
+	#endif
 
 //		cpu_cycles = adjust_cycles(cpu_cycles);
 		if (!currprefs.cpu_thread) {
@@ -6072,6 +6181,9 @@ static void cpu_thread_run_jit(void *v)
 			}
 			jit_in_compiled_code = true;
 #endif
+			#ifdef WINUAE_FOR_PREVIOUS
+			jit_force_execute_mode();
+			#endif
 			((compiled_handler*)(pushall_call_handler))();
 			/* Whenever we return from that, we should check spcflags */
 			if (regs.spcflags || cpu_thread_ilvl > 0) {
@@ -6106,9 +6218,14 @@ static void cpu_thread_run_jit(void *v)
 
 static void m68k_run_jit(void)
 {
+#ifdef WINUAE_FOR_PREVIOUS
+	int halt = 0;
+#endif
 #ifdef WINUAE_FOR_HATARI
 	Log_Printf(LOG_DEBUG, "m68k_run_jit\n");
+#ifndef WINUAE_FOR_PREVIOUS
 	CpuRunFuncNoret = false;
+#endif
 #endif
 #ifdef WITH_THREADED_CPU
 	if (currprefs.cpu_thread) {
@@ -6123,7 +6240,12 @@ static void m68k_run_jit(void)
 		}
 	}
 
+#ifdef WINUAE_FOR_PREVIOUS
+	while (!halt) {
+		TRY (prb) {
+#else
 	for (;;) {
+#endif
 #ifdef USE_STRUCTURED_EXCEPTION_HANDLING
 		__try {
 #endif
@@ -6146,9 +6268,17 @@ static void m68k_run_jit(void)
 				}
 #endif
 
+#ifdef WINUAE_FOR_PREVIOUS
+				previous_jit_checkpoint_exception_state();
+				mmu_restart = true;
+				regs.instruction_pc = m68k_getpc();
+				jit_force_execute_mode();
+#endif
 				((compiled_handler*)(pushall_call_handler))();
 				/* Whenever we return from that, we should check spcflags */
+#ifndef WINUAE_FOR_HATARI
 				check_uae_int_request();
+#endif
 				if (regs.spcflags) {
 #if defined(JIT_HAS_BUS_ERROR_RECOVERY)
 					jit_in_compiled_code = false;
@@ -6201,8 +6331,35 @@ static void m68k_run_jit(void)
 				Exception(2);
 		}
 #endif
+	#ifdef WINUAE_FOR_PREVIOUS
+		} CATCH (prb) {
+			jit_force_execute_mode();
+			previous_jit_restore_fallback_fetches();
+			if (mmu_restart) {
+				regflags.cznv = previous_jit_exception_flags.cznv;
+				regflags.x = previous_jit_exception_flags.x;
+				m68k_setpci(regs.instruction_pc);
+				regs.pc_p = regs.pc_oldp = (uae_u8 *)(size_t)regs.instruction_pc;
+			}
+			cpu_restore_fixup();
+			TRY (prb2) {
+				Exception(prb);
+				/* Exception_mmu() selects the handler through the scalar
+				 * indirect PC.  Native block dispatch keys off pc_p, so do not
+				 * leave it pointing at the faulting instruction. */
+				regs.pc_p = regs.pc_oldp = (uae_u8 *)(uintptr)regs.pc;
+			} CATCH (prb2) {
+					halt = 1;
+				} ENDTRY
+			} ENDTRY
+		}
+	#else
 	}
+	#endif
 
+#ifdef WINUAE_FOR_PREVIOUS
+	cpu_halt(halt);
+#endif
 }
 #endif /* JIT */
 
@@ -6288,6 +6445,9 @@ void cpu_halt(int id)
 	}
 	set_special(SPCFLAG_CHECK);
 #else
+	write_log(_T("CPU halted: reason = %d PC=%08x\n"), id, M68K_GETPC);
+	fprintf(stderr, "CPU halted: reason = %d PC=%08x\n", id, M68K_GETPC);
+	fflush(stderr);
 	Main_Halt();
 #endif
 }
@@ -6364,7 +6524,6 @@ static void m68k_run_mmu060 (void)
 #endif
 			}
 		} CATCH (prb) {
-
 			m68k_setpci (regs.instruction_pc);
 			regflags.cznv = f.cznv;
 			regflags.x = f.x;
@@ -6398,6 +6557,34 @@ static void m68k_run_mmu040 (void)
 		check_debugger();
 		TRY (prb) {
 			for (;;) {
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+				uaecptr bootstrap_pc = m68k_getpc();
+				if (bootstrap_pc >= 0x04380000 && bootstrap_pc < 0x04390000)
+					previous_jit_bootloader_seen = true;
+				if (previous_jit_deferred_cachesize > 0 &&
+					/* 0x04380000 is the disk bootloader and contains long,
+					 * self-relocating loops.  Early firmware also calls RAM
+					 * trampolines, so require entry to the loader before treating
+					 * a jump back to lower RAM as the kernel handoff. */
+					previous_jit_bootloader_seen &&
+					bootstrap_pc >= 0x04000000 &&
+					!(bootstrap_pc >= 0x04380000 && bootstrap_pc < 0x04390000)) {
+					changed_prefs.cachesize = previous_jit_deferred_cachesize;
+					previous_jit_deferred_cachesize = 0;
+					write_log("JIT: firmware bootstrap complete at PC=%08x; enabling ARM64 JIT\n",
+						bootstrap_pc);
+					fprintf(stderr,
+						"JIT: firmware bootstrap complete at PC=%08x; enabling ARM64 JIT\n",
+						bootstrap_pc);
+					prefs_changed_cpu();
+					build_cpufunctbl();
+					set_x_funcs();
+					m68k_setpc_normal(bootstrap_pc);
+					STOPTRY;
+					m68k_run_jit();
+					return;
+				}
+#endif
 				f.cznv = regflags.cznv;
 				f.x = regflags.x;
 				mmu_restart = true;
@@ -6422,7 +6609,6 @@ static void m68k_run_mmu040 (void)
 				}
 			}
 		} CATCH (prb) {
-
 			if (mmu_restart) {
 				/* restore state if instruction restart */
 				regflags.cznv = f.cznv;
@@ -7544,6 +7730,16 @@ void m68k_go (int may_quit)
 			if (cpu_hardreset) {
 				m68k_reset_restore();
 			}
+#if defined(JIT) && defined(WINUAE_FOR_PREVIOUS)
+			/* Every hard reset re-enters firmware through the interpreter. */
+			if (cpu_hardreset && (currprefs.cachesize > 0 || previous_jit_deferred_cachesize > 0)) {
+				if (currprefs.cachesize > 0)
+					previous_jit_deferred_cachesize = currprefs.cachesize;
+				previous_jit_bootloader_seen = false;
+				currprefs.cachesize = 0;
+				changed_prefs.cachesize = 0;
+			}
+#endif
 			prefs_changed_cpu();
 			build_cpufunctbl();
 			set_x_funcs();

@@ -12,6 +12,17 @@
 
 
 struct uae_prefs {
+	int comptrustbyte;
+	int comptrustword;
+	int comptrustlong;
+	int comptrustnaddr;
+	bool compnf;
+	bool compfpu;
+	bool comp_hardflush;
+	bool comp_constjump;
+	bool comp_catchfault;
+	bool fpu_strict;
+	bool cpu_thread;
 	int cachesize;
 	bool cpu_cycle_exact;
 	int cpu_clock_multiplier;

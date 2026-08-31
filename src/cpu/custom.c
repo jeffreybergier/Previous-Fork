@@ -618,7 +618,11 @@ void fixup_cpu (struct uae_prefs *p)
 	if (p->cpu_model >= 68040 && p->cachesize && p->cpu_compatible)
 		p->cpu_compatible = false;
 
-	if ((p->cpu_model < 68030 || p->cachesize) && p->mmu_model) {
+	if ((p->cpu_model < 68030
+#ifndef WINUAE_FOR_PREVIOUS
+		|| p->cachesize
+#endif
+		) && p->mmu_model) {
 		error_log (_T("MMU emulation requires 68030/040/060 and it is not JIT compatible."));
 		p->mmu_model = 0;
 	}
@@ -628,8 +632,10 @@ void fixup_cpu (struct uae_prefs *p)
 		p->cachesize = 0;
 	}
 	if (p->cachesize && (p->fpu_no_unimplemented || p->int_no_unimplemented)) {
+#ifndef WINUAE_FOR_PREVIOUS
 		error_log (_T("JIT is not compatible with unimplemented CPU/FPU instruction emulation."));
 		p->fpu_no_unimplemented = p->int_no_unimplemented = false;
+#endif
 	}
 
 #ifndef WINUAE_FOR_HATARI
@@ -700,5 +706,3 @@ int inprec_open(char *fname, int record)
 {
 	return 0;
 }
-
-

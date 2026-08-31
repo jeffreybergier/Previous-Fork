@@ -10,7 +10,9 @@ source_disk="${PREVIOUS_BENCHMARK_DISK:-$repo_dir/artifacts/OPENSTEP4.2.sd}"
 warmup=60
 duration=30
 trials=1
+cpu_mhz=""
 skip_build=false
+jit=false
 active_run_dir=""
 
 cleanup() {
@@ -22,7 +24,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 usage() {
-	printf 'Usage: %s [--warmup SECONDS] [--duration SECONDS] [--trials COUNT] [--no-build]\n' "$0"
+	printf 'Usage: %s [--warmup SECONDS] [--duration SECONDS] [--trials COUNT] [--mhz MHZ] [--jit] [--no-build]\n' "$0"
 }
 
 while (( $# )); do
@@ -30,6 +32,8 @@ while (( $# )); do
 		--warmup) warmup="$2"; shift 2 ;;
 		--duration) duration="$2"; shift 2 ;;
 		--trials) trials="$2"; shift 2 ;;
+		--mhz) cpu_mhz="$2"; shift 2 ;;
+		--jit) jit=true; shift ;;
 		--no-build) skip_build=true; shift ;;
 		--help|-h) usage; exit 0 ;;
 		*) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -38,6 +42,10 @@ done
 
 case "$warmup:$duration:$trials" in
 	*[!0-9:]*|0:*|*:0:*|*:*:0) printf 'Durations and trial count must be positive whole numbers.\n' >&2; exit 2 ;;
+esac
+case "$cpu_mhz" in
+	""|*[!0-9]*) ;;
+	0) printf 'CPU frequency must be a positive whole number.\n' >&2; exit 2 ;;
 esac
 
 for required_file in "$source_config" "$source_disk"; do
@@ -83,16 +91,20 @@ for (( trial=1; trial<=trials; trial++ )); do
 	profile="$result_dir/trial-${trial}.sample.txt"
 
 	/bin/cp -c "$source_disk" "$disk"
-	awk -v disk="$disk" -v resources="$resources" -v safe_dir="$run_dir" '
+	awk -v disk="$disk" -v resources="$resources" -v safe_dir="$run_dir" -v result_dir="$result_dir" -v jit="$jit" -v cpu_mhz="$cpu_mhz" '
 		/^\[/ { section=$0 }
 		section == "[HardDisk]" && /^szImageName0 =/ { print "szImageName0 = " disk; next }
 		/^bConfirmQuit =/ { print "bConfirmQuit = FALSE"; next }
 		/^bShowConfigDialogAtStartup =/ { print "bShowConfigDialogAtStartup = FALSE"; next }
 		/^bEthernetConnected =/ { print "bEthernetConnected = FALSE"; next }
 		/^bNetworkTime =/ { print "bNetworkTime = FALSE"; next }
+		/^nCpuFreq =/ && cpu_mhz != "" { print "nCpuFreq = " cpu_mhz; next }
+		/^bJIT =/ { print "bJIT = " (jit == "true" ? "TRUE" : "FALSE"); jit_written=1; next }
+		section == "[System]" && /^bMMU =/ && !jit_written { print; print "bJIT = " (jit == "true" ? "TRUE" : "FALSE"); jit_written=1; next }
 		/^szNFSPathName0 =/ { print "szNFSPathName0 = " safe_dir; next }
 		/^szNFSPathName[1-3] =/ { sub(/=.*/, "="); print $0; next }
 		/^szNFSHostName[0-3] =/ { sub(/=.*/, "="); print $0; next }
+		/^szPrintToFileName =/ { print "szPrintToFileName = " result_dir; next }
 		/^szRom030FileName =/ { print "szRom030FileName = " resources "/Rev_1.0_v41.BIN"; next }
 		/^szRom040FileName =/ { print "szRom040FileName = " resources "/Rev_2.5_v66.BIN"; next }
 		/^szRomTurboFileName =/ { print "szRomTurboFileName = " resources "/Rev_3.3_v74.BIN"; next }

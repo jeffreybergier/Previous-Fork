@@ -38,6 +38,10 @@ extern void do_cycles_ce_hatari_blitter (int cycles);
 extern void do_cycles_ce020(int cycles);
 extern void events_schedule(void);
 extern void do_cycles_slow(int cycles_to_add);
+#ifdef JIT
+extern int countdown;
+extern void jit_cycle_reset(void);
+#endif
 extern void do_cycles_normal(int cycles_to_add);
 
 extern void events_reset_syncline(void);

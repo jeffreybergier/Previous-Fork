@@ -16,7 +16,12 @@
 extern int special_mem;
 extern int special_mem_default;
 extern int jit_n_addr_unsafe;
+extern int jit_n_addr_bank_unsafe;
 #endif
+
+#define S_READ 1
+#define S_WRITE 2
+#define S_N_ADDR 4
 
 #define call_mem_get_func(func, addr) ((*func)(addr))
 #define call_mem_put_func(func, addr, v) ((*func)(addr, v))
@@ -33,7 +38,16 @@ typedef struct addrbank {
 	/* These ones should be self-explanatory... */
 	mem_get_func lget, wget, bget;
 	mem_put_func lput, wput, bput;
+	uae_u8 *(*xlateaddr)(uaecptr);
 } addrbank;
+
+#ifdef JIT
+extern addrbank *mem_banks[65536];
+extern uae_u8 *baseaddr[65536];
+extern uae_u8 *natmem_offset;
+extern bool canbang;
+
+#endif
 
 #define bankindex(addr) (((uaecptr)(addr)) >> 16)
 
@@ -60,6 +74,15 @@ void map_banks(addrbank *bank, uae_u32 start, uae_u32 size);
 #define put_long(addr,l) (call_mem_put_func(get_mem_bank(bank_lput, addr), addr, l))
 #define put_word(addr,w) (call_mem_put_func(get_mem_bank(bank_wput, addr), addr, w))
 #define put_byte(addr,b) (call_mem_put_func(get_mem_bank(bank_bput, addr), addr, b))
+
+#ifdef JIT
+uae_u32 get_long_jit(uaecptr addr);
+uae_u32 get_word_jit(uaecptr addr);
+uae_u32 get_byte_jit(uaecptr addr);
+void put_long_jit(uaecptr addr, uae_u32 value);
+void put_word_jit(uaecptr addr, uae_u32 value);
+void put_byte_jit(uaecptr addr, uae_u32 value);
+#endif
 
 #define CACHE_ENABLE_DATA 0x01
 #define CACHE_ENABLE_DATA_BURST 0x02

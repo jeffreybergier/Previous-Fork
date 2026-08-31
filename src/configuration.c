@@ -339,6 +339,7 @@ static const struct Config_Tag configs_System[] =
 	{ "n_FPUType", Int_Tag, &ConfigureParams.System.n_FPUType },
 	{ "bCompatibleFPU", Bool_Tag, &ConfigureParams.System.bCompatibleFPU },
 	{ "bMMU", Bool_Tag, &ConfigureParams.System.bMMU },
+	{ "bJIT", Bool_Tag, &ConfigureParams.System.bJIT },
 	{ NULL , Error_Tag, NULL }
 };
 
@@ -544,6 +545,7 @@ void Configuration_SetDefault(void)
 	ConfigureParams.System.n_FPUType = FPU_68882;
 	ConfigureParams.System.bCompatibleFPU = true;
 	ConfigureParams.System.bMMU = true;
+	ConfigureParams.System.bJIT = false;
 
 	/* Set defaults for Dimension */
 	ConfigureParams.Dimension.bI860Thread  = host_num_cpus() != 1;
